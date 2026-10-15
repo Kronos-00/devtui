@@ -25,9 +25,9 @@ local function delete_buffer(buf, force)
     pcall(vim.cmd, (force and "bdelete! " or "bdelete ") .. buf)
   end
 end
-local function save_named(buf, done)
+local function save_named(buf, force, done)
   local ok, err = pcall(vim.api.nvim_buf_call, buf, function()
-    vim.cmd("silent write")
+    vim.cmd(force and "silent write!" or "silent write")
   end)
   if not ok then
     vim.notify(tostring(err), vim.log.levels.ERROR)
@@ -38,7 +38,7 @@ local function save_named(buf, done)
   end
 end
 
-local function save_untitled(buf, done)
+local function save_untitled(buf, force, done)
   vim.ui.input({
     prompt = "Save As: ",
     default = vim.fn.getcwd() .. "/",
@@ -49,7 +49,7 @@ local function save_untitled(buf, done)
     end
     path = vim.fn.fnamemodify(path, ":p")
     local ok, err = pcall(vim.api.nvim_buf_call, buf, function()
-      vim.cmd("saveas " .. vim.fn.fnameescape(path))
+      vim.cmd((force and "saveas! " or "saveas ") .. vim.fn.fnameescape(path))
     end)
     if not ok then
       vim.notify(tostring(err), vim.log.levels.ERROR)
@@ -60,6 +60,30 @@ local function save_untitled(buf, done)
     end
   end)
 end
+
+function M.save_buffer(buf, opts, done)
+  opts = opts or {}
+  if not valid_buf(buf) then
+    return
+  end
+  if vim.bo[buf].buftype ~= "" or not vim.bo[buf].modifiable then
+    vim.notify("This buffer cannot be saved as a normal file", vim.log.levels.WARN)
+    return
+  end
+
+  if vim.api.nvim_buf_get_name(buf) == "" then
+    save_untitled(buf, opts.force == true, done)
+  else
+    save_named(buf, opts.force == true, done)
+  end
+end
+
+function M.save_and_close(buf, opts)
+  M.save_buffer(buf, opts or {}, function()
+    delete_buffer(buf, false)
+  end)
+end
+
 function M.close_buffer(buf)
   if not valid_buf(buf) then
     return
@@ -80,9 +104,9 @@ function M.close_buffer(buf)
         delete_buffer(buf, false)
       end
       if vim.api.nvim_buf_get_name(buf) == "" then
-        save_untitled(buf, finish)
+        save_untitled(buf, false, finish)
       else
-        save_named(buf, finish)
+        save_named(buf, false, finish)
       end
     elseif choice == "Don't Save" then
       delete_buffer(buf, true)
