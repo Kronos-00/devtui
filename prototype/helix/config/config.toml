@@ -1,0 +1,45 @@
+theme = "onedark"
+
+[editor]
+mouse = true
+middle-click-paste = false
+bufferline = "always"
+clipboard-provider = "termcode"
+line-number = "absolute"
+true-color = true
+popup-border = "all"
+color-modes = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.file-explorer]
+hidden = false
+ignore = false
+git-ignore = false
+git-global = false
+git-exclude = false
+parents = false
+flatten-dirs = false
+
+[keys.normal]
+C-s = ":write"
+C-z = "undo"
+C-y = "redo"
+C-a = "select_all"
+C-f = "search"
+C-p = "file_picker"
+C-S-f = "global_search"
+C-S-p = "command_palette"
+C-S-e = "file_explorer"
+F12 = "goto_definition"
+S-F12 = "goto_reference"
+F8 = "goto_next_diag"
+S-F8 = "goto_prev_diag"
+
+[keys.insert]
+C-s = ":write"
+C-z = "undo"
+C-y = "redo"

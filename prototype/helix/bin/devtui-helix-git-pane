@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+lazygit --use-config-file "$HOME/.config/devtui-helix/lazygit.yml"
+exec bash --noprofile --norc -i

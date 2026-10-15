@@ -1,0 +1,17 @@
+gui:
+  showFileTree: true
+  showCommandLog: false
+  showBottomLine: true
+  showPanelJumps: true
+  mouseEvents: true
+git:
+  diffRenderers:
+    - colorArg: always
+      command: delta --dark --paging=never
+os:
+  # Running-editor integration requires the Helix IPC prototype and is
+  # intentionally disabled here rather than opening a second editor instance.
+  edit: 'true'
+  editAtLine: 'true'
+  editInTerminal: false
+promptToReturnFromSubprocess: false

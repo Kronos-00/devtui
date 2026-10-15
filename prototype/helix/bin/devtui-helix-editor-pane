@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+if [ -n "${DEVTUI_HELIX_EDITOR_PANE_FILE:-}" ] && [ -n "${ZELLIJ_PANE_ID:-}" ]; then
+  printf '%s\n' "$ZELLIJ_PANE_ID" > "$DEVTUI_HELIX_EDITOR_PANE_FILE"
+fi
+PREFIX="$HOME/.local/opt/devtui/helix-prototype"
+export HELIX_RUNTIME="$PREFIX/runtime"
+export XDG_CONFIG_HOME="$HOME/.config/devtui-helix"
+"$PREFIX/bin/hx" .
+exec bash --noprofile --norc -i

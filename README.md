@@ -78,3 +78,9 @@ The Neovim area contains the Explorer and the protected editor display region. C
 ## License
 
 See [LICENSE](LICENSE).
+
+## Experimental Helix prototype
+
+The `helix-prototype` branch contains a side-by-side Helix editor prototype. It does not replace the normal `devtui` launcher. The prototype validates native real-time multiple-selection editing and a middle-drag selection patch, while documenting the remaining migration work for Explorer, Preview/Pinned editors, bufferline mouse controls, close dialogs, scrollbar, Replace UI, and running-editor IPC.
+
+See [`prototype/helix/README.md`](prototype/helix/README.md) and [`prototype/helix/docs/ASSESSMENT.md`](prototype/helix/docs/ASSESSMENT.md).

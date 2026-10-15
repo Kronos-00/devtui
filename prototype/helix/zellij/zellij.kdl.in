@@ -1,0 +1,11 @@
+mouse_mode true
+pane_frames true
+copy_on_select false
+scroll_buffer_size 10000
+support_kitty_keyboard_protocol true
+
+keybinds {
+    normal {
+        unbind "Ctrl s" "Ctrl h" "Ctrl p"
+    }
+}

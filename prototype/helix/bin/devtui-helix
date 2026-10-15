@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+ROOT="${1:-$PWD}"
+cd "$ROOT"
+export DEVTUI_HELIX_EDITOR_PANE_FILE="/tmp/devtui-helix-editor-${UID}-$$.pane"
+rm -f "$DEVTUI_HELIX_EDITOR_PANE_FILE"
+exec zellij --config "$HOME/.config/devtui-helix/zellij.kdl" --layout "$HOME/.config/zellij/layouts/dev-helix.kdl"
