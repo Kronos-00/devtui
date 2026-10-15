@@ -1,0 +1,15 @@
+gui:
+  showFileTree: true
+  showCommandLog: false
+  showBottomLine: true
+  showPanelJumps: true
+  mouseEvents: true
+git:
+  diffRenderers:
+    - colorArg: always
+      command: delta --dark --paging=never
+os:
+  edit: '__HOME__/.local/bin/tui-nvim-open "{{filename}}"'
+  editAtLine: '__HOME__/.local/bin/tui-nvim-open "{{filename}}" "{{line}}"'
+  editInTerminal: false
+promptToReturnFromSubprocess: false

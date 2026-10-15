@@ -1,0 +1,7 @@
+# Copy to <project>/.clangd when you need editor-only compiler definitions.
+CompileFlags:
+  Remove:
+    # - -DOLD_FEATURE=*
+  Add:
+    # - -DNEW_FEATURE=1
+    # - -UOLD_FEATURE

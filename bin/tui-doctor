@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+printf 'Neovim:   '; nvim --version | head -n1
+printf 'Zellij:   '; zellij --version
+printf 'Lazygit:  '; lazygit --version | head -n1
+printf 'Git:      '; git --version
+printf 'ripgrep:  '; rg --version | head -n1
+printf 'fzf:      '; fzf --version | head -n1
+printf 'fd:       '; (fd --version 2>/dev/null || fdfind --version 2>/dev/null || echo missing)
+printf 'delta:    '; (delta --version 2>/dev/null || echo missing)
+printf 'clangd:   '; (clangd --version 2>/dev/null | head -n1 || echo missing)

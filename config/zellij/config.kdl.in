@@ -1,0 +1,29 @@
+mouse_mode true
+pane_frames true
+copy_on_select false
+scroll_buffer_size 10000
+session_serialization true
+pane_viewport_serialization true
+
+// Windows Terminal 1.25+ and Zellij 0.45 can preserve multi-modifier keys
+// through the Kitty keyboard protocol.
+support_kitty_keyboard_protocol true
+
+// devtui terminal file links: Alt+Click a highlighted path to open it in the
+// existing Neovim editor pane, preserving optional line/column locations.
+load_plugins {
+    "file:__HOME__/.local/share/devtui/zellij-link-devtui.wasm"
+}
+
+// Let common VS Code-style editor shortcuts reach Neovim in Zellij Normal mode.
+// Ctrl-g remains Zellij's lock key; Alt-g is used for "Go to Line" in Neovim.
+keybinds {
+    normal {
+        unbind "Ctrl s" "Ctrl h" "Ctrl p"
+
+        // Ctrl-Shift-Z is transported to Neovim as F24 so it remains distinct
+        // from Ctrl-Z even on terminal paths that collapse shifted control keys.
+        // F24 = ESC [ 24 ; 2 ~ in xterm-compatible encoding.
+        bind "Ctrl Shift z" { Write 27 91 50 52 59 50 126; }
+    }
+}

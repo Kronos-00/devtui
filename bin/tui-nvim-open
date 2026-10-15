@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+set -e
+
+file="${1:-}"
+line="${2:-}"
+column="${3:-}"
+[ -n "$file" ] || exit 2
+file="$(realpath -m -- "$file")"
+
+focus_editor() {
+  if [ -n "${DEVTUI_EDITOR_PANE_FILE:-}" ] && [ -f "$DEVTUI_EDITOR_PANE_FILE" ] && [ -n "${ZELLIJ:-}" ]; then
+    pane_id="$(cat "$DEVTUI_EDITOR_PANE_FILE" 2>/dev/null || true)"
+    [ -n "$pane_id" ] && zellij action focus-pane-id "$pane_id" >/dev/null 2>&1 || true
+  fi
+}
+
+target_line=1
+target_column=1
+if [[ "$line" =~ ^[0-9]+$ ]] && [ "$line" -gt 0 ]; then target_line="$line"; fi
+if [[ "$column" =~ ^[0-9]+$ ]] && [ "$column" -gt 0 ]; then target_column="$column"; fi
+
+if [ -n "${DEVTUI_NVIM_SOCKET:-}" ] && [ -S "$DEVTUI_NVIM_SOCKET" ]; then
+  payload="$(python3 -c 'import json,sys; print(json.dumps([sys.argv[1], int(sys.argv[2]), int(sys.argv[3])]))' "$file" "$target_line" "$target_column")"
+  payload="${payload//\'/\'\'}"
+
+  lua='(function(a)
+    local target=nil
+
+    -- Snacks Explorer is a picker layout. Its "main" window is exactly where
+    -- a normal Explorer double-click opens a file. Reuse that window instead
+    -- of editing one of the Explorer layout/list/input windows.
+    if _G.Snacks and Snacks.picker and Snacks.picker.get then
+      local ok,pickers=pcall(Snacks.picker.get,{tab=true})
+      if ok and type(pickers)=="table" then
+        for _,p in ipairs(pickers) do
+          local source=p.opts and p.opts.source or nil
+          if source=="explorer" and p.main and vim.api.nvim_win_is_valid(p.main) then
+            target=p.main
+            break
+          end
+        end
+        -- A terminal link is a navigation action, so dismiss transient
+        -- pickers (files/grep/etc.) but never close the persistent Explorer.
+        for _,p in ipairs(pickers) do
+          local source=p.opts and p.opts.source or nil
+          if source~="explorer" and p.close then
+            pcall(function() p:close() end)
+          end
+        end
+      end
+    end
+
+    local function is_file_window(x)
+      if not x or not vim.api.nvim_win_is_valid(x) then return false end
+      local b=vim.api.nvim_win_get_buf(x)
+      local cfg=vim.api.nvim_win_get_config(x)
+      if cfg.relative~="" or vim.w[x].snacks_layout then return false end
+      return vim.bo[b].buftype==""
+    end
+
+    -- Without an active Explorer, prefer the current real editor window,
+    -- then any other real file window.
+    if not target then
+      local current=vim.api.nvim_get_current_win()
+      if is_file_window(current) then target=current end
+    end
+    if not target then
+      for _,x in ipairs(vim.api.nvim_list_wins()) do
+        if is_file_window(x) then
+          target=x
+          break
+        end
+      end
+    end
+
+    -- Snacks Dashboard marks itself as the main editor placeholder. It is
+    -- safe to replace and keeps the Explorer layout intact.
+    if not target then
+      for _,x in ipairs(vim.api.nvim_list_wins()) do
+        local b=vim.api.nvim_win_get_buf(x)
+        local cfg=vim.api.nvim_win_get_config(x)
+        if cfg.relative=="" and not vim.w[x].snacks_layout
+          and (vim.w[x].snacks_main or vim.b[b].snacks_main) then
+          target=x
+          break
+        end
+      end
+    end
+
+    -- Last resort: never overwrite a picker/layout window. Create a new
+    -- editor split beside a regular window instead.
+    if not target then
+      local anchor=nil
+      for _,x in ipairs(vim.api.nvim_list_wins()) do
+        local cfg=vim.api.nvim_win_get_config(x)
+        if cfg.relative=="" and not vim.w[x].snacks_layout then
+          anchor=x
+          break
+        end
+      end
+      if not anchor then
+        for _,x in ipairs(vim.api.nvim_list_wins()) do
+          if vim.api.nvim_win_get_config(x).relative=="" then
+            anchor=x
+            break
+          end
+        end
+      end
+      if anchor and vim.api.nvim_win_is_valid(anchor) then
+        vim.api.nvim_set_current_win(anchor)
+        vim.cmd("rightbelow vsplit")
+        target=vim.api.nvim_get_current_win()
+      end
+    end
+
+    if target and vim.api.nvim_win_is_valid(target) then
+      vim.api.nvim_set_current_win(target)
+    end
+    vim.cmd.edit(vim.fn.fnameescape(a[1]))
+    local win=vim.api.nvim_get_current_win()
+    local b=vim.api.nvim_get_current_buf()
+    local n=vim.api.nvim_buf_line_count(b)
+    local l=math.max(1,math.min(a[2],n))
+    local function byte_col()
+      local s=vim.api.nvim_buf_get_lines(b,l-1,l,false)[1] or ""
+      local ok,c=pcall(vim.str_byteindex,s,"utf-16",math.max(0,a[3]-1),false)
+      if not ok then return #s end
+      return math.max(0,math.min(c,#s))
+    end
+    local c=byte_col()
+    vim.api.nvim_win_set_cursor(win,{l,c})
+    vim.defer_fn(function()
+      if vim.api.nvim_win_is_valid(win) and vim.api.nvim_buf_is_valid(b) and vim.api.nvim_win_get_buf(win)==b then
+        local m=vim.api.nvim_buf_line_count(b)
+        l=math.max(1,math.min(l,m))
+        vim.api.nvim_win_set_cursor(win,{l,byte_col()})
+      end
+    end,150)
+    return {l,c}
+  end)(_A)'
+
+  focus_editor
+  sleep 0.08
+  if ! nvim --server "$DEVTUI_NVIM_SOCKET" --remote-expr "luaeval('$lua', json_decode('$payload'))" >/dev/null 2>&1; then
+    echo "devtui: failed to open $file in the editor pane" >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+exec nvim "+call cursor($target_line,$target_column)" -- "$file"

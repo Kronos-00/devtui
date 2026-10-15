@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+if [ -n "${DEVTUI_EDITOR_PANE_FILE:-}" ] && [ -n "${ZELLIJ_PANE_ID:-}" ]; then
+  printf '%s\n' "$ZELLIJ_PANE_ID" > "$DEVTUI_EDITOR_PANE_FILE"
+fi
+if [ -n "${DEVTUI_NVIM_SOCKET:-}" ]; then
+  rm -f "$DEVTUI_NVIM_SOCKET"
+  nvim --listen "$DEVTUI_NVIM_SOCKET" .
+else
+  nvim .
+fi
+exec bash -i

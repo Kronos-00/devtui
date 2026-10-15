@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -e
+
+# This pane is display-only: disable echo/canonical input and hide its cursor.
+old_stty="$(stty -g 2>/dev/null || true)"
+cleanup() {
+  [ -n "$old_stty" ] && stty "$old_stty" 2>/dev/null || true
+  printf '\033[?25h'
+}
+trap cleanup EXIT INT TERM
+stty -echo -icanon min 0 time 0 2>/dev/null || true
+printf '\033[?25l'
+
+EDITOR_HINT='[EDITOR] C-S:save | C-Z/C-Y/C-S-Z:undo/redo | C-C/X:copy/cut | C-V:terminal paste | C-F/H:find/replace | C-A:all | F12:def'
+GIT_HINT='[GIT]    2:files | Space:stage | a:all | Enter:hunk | d:discard | e:edit | s:stash | S:stash menu | c:commit | P:push | p:pull | ?:help'
+NAV_HINT='[NAV]    Alt-click:path | C-P:open | C-S-P:commands | C-S-F:project search | A-G:line | C-S-E:explorer | F8/S-F8:problems'
+SESSION_HINT='[SESSION] Ctrl-q:quit | Ctrl-o d:detach | clipboard: "+y | Visual select + terminal Copy'
+
+get_size() {
+  local size rows cols
+  size="$(stty size 2>/dev/null || true)"
+  rows="$(printf '%s' "$size" | awk '{print $1}')"
+  cols="$(printf '%s' "$size" | awk '{print $2}')"
+  if ! [[ "$rows" =~ ^[0-9]+$ ]] || [ "$rows" -lt 1 ]; then
+    rows=4
+  fi
+  if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+    cols=120
+  fi
+  printf '%s %s' "$rows" "$cols"
+}
+
+fit_line() {
+  local text="$1" width="$2"
+  printf "%-*.*s" "$width" "$width" "$text"
+}
+
+render_wide() {
+  local cols="$1" gap=3 half
+  half=$(( (cols - gap) / 2 ))
+  printf '\033[2J\033[H'
+  fit_line "$EDITOR_HINT" "$half"; printf ' | '; fit_line "$NAV_HINT" "$half"; printf '\n'
+  fit_line "$GIT_HINT" "$half"; printf ' | '; fit_line "$SESSION_HINT" "$half"
+}
+
+render_narrow() {
+  local cols="$1"
+  printf '\033[2J\033[H'
+  fit_line "$EDITOR_HINT" "$cols"; printf '\n'
+  fit_line "$GIT_HINT" "$cols"; printf '\n'
+  fit_line "$NAV_HINT" "$cols"; printf '\n'
+  fit_line "$SESSION_HINT" "$cols"
+}
+
+render() {
+  local rows cols
+  read -r rows cols <<<"$(get_size)"
+  if [ "$cols" -ge 240 ] || [ "$rows" -le 2 ]; then
+    render_wide "$cols"
+  else
+    render_narrow "$cols"
+  fi
+  printf '\033[?25l'
+}
+
+focus_editor() {
+  if [ -n "${DEVTUI_EDITOR_PANE_FILE:-}" ] && [ -f "$DEVTUI_EDITOR_PANE_FILE" ] && [ -n "${ZELLIJ:-}" ]; then
+    local pane_id
+    pane_id="$(cat "$DEVTUI_EDITOR_PANE_FILE" 2>/dev/null || true)"
+    [ -n "$pane_id" ] && zellij action focus-pane-id "$pane_id" >/dev/null 2>&1 || true
+  fi
+}
+
+need_render=1
+trap 'need_render=1' WINCH
+
+while :; do
+  # Drain and discard any accidental keyboard/mouse input. Nothing is echoed.
+  if IFS= read -rsn1 -t 0.10 _; then
+    focus_editor
+  fi
+  if [ "$need_render" -eq 1 ]; then
+    need_render=0
+    render
+  fi
+done

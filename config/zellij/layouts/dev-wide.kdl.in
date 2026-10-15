@@ -1,0 +1,14 @@
+layout {
+    tab name="dev" focus=true {
+        pane split_direction="horizontal" {
+            pane name="shortcuts" size=3 borderless=true command="__HOME__/.local/bin/devtui-banner"
+            pane split_direction="vertical" {
+                pane name="editor" size="62%" command="__HOME__/.local/bin/devtui-editor-pane" focus=true
+                pane split_direction="horizontal" {
+                    pane name="git" size="58%" command="__HOME__/.local/bin/devtui-git-pane"
+                    pane name="shell" command="__HOME__/.local/bin/devtui-shell-pane"
+                }
+            }
+        }
+    }
+}

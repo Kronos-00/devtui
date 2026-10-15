@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# The shell pane is intentionally environment-transparent:
+# - inherit the environment that launched devtui/Zellij
+# - do not source ~/.bashrc, ~/.profile, or any toolchain setup
+# - hide devtui's internal RPC bookkeeping from the user's shell
+unset DEVTUI_NVIM_SOCKET
+unset DEVTUI_EDITOR_PANE_FILE
+
+exec bash --noprofile --norc -i

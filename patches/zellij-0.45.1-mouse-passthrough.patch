@@ -1,0 +1,57 @@
+--- a/zellij-server/src/tab/mouse_handler.rs
++++ b/zellij-server/src/tab/mouse_handler.rs
+@@ -1368,6 +1368,27 @@
+                 }
+             }
+
++            // devtui: VS Code supports Alt as an alternative Explorer
++            // multi-select modifier. Forward Alt+mouse events to an active
++            // mouse-aware pane (eg. Neovim) while preserving Zellij's normal
++            // Alt grouping/link behavior for non-mouse-aware shell panes.
++            if let Some(details) = ctx.clicked_pane.as_ref() {
++                let is_active_pane = Some(details.pane_id) == ctx.active_pane_id;
++                if !details.on_frame && details.terminal_wants_mouse {
++                    if is_active_pane {
++                        return Ok(MouseAction::SendToTerminal {
++                            pane_id: details.pane_id,
++                            event: *event,
++                        });
++                    }
++                    return Ok(MouseAction::FocusPaneAndClickThrough {
++                        pane_id: details.pane_id,
++                        position: event.position,
++                        event: *event,
++                    });
++                }
++            }
++
+             if event.wheel_up || event.wheel_down {
+                 if !ctx.advanced_mouse_actions {
+                     return Ok(MouseAction::NoAction);
+@@ -1455,6 +1476,26 @@
+                         position: event.position,
+                     });
+                 }
++                return Ok(MouseAction::NoAction);
++            }
++
++            // devtui: Zellij 0.45.1 normally consumes Ctrl+LeftMouse presses
++            // inside pane content. Preserve frame-resize semantics above, but
++            // forward content clicks to mouse-aware terminal applications so
++            // Neovim can implement VS Code-style Ctrl+Click multi-selection.
++            let is_active_pane = Some(details.pane_id) == ctx.active_pane_id;
++            if details.terminal_wants_mouse {
++                if is_active_pane {
++                    return Ok(MouseAction::SendToTerminal {
++                        pane_id: details.pane_id,
++                        event: *event,
++                    });
++                }
++                return Ok(MouseAction::FocusPaneAndClickThrough {
++                    pane_id: details.pane_id,
++                    position: event.position,
++                    event: *event,
++                });
+             }
+             return Ok(MouseAction::NoAction);
+         }

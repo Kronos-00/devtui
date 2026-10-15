@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -e
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  cat <<'HELP'
+devtui [project-directory]
+
+Exit Zellij completely: Ctrl-q
+Detach and keep session: Ctrl-o, then d
+List sessions: zellij list-sessions
+Reattach: zellij attach <session-name>
+HELP
+  exit 0
+fi
+
+# Do not inject compiler, SDK, locale, or shell-startup settings here.
+# Every pane inherits the environment that launched devtui.
+
+# One Neovim RPC socket per devtui session. Sibling panes inherit these.
+export DEVTUI_NVIM_SOCKET="/tmp/devtui-nvim-${UID}-$$.sock"
+export DEVTUI_EDITOR_PANE_FILE="${DEVTUI_NVIM_SOCKET}.pane"
+rm -f "$DEVTUI_NVIM_SOCKET" "$DEVTUI_EDITOR_PANE_FILE"
+
+if [ $# -gt 0 ]; then
+  cd "$1"
+fi
+
+# Pick a compact 2-row banner on wide terminals, otherwise the 4-row banner.
+cols="${DEVTUI_COLUMNS:-}"
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols="$(stty size 2>/dev/null | awk '{print $2}')"
+fi
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols="$(tput cols 2>/dev/null || true)"
+fi
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols=120
+fi
+layout=dev
+if [ "$cols" -ge 240 ]; then
+  layout=dev-wide
+fi
+
+exec zellij --layout "$layout"

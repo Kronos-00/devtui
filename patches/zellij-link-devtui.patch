@@ -1,0 +1,257 @@
+--- a/default-plugins/link/src/main.rs
++++ b/default-plugins/link/src/main.rs
+@@ -2,12 +2,14 @@
+ use std::path::{Path, PathBuf};
+ use zellij_tile::prelude::*;
+
+-const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?::\d+(?::\d+)?)?)(?::|\s|$)"#;
++const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?:(?::\d+(?::\d+)?)|(?:\(\d+(?:[,:]\d+)?\)))?)(?::|\s|$)"#;
+
+ const CWD_CONTEXT_KEY: &str = "cwd";
+
+ #[derive(Default)]
+ struct State {
++    permissions: Option<PermissionStatus>,
++    latest_pane_manifest: Option<PaneManifest>,
+     known_terminal_panes: HashSet<PaneId>,
+     /// Tracks the current CWD for each terminal pane.
+     pane_cwds: HashMap<PaneId, PathBuf>,
+@@ -23,21 +25,28 @@
+
+ impl ZellijPlugin for State {
+     fn load(&mut self, _configuration: BTreeMap<String, String>) {
++        request_permission(&[
++            PermissionType::ReadApplicationState,
++            PermissionType::ChangeApplicationState,
++            PermissionType::FullHdAccess,
++            PermissionType::RunCommands,
++            PermissionType::ReadSessionEnvironmentVariables,
++        ]);
+         subscribe(&[
+             EventType::PaneUpdate,
+             EventType::HighlightClicked,
+             EventType::CwdChanged,
++            EventType::PermissionRequestResult,
+         ]);
+-        // Set host folder to "/" so that /host maps to the real filesystem root,
+-        // allowing std::fs operations on /host/<absolute_path>.
+-        change_host_folder(PathBuf::from("/"));
+-        self.env_vars = get_session_environment_variables();
+     }
+
+     fn update(&mut self, event: Event) -> bool {
+         match event {
+             Event::PaneUpdate(pane_manifest) => {
+-                self.handle_pane_update(pane_manifest);
++                self.latest_pane_manifest = Some(pane_manifest.clone());
++                if self.permissions_granted() {
++                    self.handle_pane_update(pane_manifest);
++                }
+             },
+             Event::HighlightClicked {
+                 pane_id: _,
+@@ -45,10 +54,20 @@
+                 matched_string,
+                 context,
+             } => {
+-                self.handle_highlight_clicked(matched_string, context);
++                if self.permissions_granted() {
++                    self.handle_highlight_clicked(matched_string, context);
++                }
+             },
+             Event::CwdChanged(pane_id, new_cwd, _focused_client_ids) => {
+-                self.handle_cwd_changed(pane_id, new_cwd);
++                if self.permissions_granted() {
++                    self.handle_cwd_changed(pane_id, new_cwd);
++                }
++            },
++            Event::PermissionRequestResult(status) => {
++                self.permissions = Some(status);
++                if self.permissions_granted() {
++                    self.initialize_after_permissions();
++                }
+             },
+             _ => {},
+         }
+@@ -61,6 +80,18 @@
+ }
+
+ impl State {
++    fn permissions_granted(&self) -> bool {
++        matches!(self.permissions, Some(PermissionStatus::Granted))
++    }
++
++    fn initialize_after_permissions(&mut self) {
++        change_host_folder(PathBuf::from("/"));
++        self.env_vars = get_session_environment_variables();
++        if let Some(pane_manifest) = self.latest_pane_manifest.take() {
++            self.handle_pane_update(pane_manifest);
++        }
++    }
++
+     fn handle_pane_update(&mut self, pane_manifest: PaneManifest) {
+         let mut current_panes: HashSet<PaneId> = HashSet::new();
+
+@@ -112,7 +143,7 @@
+     }
+
+     fn handle_highlight_clicked(&self, matched_string: String, context: BTreeMap<String, String>) {
+-        let (path_str, line_number) = parse_path_and_line(&matched_string);
++        let (path_str, line_number, column_number) = parse_path_line_column(&matched_string);
+         let path_str = path_str.trim();
+         let expanded = expand_path(path_str, &self.env_vars);
+         let path_str = expanded.as_str();
+@@ -155,11 +186,18 @@
+                     .with_plugin_config(configuration),
+             );
+         } else {
+-            let mut file_to_open = FileToOpen::new(&absolute_path);
+-            if let Some(line) = line_number {
+-                file_to_open = file_to_open.with_line_number(line);
+-            }
+-            open_file_floating(file_to_open, None, BTreeMap::new());
++            let path = absolute_path.display().to_string();
++            let line = line_number.map(|n| n.to_string()).unwrap_or_default();
++            let column = column_number.map(|n| n.to_string()).unwrap_or_default();
++            run_command(
++                &[
++                    "__DEVTUI_OPEN__",
++                    &path,
++                    &line,
++                    &column,
++                ],
++                BTreeMap::new(),
++            );
+         }
+     }
+
+@@ -338,36 +376,60 @@
+     result
+ }
+
+-fn parse_path_and_line(matched_string: &str) -> (&str, Option<usize>) {
+-    let mut end = matched_string.len();
+-    let mut numeric_segments: Vec<(usize, &str)> = Vec::new();
++fn parse_path_line_column(matched_string: &str) -> (&str, Option<usize>, Option<usize>) {
++    let text = matched_string.trim();
++
++    if text.ends_with(')') {
++        if let Some(open) = text.rfind('(') {
++            let inner = &text[open + 1..text.len() - 1];
++            let mut parts = inner.split(|c| c == ',' || c == ':');
++            if let Some(line_str) = parts.next() {
++                if !line_str.is_empty() && line_str.chars().all(|c| c.is_ascii_digit()) {
++                    let line = line_str.parse::<usize>().ok();
++                    let column = parts
++                        .next()
++                        .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
++                        .and_then(|s| s.parse::<usize>().ok());
++                    if parts.next().is_none() {
++                        return (&text[..open], line, column);
++                    }
++                }
++            }
++        }
++    }
+
++    let mut end = text.len();
++    let mut numeric_segments: Vec<(usize, &str)> = Vec::new();
+     loop {
+         if end == 0 {
+             break;
+         }
+-        let search_region = &matched_string[..end];
+-        if let Some(colon_pos) = search_region.rfind(':') {
+-            let segment = &matched_string[colon_pos + 1..end];
+-            if !segment.is_empty() && segment.chars().all(|c| c.is_ascii_digit()) {
+-                numeric_segments.push((colon_pos, segment));
+-                end = colon_pos;
+-            } else {
+-                break;
+-            }
++        let search_region = &text[..end];
++        let Some(colon_pos) = search_region.rfind(':') else {
++            break;
++        };
++        let segment = &text[colon_pos + 1..end];
++        if !segment.is_empty() && segment.chars().all(|c| c.is_ascii_digit()) {
++            numeric_segments.push((colon_pos, segment));
++            end = colon_pos;
+         } else {
+             break;
+         }
+     }
+-
+     numeric_segments.reverse();
+
+-    match numeric_segments.first() {
+-        None => (matched_string, None),
+-        Some(&(colon_pos, line_str)) => {
+-            let path = &matched_string[..colon_pos];
+-            (path, line_str.parse::<usize>().ok())
+-        },
++    match numeric_segments.as_slice() {
++        [] => (text, None, None),
++        [(line_pos, line_str)] => (
++            &text[..*line_pos],
++            line_str.parse::<usize>().ok(),
++            None,
++        ),
++        [(line_pos, line_str), (_, column_str), ..] => (
++            &text[..*line_pos],
++            line_str.parse::<usize>().ok(),
++            column_str.parse::<usize>().ok(),
++        ),
+     }
+ }
+
+@@ -375,34 +437,32 @@
+ mod tests {
+     use super::*;
+
+-    // --- parse_path_and_line tests ---
++    // --- parse_path_line_column tests ---
++
++    #[test]
++    fn parse_simple_path() {
++        assert_eq!(parse_path_line_column("src/main.rs"), ("src/main.rs", None, None));
++    }
+
+     #[test]
+-    fn parse_path_and_line_simple_path() {
+-        let (path, line) = parse_path_and_line("src/main.rs");
+-        assert_eq!(path, "src/main.rs");
+-        assert_eq!(line, None);
++    fn parse_line_number() {
++        assert_eq!(parse_path_line_column("src/main.rs:42"), ("src/main.rs", Some(42), None));
+     }
+
+     #[test]
+-    fn parse_path_and_line_with_line_number() {
+-        let (path, line) = parse_path_and_line("src/main.rs:42");
+-        assert_eq!(path, "src/main.rs");
+-        assert_eq!(line, Some(42));
++    fn parse_line_and_column() {
++        assert_eq!(parse_path_line_column("src/main.rs:42:10"), ("src/main.rs", Some(42), Some(10)));
+     }
+
+     #[test]
+-    fn parse_path_and_line_with_line_and_col() {
+-        let (path, line) = parse_path_and_line("src/main.rs:42:10");
+-        assert_eq!(path, "src/main.rs");
+-        assert_eq!(line, Some(42));
++    fn parse_parenthesized_location() {
++        assert_eq!(parse_path_line_column("src/main.rs(42,17)"), ("src/main.rs", Some(42), Some(17)));
++        assert_eq!(parse_path_line_column("src/main.rs(42:17)"), ("src/main.rs", Some(42), Some(17)));
+     }
+
+     #[test]
+-    fn parse_path_and_line_no_trailing_number() {
+-        let (path, line) = parse_path_and_line("src/main.rs:");
+-        assert_eq!(path, "src/main.rs:");
+-        assert_eq!(line, None);
++    fn parse_no_trailing_number() {
++        assert_eq!(parse_path_line_column("src/main.rs:"), ("src/main.rs:", None, None));
+     }
+
+     // --- expand_path tests ---
