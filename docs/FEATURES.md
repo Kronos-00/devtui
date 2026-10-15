@@ -24,7 +24,7 @@ Markdown source uses `conceallevel=0` in every window, including files opened th
 
 ## Clipboard
 
-Neovim writes the `+` register through OSC 52. Copy does not query the host clipboard. Terminal paste remains the path for reading host clipboard contents.
+Neovim writes the `+` register through OSC 52. Copy does not query the host clipboard. Terminal paste remains the path for reading host clipboard contents. Insert/Replace-mode middle-button gestures are intercepted before Neovim's built-in middle-button paste path and are redirected into devtui column selection, avoiding terminal clipboard-read waits.
 
 ## Shell environment
 

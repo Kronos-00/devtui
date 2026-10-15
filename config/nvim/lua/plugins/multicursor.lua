@@ -764,6 +764,20 @@ return {
         return original_paste(lines, phase)
       end
 
+      local function leave_insert_for_middle_mouse(callback)
+        return function()
+          -- Neovim's built-in Insert-mode MiddleMouse action pastes from a
+          -- selection register. With an OSC52 clipboard provider that means a
+          -- terminal clipboard *read*, which can block waiting for a response.
+          -- A middle-button gesture in devtui always means column selection,
+          -- so leave Insert mode first and never enter Neovim's paste path.
+          if vim.fn.mode():match("^[iR]") then
+            vim.cmd.stopinsert()
+          end
+          callback()
+        end
+      end
+
       vim.keymap.set({ "n", "x" }, "<MiddleMouse>", middle_start, {
         desc = "Start VS Code-style column selection",
       })
@@ -772,6 +786,21 @@ return {
       })
       vim.keymap.set({ "n", "x" }, "<MiddleRelease>", middle_release, {
         desc = "Finish VS Code-style column selection",
+      })
+      vim.keymap.set("i", "<MiddleMouse>", leave_insert_for_middle_mouse(middle_start), {
+        nowait = true,
+        silent = true,
+        desc = "Leave Insert mode and start column selection",
+      })
+      vim.keymap.set("i", "<MiddleDrag>", leave_insert_for_middle_mouse(middle_drag), {
+        nowait = true,
+        silent = true,
+        desc = "Leave Insert mode and extend column selection",
+      })
+      vim.keymap.set("i", "<MiddleRelease>", leave_insert_for_middle_mouse(middle_release), {
+        nowait = true,
+        silent = true,
+        desc = "Leave Insert mode and finish column selection",
       })
 
       vim.keymap.set({ "n", "x" }, "<RightMouse>", function()
