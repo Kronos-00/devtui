@@ -16,7 +16,7 @@ Double-clicking empty tab-strip space creates a new `[No Name]` editor.
 
 ## Protected layout
 
-Explorer and the main editor display region are structural parts of devtui. Local quit/close attempts are rejected for those windows. Files and tabs remain closable. Explorer Esc/q keeps the sidebar open, and Explorer shortcuts are focus/open actions rather than close toggles.
+Explorer and the main editor display region are structural parts of devtui. In the editor, `:q!`, `:quit!`, and `:close!` discard the current buffer/tab while keeping the editor region and Explorer alive. In Explorer those force-close commands keep the sidebar open. Unexpected plugin/API attempts to close protected regions are still blocked by the `QuitPre` fallback. Explorer Esc/q keeps the sidebar open, and Explorer shortcuts are focus/open actions rather than close toggles.
 
 ## Markdown
 

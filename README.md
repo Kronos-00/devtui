@@ -66,7 +66,7 @@ This makes the shell pane predictable: prepare any project environment before la
 └───────────────────────────────┴──────────────────────────────┘
 ```
 
-The Neovim area contains the Explorer and the protected editor display region. Closing a file/tab is supported; closing the structural editor/Explorer window is rejected.
+The Neovim area contains the Explorer and the protected editor display region. Closing a file/tab is supported. In the editor, `:q!`, `:quit!`, and `:close!` discard the current buffer/tab without removing the editor region; direct attempts by plugins/APIs to dismantle protected regions are rejected.
 
 ## Documentation
 

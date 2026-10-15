@@ -34,11 +34,81 @@ local function protected_kind(win)
   end
   return vim.w[win].devtui_protected_region
 end
+
+local function delete_current_buffer(force)
+  local buf = vim.api.nvim_get_current_buf()
+  if _G.Snacks and Snacks.bufdelete then
+    Snacks.bufdelete({ buf = buf, force = force == true })
+  else
+    pcall(vim.cmd, (force and "bdelete! " or "bdelete ") .. buf)
+  end
+end
+
+function M.close_current_buffer()
+  if protected_kind(vim.api.nvim_get_current_win()) ~= "editor" then
+    return
+  end
+  require("config.devtui_tabs").close_buffer(vim.api.nvim_get_current_buf())
+end
+
+function M.discard_current_buffer()
+  if protected_kind(vim.api.nvim_get_current_win()) ~= "editor" then
+    return
+  end
+  delete_current_buffer(true)
+end
+
+function M.keep_region()
+  local kind = protected_kind(vim.api.nvim_get_current_win())
+  if kind then
+    vim.notify(("devtui %s region stays open; close files/tabs instead"):format(kind), vim.log.levels.INFO)
+  end
+end
+
+function M.rewrite_close_command(command)
+  if vim.fn.getcmdtype() ~= ":" or vim.fn.getcmdline() ~= command then
+    return command
+  end
+
+  local kind = protected_kind(vim.api.nvim_get_current_win())
+  if kind == "editor" then
+    if command:sub(-1) == "!" then
+      return "DevTuiDiscardCurrent"
+    end
+    return "DevTuiCloseCurrent"
+  elseif kind == "explorer" then
+    return "DevTuiKeepRegion"
+  end
+  return command
+end
+
 function M.setup()
   if setup_done then
     return
   end
   setup_done = true
+
+  _G.DevTuiRewriteCloseCommand = M.rewrite_close_command
+
+  for _, name in ipairs({ "DevTuiCloseCurrent", "DevTuiDiscardCurrent", "DevTuiKeepRegion" }) do
+    pcall(vim.api.nvim_del_user_command, name)
+  end
+  vim.api.nvim_create_user_command("DevTuiCloseCurrent", M.close_current_buffer, {})
+  vim.api.nvim_create_user_command("DevTuiDiscardCurrent", M.discard_current_buffer, {})
+  vim.api.nvim_create_user_command("DevTuiKeepRegion", M.keep_region, {})
+
+  -- Reinterpret forced window-closing Ex commands when the current window is
+  -- one of devtui's structural regions. Do not also abbreviate the non-bang
+  -- prefixes (q, quit, close): Vim would expand the shorter prefix as soon as
+  -- ! is typed and turn q! into an invalid UserCommand!.
+  for _, command in ipairs({ "q!", "quit!", "close!" }) do
+    vim.cmd(
+      ("cnoreabbrev <expr> %s v:lua.DevTuiRewriteCloseCommand(%s)"):format(
+        command,
+        vim.fn.string(command)
+      )
+    )
+  end
 
   local group = vim.api.nvim_create_augroup("devtui_protected_regions", { clear = true })
 
