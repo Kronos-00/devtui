@@ -23,7 +23,7 @@ The migration is technically feasible and worth prototyping, but it is not a con
 | Bufferline mouse switch/close | No current hit testing | Medium | Later Rust patch |
 | OSC 52 clipboard | Native termcode provider | Low | Configure |
 | Markdown source punctuation | Native text source view | Low | No special patch |
-| Persistent Explorer sidebar | Explorer is currently a picker overlay | High | Later Rust UI patch |
+| Persistent Explorer sidebar | Explorer is currently a picker overlay; prototype adds basic mouse operation | High | Later Rust UI patch |
 | Explorer file ops/context menu | Core file create/rename/delete APIs exist; UI missing | Medium-High | Later UI patch |
 | Explorer multi-select + mouse semantics | Picker is not a persistent multi-select tree | High | Later UI patch |
 | Explorer resize/persist width | No persistent sidebar yet | High | Follows sidebar patch |

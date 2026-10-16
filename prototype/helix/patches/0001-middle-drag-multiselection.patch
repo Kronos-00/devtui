@@ -140,3 +140,174 @@ index 3bd66f9..49ed213 100644
              }
 
              _ => EventResult::Ignored(None),
+diff --git a/helix-term/src/ui/picker.rs b/helix-term/src/ui/picker.rs
+index 81ad3df..34539ff 100644
+--- a/helix-term/src/ui/picker.rs
++++ b/helix-term/src/ui/picker.rs
+@@ -37,6 +37,7 @@
+         atomic::{self, AtomicUsize},
+         Arc,
+     },
++    time::{Duration, Instant},
+ };
+
+ use crate::ui::{Prompt, PromptEvent};
+@@ -47,6 +48,7 @@
+ use helix_view::{
+     editor::Action,
+     graphics::{CursorKind, Margin, Modifier, Rect},
++    input::{MouseButton, MouseEventKind},
+     theme::Style,
+     view::ViewPosition,
+     Document, DocumentId, Editor,
+@@ -247,6 +249,10 @@ pub struct Picker<T: 'static + Send + Sync, D: 'static> {
+
+     /// Current height of the completions box
+     completion_height: u16,
++    // devtui prototype: last rendered mouse hit areas and click tracking.
++    mouse_picker_area: Option<Rect>,
++    mouse_preview_area: Option<Rect>,
++    last_left_click: Option<(Instant, u32)>,
+
+     cursor: u32,
+     prompt: Prompt,
+@@ -388,6 +394,9 @@ fn with(
+             callback_fn: Box::new(callback_fn),
+             default_action: Action::Replace,
+             completion_height: 0,
++            mouse_picker_area: None,
++            mouse_preview_area: None,
++            last_left_click: None,
+             widths,
+             preview_cache: HashMap::new(),
+             read_buffer: Vec::with_capacity(1024),
+@@ -505,6 +514,35 @@ pub fn selection(&self) -> Option<&T> {
+             .map(|item| item.data)
+     }
+
++    fn mouse_point_in(area: Rect, row: u16, column: u16) -> bool {
++        column >= area.x
++            && column < area.x.saturating_add(area.width)
++            && row >= area.y
++            && row < area.y.saturating_add(area.height)
++    }
++
++    fn mouse_index_at(&self, row: u16, column: u16) -> Option<u32> {
++        let area = self.mouse_picker_area?;
++        if !Self::mouse_point_in(area, row, column) {
++            return None;
++        }
++
++        let header = self.header_height();
++        let rows = area.height.saturating_sub(4 + header);
++        if rows == 0 {
++            return None;
++        }
++        let content_top = area.y.saturating_add(3 + header);
++        if row < content_top || row >= content_top.saturating_add(rows) {
++            return None;
++        }
++
++        let rows = rows as u32;
++        let offset = self.cursor - (self.cursor % rows.max(1));
++        let index = offset.saturating_add((row - content_top) as u32);
++        (index < self.matcher.snapshot().matched_item_count()).then_some(index)
++    }
++
+     fn primary_query(&self) -> Arc<str> {
+         self.query
+             .get(&self.columns[self.primary_column].name)
+@@ -1042,27 +1080,21 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         };
+
+         let picker_area = area.with_width(picker_width);
++        self.mouse_picker_area = Some(picker_area);
+         self.render_picker(picker_area, surface, cx);
+
+         if render_preview {
+             let preview_area = area.clip_left(picker_width);
++            self.mouse_preview_area = Some(preview_area);
+             self.render_preview(preview_area, surface, cx);
++        } else {
++            self.mouse_preview_area = None;
+         }
+     }
+
+     fn handle_event(&mut self, event: &Event, ctx: &mut Context) -> EventResult {
+         // TODO: keybinds for scrolling preview
+
+-        let key_event = match event {
+-            Event::Key(event) => *event,
+-            Event::Paste(..) => return self.prompt_handle_event(event, ctx),
+-            Event::Resize(..) => return EventResult::Consumed(None),
+-            // Picker is a modal and should consume mouse events so clicks don't fall
+-            // through to the editor underneath
+-            Event::Mouse(_) => return EventResult::Consumed(None),
+-            _ => return EventResult::Ignored(None),
+-        };
+-
+         let close_fn = |picker: &mut Self| {
+             // if the picker is very large don't store it as last_picker to avoid
+             // excessive memory consumption
+@@ -1086,6 +1118,61 @@ fn handle_event(&mut self, event: &Event, ctx: &mut Context) -> EventResult {
+             EventResult::Consumed(Some(callback))
+         };
+
++        let key_event = match event {
++            Event::Key(event) => *event,
++            Event::Paste(..) => return self.prompt_handle_event(event, ctx),
++            Event::Resize(..) => return EventResult::Consumed(None),
++            Event::Mouse(mouse) => {
++                let in_picker = self
++                    .mouse_picker_area
++                    .is_some_and(|area| Self::mouse_point_in(area, mouse.row, mouse.column));
++
++                match mouse.kind {
++                    MouseEventKind::ScrollUp if in_picker => {
++                        self.last_left_click = None;
++                        self.move_by(3, Direction::Backward);
++                    }
++                    MouseEventKind::ScrollDown if in_picker => {
++                        self.last_left_click = None;
++                        self.move_by(3, Direction::Forward);
++                    }
++                    MouseEventKind::Down(MouseButton::Left) => {
++                        if let Some(index) = self.mouse_index_at(mouse.row, mouse.column) {
++                            let now = Instant::now();
++                            let double_click = self.last_left_click.is_some_and(|(at, previous)| {
++                                previous == index
++                                    && now.duration_since(at) <= Duration::from_millis(450)
++                            });
++                            self.cursor = index;
++                            self.last_left_click = Some((now, index));
++
++                            if double_click {
++                                if let Some(option) = self.selection() {
++                                    (self.callback_fn)(ctx, option, self.default_action);
++                                }
++                                return close_fn(self);
++                            }
++                        } else if self.mouse_preview_area.is_some_and(|area| {
++                            Self::mouse_point_in(area, mouse.row, mouse.column)
++                        }) {
++                            self.last_left_click = None;
++                            if let Some(option) = self.selection() {
++                                (self.callback_fn)(ctx, option, self.default_action);
++                            }
++                            return close_fn(self);
++                        }
++                    }
++                    _ => {}
++                }
++
++                // Picker is modal: consume all mouse events so they never leak to
++                // the editor behind the overlay.
++                return EventResult::Consumed(None);
++            }
++            _ => return EventResult::Ignored(None),
++        };
++
++
+         match key_event {
+             shift!(Tab) | key!(Up) | ctrl!('p') => {
+                 self.move_by(1, Direction::Backward);

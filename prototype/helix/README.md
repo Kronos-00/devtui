@@ -8,6 +8,7 @@ This branch validates whether devtui can move its editor core from Neovim to a s
 - real-time Insert-mode edits across every selection;
 - Insert-mode arrow movement across every selection;
 - patched middle-button vertical drag creating native selections rather than clipboard paste;
+- mouse-operable Helix picker/file explorer: left-click selection, wheel navigation, double-click open, preview-click open;
 - built-in LSP, diagnostics, DAP baseline, file picker, global search, command palette, bufferline and OSC 52 clipboard;
 - current Zellij + shell + Lazygit pane arrangement.
 

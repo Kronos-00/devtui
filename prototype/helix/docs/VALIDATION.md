@@ -41,6 +41,18 @@ XcYccccc
 
 This verifies the critical architectural goal: the mouse patch creates native Helix selections, typed characters update every selection immediately, and Insert-mode cursor movement acts on all selections without replay-on-Escape behavior.
 
+## Picker and editor mouse test
+
+The prototype also validates the initial Helix file-explorer overlay with real SGR mouse events:
+
+- left-clicking a picker row updates the selected item and preview;
+- mouse wheel moves the picker selection by three entries;
+- double-clicking a row opens it and closes the overlay;
+- clicking the preview opens the current selection and closes the overlay;
+- after a file is open, left-clicking the actual editor text moves the real Helix cursor.
+
+PTY verification opened `a.txt` by double-click and changed `AAAA` to `DAAAA`; a wheel step selected `03.txt` and changed `F03` to `SF03`; editor text clicking moved the insertion point inside `0123456789ABCDEFGHIJ`, producing `0123456Q789ABCDEFGHIJ`.
+
 ## What this does not validate
 
 The prototype does not claim parity for the persistent Explorer, Preview/Pinned tabs, bufferline mouse controls, dirty-close dialog, editor scrollbar, project Replace UI, inactive-region extension, or running-editor IPC. Those remain explicit follow-up items in `ASSESSMENT.md`.
