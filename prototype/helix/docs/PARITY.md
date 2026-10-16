@@ -111,18 +111,18 @@ VS Code interaction semantics are the reference behavior for features described 
 
 | Feature | Status |
 | --- | --- |
-| Save / Undo / Redo / Select All / Find / Quick Open / Project Search / Command Palette | Partial |
-| Save As | Partial |
-| Copy selection; no selection copies current line | Pending |
-| Cut selection; no selection cuts current line | Pending |
+| Save / Undo / Redo / Select All / Find / Quick Open / Project Search / Command Palette | Done |
+| Save As | Done |
+| Copy selection; no selection copies current line | Done |
+| Cut selection; no selection cuts current line | Done |
 | host-terminal paste workflow | Partial |
 | current-file Replace toggle | Pending |
 | project Replace | Pending |
-| select current line | Pending |
-| go to line | Pending |
-| go to symbol in file | Pending |
+| select current line | Done |
+| go to line | Done |
+| go to symbol in file | Done |
 | Explorer focus | Done |
-| toggle line comment | Pending |
+| toggle line comment | Done |
 | add next occurrence / all occurrences | Pending |
 | Rename / Definition / References / Quick Fix | Partial |
 | next / previous diagnostic | Done |
@@ -139,8 +139,8 @@ VS Code interaction semantics are the reference behavior for features described 
 | current-file find | Done |
 | current-file replace UI | Pending |
 | project replace UI | Pending |
-| go to line | Partial |
-| document symbols | Partial |
+| go to line | Done |
+| document symbols | Done |
 
 ## Clipboard
 
@@ -150,7 +150,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | editor copy does not require a terminal clipboard read | Done |
 | Explorer Copy Path / Copy Relative Path | Done |
 | multi-selection newline-separated path copy | Done |
-| copy/cut current line when there is no explicit selection | Pending |
+| copy/cut current line when there is no explicit selection | Done |
 | sparse rectangular copy semantics | Pending |
 | multi-cursor spread paste | Pending |
 
@@ -171,9 +171,9 @@ VS Code interaction semantics are the reference behavior for features described 
 | Feature | Status |
 | --- | --- |
 | Markdown source punctuation remains visible | Done |
-| editor scrollbar with draggable thumb | Pending |
-| scrollbar show/hide command | Pending |
-| inactive preprocessor-region dimming from language-server data | Pending |
+| editor scrollbar with draggable thumb | Done |
+| scrollbar show/hide command | Done |
+| inactive preprocessor-region dimming from language-server data | Done |
 | file/buffer icons and Nerd Font presentation | Partial |
 
 ## Language and debugging integration
@@ -186,7 +186,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | Python language server / lint / formatting workflow | Partial |
 | DAP breakpoint / continue / step in / step over / step out / terminate | Partial |
 | debugger UI parity | Pending |
-| source/header switch convenience action | Pending |
+| source/header switch convenience action | Done |
 | LSP health/info convenience UI | Partial |
 
 ## Intentionally non-portable items

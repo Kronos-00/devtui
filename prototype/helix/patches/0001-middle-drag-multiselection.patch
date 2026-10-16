@@ -1,8 +1,2118 @@
+diff --git a/helix-lsp-types/src/lib.rs b/helix-lsp-types/src/lib.rs
+index afba1f2..035ccc3 100644
+--- a/helix-lsp-types/src/lib.rs
++++ b/helix-lsp-types/src/lib.rs
+@@ -1461,6 +1461,13 @@ fn deserialize_compat<'de, S>(serializer: S) -> Result<Option<TagSupport<T>>, S:
+ }
+
+ /// Text document specific client capabilities.
++#[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase")]
++pub struct InactiveRegionsClientCapabilities {
++    #[serde(skip_serializing_if = "Option::is_none")]
++    pub inactive_regions: Option<bool>,
++}
++
+ #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
+ #[serde(rename_all = "camelCase")]
+ pub struct TextDocumentClientCapabilities {
+@@ -1592,6 +1599,10 @@ pub struct TextDocumentClientCapabilities {
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub inlay_hint: Option<InlayHintClientCapabilities>,
+
++    /// Optional support for server-pushed inactive source regions.
++    #[serde(skip_serializing_if = "Option::is_none")]
++    pub inactive_regions_capabilities: Option<InactiveRegionsClientCapabilities>,
++
+     /// Capabilities specific to the diagnostic pull model.
+     ///
+     /// @since 3.17.0
+diff --git a/helix-lsp-types/src/request.rs b/helix-lsp-types/src/request.rs
+index 7502546..509b307 100644
+--- a/helix-lsp-types/src/request.rs
++++ b/helix-lsp-types/src/request.rs
+@@ -345,6 +345,17 @@ impl Request for GotoDefinition {
+     const METHOD: &'static str = "textDocument/definition";
+ }
+
++/// Optional source/header switching request used by language servers that
++/// expose a paired translation-unit navigation extension.
++#[derive(Debug)]
++pub enum SwitchSourceHeader {}
++
++impl Request for SwitchSourceHeader {
++    type Params = TextDocumentIdentifier;
++    type Result = Option<Url>;
++    const METHOD: &'static str = "textDocument/switchSourceHeader";
++}
++
+ /// The references request is sent from the client to the server to resolve project-wide references for the
+ /// symbol denoted by the given text document position.
+ #[derive(Debug)]
+diff --git a/helix-lsp/src/client.rs b/helix-lsp/src/client.rs
+index 2ce5c60..cf69058 100644
+--- a/helix-lsp/src/client.rs
++++ b/helix-lsp/src/client.rs
+@@ -727,6 +727,11 @@ pub(crate) async fn initialize(&self, enable_snippets: bool) -> Result<lsp::Init
+                         dynamic_registration: Some(false),
+                         resolve_support: None,
+                     }),
++                    inactive_regions_capabilities: Some(
++                        lsp::InactiveRegionsClientCapabilities {
++                            inactive_regions: Some(true),
++                        },
++                    ),
+                     document_link: Some(lsp::DocumentLinkClientCapabilities {
+                         dynamic_registration: Some(false),
+                         tooltip_support: Some(false),
+@@ -1493,6 +1498,13 @@ pub fn goto_definition(
+         ))
+     }
+
++    pub fn switch_source_header(
++        &self,
++        text_document: lsp::TextDocumentIdentifier,
++    ) -> impl Future<Output = Result<Option<lsp::Url>>> {
++        self.call::<lsp::request::SwitchSourceHeader>(text_document)
++    }
++
+     pub fn goto_declaration(
+         &self,
+         text_document: lsp::TextDocumentIdentifier,
+diff --git a/helix-lsp/src/lib.rs b/helix-lsp/src/lib.rs
+index d99014e..b95089f 100644
+--- a/helix-lsp/src/lib.rs
++++ b/helix-lsp/src/lib.rs
+@@ -532,6 +532,14 @@ pub fn parse(method: &str, params: jsonrpc::Params) -> Result<MethodCall> {
+     }
+ }
+
++#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
++#[serde(rename_all = "camelCase")]
++pub struct InactiveRegionsParams {
++    pub text_document: lsp::TextDocumentIdentifier,
++    #[serde(default)]
++    pub regions: Vec<lsp::Range>,
++}
++
+ #[derive(Debug, PartialEq, Clone)]
+ pub enum Notification {
+     // we inject this notification to signal the LSP is ready
+@@ -539,6 +547,7 @@ pub enum Notification {
+     // and this notification to signal that the LSP exited
+     Exit,
+     PublishDiagnostics(lsp::PublishDiagnosticsParams),
++    InactiveRegions(InactiveRegionsParams),
+     ShowMessage(lsp::ShowMessageParams),
+     LogMessage(lsp::LogMessageParams),
+     ProgressMessage(lsp::ProgressParams),
+@@ -555,6 +564,10 @@ pub fn parse(method: &str, params: jsonrpc::Params) -> Result<Notification> {
+                 let params: lsp::PublishDiagnosticsParams = params.parse()?;
+                 Self::PublishDiagnostics(params)
+             }
++            "textDocument/inactiveRegions" => {
++                let params: InactiveRegionsParams = params.parse()?;
++                Self::InactiveRegions(params)
++            }
+
+             lsp::notification::ShowMessage::METHOD => {
+                 let params: lsp::ShowMessageParams = params.parse()?;
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index ea969f8..7fad84f 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -10,12 +10,13 @@
+ use helix_view::{
+     align_view,
+     document::{DocumentOpenError, DocumentSavedEventResult},
+-    editor::{ConfigEvent, EditorEvent},
++    editor::{ConfigEvent, DevTuiRequest, EditorEvent},
+     graphics::Rect,
+     theme,
+     tree::Layout,
+     Align, Editor,
+ };
++use serde::Deserialize;
+ use serde_json::json;
+ use tui::backend::Backend;
+
+@@ -32,7 +33,7 @@
+ use log::{debug, error, info, warn};
+ use std::{
+     io::{stdin, IsTerminal},
+-    path::Path,
++    path::{Path, PathBuf},
+     sync::Arc,
+ };
+
+@@ -55,6 +56,66 @@
+
+ #[cfg(all(not(windows), not(feature = "integration")))]
+ type TerminalBackend = TerminaBackend;
++
++#[derive(Debug, Deserialize)]
++struct DevTuiOpenRequest {
++    path: PathBuf,
++    line: usize,
++    column: usize,
++}
++
++#[cfg(unix)]
++fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>> {
++    use std::{
++        io::{BufRead, BufReader},
++        os::unix::net::UnixListener,
++    };
++
++    let socket_path = std::env::var_os("DEVTUI_HELIX_SOCKET").map(PathBuf::from)?;
++    if socket_path.as_os_str().is_empty() {
++        return None;
++    }
++
++    if socket_path.exists() {
++        let _ = std::fs::remove_file(&socket_path);
++    }
++
++    let listener = UnixListener::bind(&socket_path).ok()?;
++    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
++
++    std::thread::Builder::new()
++        .name("devtui-helix-ipc".into())
++        .spawn(move || {
++            for stream in listener.incoming() {
++                let Ok(stream) = stream else {
++                    break;
++                };
++                let mut reader = BufReader::new(stream);
++                let mut line = String::new();
++                if reader.read_line(&mut line).is_err() {
++                    continue;
++                }
++                match serde_json::from_str::<DevTuiOpenRequest>(&line) {
++                    Ok(request) => {
++                        if tx.send(request).is_err() {
++                            break;
++                        }
++                    }
++                    Err(err) => {
++                        log::warn!("devtui IPC request ignored: {err}");
++                    }
++                }
++            }
++        })
++        .ok()?;
++
++    Some(rx)
++}
++
++#[cfg(not(unix))]
++fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>> {
++    None
++}
+ #[cfg(all(windows, not(feature = "integration")))]
+ type TerminalBackend = CrosstermBackend<std::io::Stdout>;
+ #[cfg(feature = "integration")]
+@@ -79,6 +140,7 @@ pub struct Application {
+     lsp_progress: LspProgressMap,
+
+     theme_mode: Option<theme::Mode>,
++    devtui_ipc: Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>>,
+ }
+
+ #[cfg(feature = "integration")]
+@@ -140,6 +202,7 @@ pub fn new(
+         compositor.push(editor_view);
+
+         let jobs = Jobs::new();
++        let devtui_ipc = start_devtui_ipc();
+
+         if args.load_tutor {
+             let path = helix_loader::runtime_file(Path::new("tutor"));
+@@ -253,6 +316,7 @@ pub fn new(
+             jobs,
+             lsp_progress: LspProgressMap::new(),
+             theme_mode,
++            devtui_ipc,
+         };
+
+         Ok(app)
+@@ -304,6 +368,21 @@ pub async fn event_loop<S>(&mut self, input_stream: &mut S)
+         }
+     }
+
++    fn process_devtui_ipc(&mut self) -> bool {
++        let mut changed = false;
++        if let Some(receiver) = self.devtui_ipc.as_mut() {
++            while let Ok(request) = receiver.try_recv() {
++                self.editor.devtui.requests.push_back(DevTuiRequest::OpenPath {
++                    path: request.path,
++                    line: request.line,
++                    column: request.column,
++                });
++                changed = true;
++            }
++        }
++        changed
++    }
++
+     pub async fn event_loop_until_idle<S>(&mut self, input_stream: &mut S) -> bool
+     where
+         S: Stream<Item = std::io::Result<TerminalEvent>> + Unpin,
+@@ -349,6 +428,14 @@ pub async fn event_loop_until_idle<S>(&mut self, input_stream: &mut S) -> bool
+                     }
+                     self.render().await;
+                 }
++                _ = tokio::time::sleep(std::time::Duration::from_millis(25)), if self.devtui_ipc.is_some() => {
++                    if self.process_devtui_ipc() {
++                        let devtui_redraw = self.process_devtui_requests();
++                        if devtui_redraw {
++                            self.render().await;
++                        }
++                    }
++                }
+                 event = self.editor.wait_event() => {
+                     let _idle_handled = self.handle_editor_event(event).await;
+
+@@ -654,6 +741,178 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+             "'{}' written, {lines}L {size}",
+             get_relative_path(&doc_save_event.path).to_string_lossy(),
+         ));
++
++        if self
++            .editor
++            .devtui
++            .close_after_save
++            .remove(&doc_save_event.doc_id)
++        {
++            let _ = self.editor.close_document(doc_save_event.doc_id, false);
++        }
++    }
++
++    fn process_devtui_requests(&mut self) -> bool {
++        let mut pushed = false;
++        while let Some(request) = self.editor.devtui.requests.pop_front() {
++            match request {
++                DevTuiRequest::ConfirmClose(doc_id) => {
++                    let Some(doc) = self.editor.document(doc_id) else {
++                        continue;
++                    };
++                    let select = crate::ui::devtui::close_select(
++                        doc_id,
++                        doc.display_name().into_owned(),
++                    );
++                    self.compositor.push(Box::new(select));
++                    pushed = true;
++                }
++                DevTuiRequest::SaveAs {
++                    doc_id,
++                    close_after_save,
++                } => {
++                    if self.editor.document(doc_id).is_none() {
++                        continue;
++                    }
++                    let prompt = crate::ui::devtui::save_as_prompt(
++                        &self.editor,
++                        doc_id,
++                        close_after_save,
++                    );
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++                DevTuiRequest::ExplorerContext {
++                    root,
++                    target,
++                    is_dir,
++                    is_root,
++                    selection,
++                } => {
++                    let select = crate::ui::devtui::explorer_context_select(
++                        root,
++                        target,
++                        is_dir,
++                        is_root,
++                        selection,
++                    );
++                    self.compositor.push(Box::new(select));
++                    pushed = true;
++                }
++                DevTuiRequest::ExplorerCreate { directory, is_dir } => {
++                    let prompt = crate::ui::devtui::explorer_create_prompt(directory, is_dir);
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++                DevTuiRequest::ExplorerDelete { paths } => {
++                    if paths.is_empty() {
++                        continue;
++                    }
++                    let select = crate::ui::devtui::explorer_delete_select(paths);
++                    self.compositor.push(Box::new(select));
++                    pushed = true;
++                }
++                DevTuiRequest::ExplorerRename { path } => {
++                    let prompt =
++                        crate::ui::devtui::explorer_rename_prompt(&self.editor, path);
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++                DevTuiRequest::SymbolContext => {
++                    self.compositor
++                        .push(Box::new(crate::ui::devtui::symbol_context_select()));
++                    pushed = true;
++                }
++                DevTuiRequest::SymbolAction(name) => {
++                    let command = match name {
++                        "goto_definition" => crate::commands::MappableCommand::goto_definition,
++                        "goto_declaration" => crate::commands::MappableCommand::goto_declaration,
++                        "goto_reference" => crate::commands::MappableCommand::goto_reference,
++                        "goto_type_definition" => {
++                            crate::commands::MappableCommand::goto_type_definition
++                        }
++                        "goto_implementation" => {
++                            crate::commands::MappableCommand::goto_implementation
++                        }
++                        "hover" => crate::commands::MappableCommand::hover,
++                        "rename_symbol" => crate::commands::MappableCommand::rename_symbol,
++                        "code_action" => crate::commands::MappableCommand::code_action,
++                        _ => {
++                            self.editor.set_error(format!("Unknown editor context action: {name}"));
++                            continue;
++                        }
++                    };
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    command.execute(&mut cx);
++                }
++                DevTuiRequest::SelectionContext => {
++                    self.compositor
++                        .push(Box::new(crate::ui::devtui::selection_context_select()));
++                    pushed = true;
++                }
++                DevTuiRequest::SelectionAction(name) => {
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    match name {
++                        "copy" => {
++                            crate::commands::MappableCommand::yank_joined_to_clipboard
++                                .execute(&mut cx);
++                        }
++                        "cut" => {
++                            crate::commands::MappableCommand::yank_joined_to_clipboard
++                                .execute(&mut cx);
++                            crate::commands::MappableCommand::delete_selection_noyank
++                                .execute(&mut cx);
++                        }
++                        "delete" => {
++                            crate::commands::MappableCommand::delete_selection_noyank
++                                .execute(&mut cx);
++                        }
++                        _ => {
++                            cx.editor
++                                .set_error(format!("Unknown selection context action: {name}"));
++                        }
++                    }
++                }
++                DevTuiRequest::OpenPath { path, line, column } => {
++                    self.editor.devtui.focus_editor_requested = true;
++                    match self.editor.devtui_open_preview(&path) {
++                        Ok(doc_id) => {
++                            let view_id = self.editor.tree.focus;
++                            let Some(doc) = self.editor.documents.get_mut(&doc_id) else {
++                                continue;
++                            };
++                            let max_line = doc.text().len_lines().saturating_sub(1);
++                            let row = line.saturating_sub(1).min(max_line);
++                            let line_start = doc.text().line_to_char(row);
++                            let line_len = doc.text().line(row).len_chars();
++                            let col = column.saturating_sub(1).min(line_len);
++                            doc.set_selection(
++                                view_id,
++                                helix_core::Selection::point(line_start + col),
++                            );
++                            self.editor.ensure_cursor_in_view(view_id);
++                        }
++                        Err(err) => self.editor.set_error(err.to_string()),
++                    }
++                    pushed = true;
++                }
++            }
++        }
++        pushed
+     }
+
+     #[inline(always)]
+@@ -701,13 +960,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+         #[cfg(not(windows))]
+         use termina::escape::csi;
+
+-        let mut cx = crate::compositor::Context {
+-            editor: &mut self.editor,
+-            jobs: &mut self.jobs,
+-            scroll: None,
+-        };
+-        // Handle key events
+-        let should_redraw = match event.unwrap() {
++        // Scope the compositor context so its mutable editor borrow ends before
++        // devtui processes any UI requests created by the event.
++        let should_redraw = {
++            let mut cx = crate::compositor::Context {
++                editor: &mut self.editor,
++                jobs: &mut self.jobs,
++                scroll: None,
++            };
++            // Handle key events
++            match event.unwrap() {
+             #[cfg(not(windows))]
+             termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
+                 self.terminal
+@@ -767,9 +1029,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+             #[cfg(not(windows))]
+             event if event.is_escape() => false,
+             event => self.compositor.handle_event(&event.into(), &mut cx),
++            }
+         };
+
+-        if should_redraw && !self.editor.should_close() {
++        let devtui_redraw = self.process_devtui_requests();
++
++        if (should_redraw || devtui_redraw) && !self.editor.should_close() {
+             self.render().await;
+         }
+     }
+@@ -850,6 +1115,46 @@ macro_rules! language_server {
+                             params.diagnostics,
+                         );
+                     }
++                    Notification::InactiveRegions(params) => {
++                        let language_server = language_server!();
++                        if !language_server.is_initialized() {
++                            return;
++                        }
++                        let offset_encoding = language_server.offset_encoding();
++                        let uri = match helix_core::Uri::try_from(params.text_document.uri) {
++                            Ok(uri) => uri,
++                            Err(err) => {
++                                log::error!("{err}");
++                                return;
++                            }
++                        };
++                        let Some(path) = uri.as_path() else {
++                            return;
++                        };
++                        let Some(doc_id) = self.editor.document_id_by_path(path) else {
++                            return;
++                        };
++                        let doc = doc_mut!(self.editor, &doc_id);
++                        let ranges = params
++                            .regions
++                            .into_iter()
++                            .filter_map(|range| {
++                                lsp_range_to_range(doc.text(), range, offset_encoding)
++                            })
++                            .map(|range| {
++                                let start = range.from();
++                                let end = range.to();
++                                start.min(end)..start.max(end)
++                            })
++                            .collect();
++                        doc.inactive_regions = ranges;
++                        log::debug!(
++                            "updated {} inactive source region(s) for {}",
++                            doc.inactive_regions.len(),
++                            path.display()
++                        );
++                        self.editor.needs_redraw = true;
++                    }
+                     Notification::ShowMessage(params) => {
+                         self.handle_show_message(params.typ, params.message);
+                     }
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index bced450..5b66afa 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -429,6 +429,7 @@ pub fn doc(&self) -> &str {
+         exit_select_mode, "Exit selection mode",
+         goto_definition, "Goto definition",
+         goto_declaration, "Goto declaration",
++        switch_source_header, "Switch between paired source and header files through the language server",
+         add_newline_above, "Add newline above",
+         add_newline_below, "Add newline below",
+         goto_type_definition, "Goto type definition",
+@@ -448,6 +449,7 @@ pub fn doc(&self) -> &str {
+         goto_last_modified_file, "Goto last modified file",
+         goto_last_modification, "Goto last modification",
+         goto_line, "Goto line",
++        devtui_goto_line_prompt, "Open VS Code-style Go to Line prompt",
+         goto_last_line, "Goto last line",
+         extend_to_last_line, "Extend to last line",
+         goto_first_diag, "Goto first diagnostic",
+@@ -489,6 +491,9 @@ pub fn doc(&self) -> &str {
+         later, "Move forward in history",
+         commit_undo_checkpoint, "Commit changes to new checkpoint",
+         yank, "Yank selection",
++        devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
++        devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
++        devtui_save_as, "Open Save As for the current buffer",
+         yank_to_clipboard, "Yank selections to clipboard",
+         yank_to_primary_clipboard, "Yank selections to primary clipboard",
+         yank_joined, "Join and yank selections",
+@@ -3995,6 +4000,34 @@ fn goto_line(cx: &mut Context) {
+     goto_line_impl(cx, Movement::Move);
+ }
+
++fn devtui_goto_line_prompt(cx: &mut Context) {
++    ui::prompt(
++        cx,
++        "Go to Line: ".into(),
++        None,
++        ui::completers::none,
++        |cx, input, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++            let Ok(line) = input.trim().parse::<usize>() else {
++                cx.editor.set_error("Line number must be a positive integer");
++                return;
++            };
++            let Some(line) = NonZeroUsize::new(line) else {
++                cx.editor.set_error("Line number must be greater than zero");
++                return;
++            };
++
++            {
++                let (view, doc) = current!(cx.editor);
++                push_jump(view, doc);
++            }
++            goto_line_without_jumplist(cx.editor, Some(line), Movement::Move);
++        },
++    );
++}
++
+ fn goto_line_impl(cx: &mut Context, movement: Movement) {
+     if cx.count.is_some() {
+         let (view, doc) = current!(cx.editor);
+@@ -4829,6 +4862,60 @@ fn yank(cx: &mut Context) {
+     exit_select_mode(cx);
+ }
+
++fn devtui_line_selection_if_empty(editor: &Editor) -> Option<Selection> {
++    let (view, doc) = current_ref!(editor);
++    let current = doc.selection(view.id);
++    if current.ranges().iter().any(|range| !range.is_empty()) {
++        return None;
++    }
++
++    let text = doc.text().slice(..);
++    let mut ranges = SmallVec::with_capacity(current.len());
++    for range in current.ranges() {
++        let pos = range.cursor(text);
++        let line = doc.text().char_to_line(pos.min(doc.text().len_chars()));
++        let start = doc.text().line_to_char(line);
++        let end = doc
++            .text()
++            .line_to_char((line + 1).min(doc.text().len_lines()));
++        ranges.push(Range::new(start, end));
++    }
++    Some(Selection::new(ranges, current.primary_index()))
++}
++
++fn devtui_copy_to_clipboard(cx: &mut Context) {
++    let line_selection = devtui_line_selection_if_empty(cx.editor);
++    let original = if let Some(selection) = line_selection {
++        let (view, doc) = current!(cx.editor);
++        let original = doc.selection(view.id).clone();
++        doc.set_selection(view.id, selection);
++        Some(original)
++    } else {
++        None
++    };
++
++    yank_impl(cx.editor, '+');
++
++    if let Some(original) = original {
++        let (view, doc) = current!(cx.editor);
++        doc.set_selection(view.id, original);
++    }
++}
++
++fn devtui_cut_to_clipboard(cx: &mut Context) {
++    if let Some(selection) = devtui_line_selection_if_empty(cx.editor) {
++        let (view, doc) = current!(cx.editor);
++        doc.set_selection(view.id, selection);
++    }
++    yank_impl(cx.editor, '+');
++    delete_selection_impl(cx, Operation::Delete, YankAction::NoYank);
++}
++
++fn devtui_save_as(cx: &mut Context) {
++    let doc_id = view!(cx.editor).doc;
++    cx.editor.devtui_request_save_as(doc_id, false);
++}
++
+ fn yank_to_clipboard(cx: &mut Context) {
+     yank_impl(cx.editor, '+');
+     exit_select_mode(cx);
+@@ -5028,7 +5115,29 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+         Mode::Normal => Paste::Before,
+     };
+     let (view, doc) = current!(cx.editor);
+-    paste_impl(&[contents], doc, view, paste, count, cx.editor.mode);
++
++    // VS Code's default editor.multiCursorPaste="spread": when pasted rows
++    // match the number of selections, distribute one row to each selection in
++    // document order. Otherwise every selection receives the full pasted block.
++    let selection_count = doc.selection(view.id).len();
++    let normalized = LINE_ENDING_REGEX.replace_all(&contents, "\n");
++    let spread_values: Vec<String> = normalized
++        .split_terminator('\n')
++        .map(ToOwned::to_owned)
++        .collect();
++
++    if selection_count > 1 && spread_values.len() == selection_count {
++        paste_impl(
++            &spread_values,
++            doc,
++            view,
++            paste,
++            count,
++            cx.editor.mode,
++        );
++    } else {
++        paste_impl(&[contents], doc, view, paste, count, cx.editor.mode);
++    }
+     exit_select_mode(cx);
+ }
+
+diff --git a/helix-term/src/commands/lsp.rs b/helix-term/src/commands/lsp.rs
+index d7fd8f7..a7eab40 100644
+--- a/helix-term/src/commands/lsp.rs
++++ b/helix-term/src/commands/lsp.rs
+@@ -1025,6 +1025,38 @@ pub fn goto_definition(cx: &mut Context) {
+     );
+ }
+
++pub fn switch_source_header(cx: &mut Context) {
++    let (_, doc) = current_ref!(cx.editor);
++    let Some(language_server) = doc.language_servers().next() else {
++        cx.editor
++            .set_error("No language server is attached to the current document");
++        return;
++    };
++    let request = language_server.switch_source_header(doc.identifier());
++
++    cx.jobs.callback(async move {
++        let target = request.await?;
++        let call = move |editor: &mut Editor, _compositor: &mut Compositor| {
++            let Some(target) = target else {
++                editor.set_error("No paired source/header file found");
++                return;
++            };
++            let Ok(uri) = Uri::try_from(target) else {
++                editor.set_error("Language server returned an unsupported URI");
++                return;
++            };
++            let Some(path) = uri.as_path() else {
++                editor.set_error("Language server returned a non-file URI");
++                return;
++            };
++            if let Err(err) = editor.open(path, Action::Replace) {
++                editor.set_error(format!("failed to open paired file: {err}"));
++            }
++        };
++        Ok(Callback::EditorCompositor(Box::new(call)))
++    });
++}
++
+ pub fn goto_type_definition(cx: &mut Context) {
+     goto_single_impl(
+         cx,
+diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
+index db2f0c2..05ff12e 100644
+--- a/helix-term/src/commands/typed.rs
++++ b/helix-term/src/commands/typed.rs
+@@ -68,61 +68,61 @@ fn for_argument_number(&self, n: usize) -> &Completer {
+     }
+ }
+
+-fn exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++fn devtui_write_close(
++    cx: &mut compositor::Context,
++    args: Args,
++    event: PromptEvent,
++    force: bool,
++    only_if_modified: bool,
++) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
+
+-    if doc!(cx.editor).is_modified() {
+-        write_impl(
+-            cx,
+-            args.first(),
+-            WriteOptions {
+-                force: false,
+-                auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-                code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-            },
+-        )?;
++    let doc_id = view!(cx.editor).doc;
++    let modified = doc!(cx.editor, &doc_id).is_modified();
++    if only_if_modified && !modified {
++        cx.block_try_flush_writes()?;
++        let _ = cx.editor.close_document(doc_id, false);
++        return Ok(());
+     }
+-    cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
+-}
+
+-fn force_exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
++    let explicit_path = args.first().map(ToOwned::to_owned);
++    let untitled = doc!(cx.editor, &doc_id).path().is_none();
++    if untitled && explicit_path.is_none() {
++        cx.editor.devtui_request_save_as(doc_id, true);
+         return Ok(());
+     }
+
+-    if doc!(cx.editor).is_modified() {
+-        write_impl(
+-            cx,
+-            args.first(),
+-            WriteOptions {
+-                force: true,
+-                auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-                code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-            },
+-        )?;
+-    }
++    write_impl(
++        cx,
++        explicit_path.as_deref(),
++        WriteOptions {
++            force,
++            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
++            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
++        },
++    )?;
+     cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
++    let _ = cx.editor.close_document(doc_id, false);
++    Ok(())
+ }
+
+-fn quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    log::debug!("quitting...");
++fn exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_write_close(cx, args, event, false, true)
++}
+
++fn force_exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_write_close(cx, args, event, true, true)
++}
++
++fn quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
+
+-    // last view and we have unsaved changes
+-    if cx.editor.tree.views().count() == 1 {
+-        buffers_remaining_impl(cx.editor)?
+-    }
+-
+-    cx.block_try_flush_writes()?;
+-    cx.editor.close(view!(cx.editor).id);
+-
++    let doc_id = view!(cx.editor).doc;
++    cx.editor.devtui_request_close(doc_id);
+     Ok(())
+ }
+
+@@ -131,9 +131,9 @@ fn force_quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) ->
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
+     cx.block_try_flush_writes()?;
+-    cx.editor.close(view!(cx.editor).id);
+-
++    let _ = cx.editor.close_document(doc_id, true);
+     Ok(())
+ }
+
+@@ -533,6 +533,12 @@ fn write(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
++    if doc!(cx.editor, &doc_id).path().is_none() && args.first().is_none() {
++        cx.editor.devtui_request_save_as(doc_id, false);
++        return Ok(());
++    }
++
+     write_impl(
+         cx,
+         args.first(),
+@@ -549,6 +555,12 @@ fn force_write(cx: &mut compositor::Context, args: Args, event: PromptEvent) ->
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
++    if doc!(cx.editor, &doc_id).path().is_none() && args.first().is_none() {
++        cx.editor.devtui_request_save_as(doc_id, false);
++        return Ok(());
++    }
++
+     write_impl(
+         cx,
+         args.first(),
+@@ -777,21 +789,7 @@ fn later(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow
+ }
+
+ fn write_quit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    write_impl(
+-        cx,
+-        args.first(),
+-        WriteOptions {
+-            force: false,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
++    devtui_write_close(cx, args, event, false, false)
+ }
+
+ fn force_write_quit(
+@@ -799,21 +797,7 @@ fn force_write_quit(
+     args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    write_impl(
+-        cx,
+-        args.first(),
+-        WriteOptions {
+-            force: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    cx.block_try_flush_writes()?;
+-    force_quit(cx, Args::default(), event)
++    devtui_write_close(cx, args, event, true, false)
+ }
+
+ /// Results in an error if there are modified buffers remaining and sets editor
+@@ -1002,58 +986,36 @@ fn force_write_all(
+     )
+ }
+
+-fn write_all_quit(
++fn devtui_protected_full_quit(
+     cx: &mut compositor::Context,
+-    args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
++    if event == PromptEvent::Validate {
++        cx.editor
++            .set_status("devtui editor region stays open; use Ctrl-q to exit the session");
+     }
+-    write_all_impl(
+-        cx,
+-        WriteAllOptions {
+-            force: false,
+-            write_scratch: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    quit_all_impl(cx, false)
++    Ok(())
+ }
+
+-fn force_write_all_quit(
++fn write_all_quit(
+     cx: &mut compositor::Context,
+-    args: Args,
++    _args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-    let _ = write_all_impl(
+-        cx,
+-        WriteAllOptions {
+-            force: true,
+-            write_scratch: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    );
+-    quit_all_impl(cx, true)
++    devtui_protected_full_quit(cx, event)
+ }
+
+-fn quit_all_impl(cx: &mut compositor::Context, force: bool) -> anyhow::Result<()> {
+-    cx.block_try_flush_writes()?;
+-    if !force {
+-        buffers_remaining_impl(cx.editor)?;
+-    }
+-
+-    // close all views
+-    let views: Vec<_> = cx.editor.tree.views().map(|(view, _)| view.id).collect();
+-    for view_id in views {
+-        cx.editor.close(view_id);
+-    }
++fn force_write_all_quit(
++    cx: &mut compositor::Context,
++    _args: Args,
++    event: PromptEvent,
++) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
++}
+
++fn quit_all_impl(cx: &mut compositor::Context, _force: bool) -> anyhow::Result<()> {
++    cx.editor
++        .set_status("devtui editor region stays open; use Ctrl-q to exit the session");
+     Ok(())
+ }
+
+@@ -1077,32 +1039,16 @@ fn force_quit_all(
+     quit_all_impl(cx, true)
+ }
+
+-fn cquit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    let exit_code = args
+-        .first()
+-        .and_then(|code| code.parse::<i32>().ok())
+-        .unwrap_or(1);
+-
+-    cx.editor.exit_code = exit_code;
+-    quit_all_impl(cx, false)
++fn cquit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
+ }
+
+-fn force_cquit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    let exit_code = args
+-        .first()
+-        .and_then(|code| code.parse::<i32>().ok())
+-        .unwrap_or(1);
+-    cx.editor.exit_code = exit_code;
+-
+-    quit_all_impl(cx, true)
++fn force_cquit(
++    cx: &mut compositor::Context,
++    _args: Args,
++    event: PromptEvent,
++) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
+ }
+
+ fn theme(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+@@ -3030,8 +2976,8 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit",
+-        aliases: &["q"],
+-        doc: "Close the current view.",
++        aliases: &["q", "close"],
++        doc: "Close the current devtui buffer/tab while keeping the editor region.",
+         fun: quit,
+         completer: CommandCompleter::none(),
+         signature: Signature {
+@@ -3041,8 +2987,8 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit!",
+-        aliases: &["q!"],
+-        doc: "Force close the current view, ignoring unsaved changes.",
++        aliases: &["q!", "close!"],
++        doc: "Discard changes and close the current devtui buffer/tab.",
+         fun: force_quit,
+         completer: CommandCompleter::none(),
+         signature: Signature {
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+new file mode 100644
+index 0000000..68f94dd
+--- /dev/null
++++ b/helix-term/src/ui/devtui.rs
+@@ -0,0 +1,986 @@
++use std::{
++    borrow::Cow,
++    collections::HashSet,
++    fs,
++    path::{Path, PathBuf},
++    time::{Duration, Instant},
++};
++
++use helix_view::{
++    editor::DevTuiRequest,
++    graphics::{Modifier, Rect},
++    DocumentId, Editor,
++};
++use ignore::WalkBuilder;
++use tui::{buffer::Buffer as Surface, widgets::Row};
++
++use crate::ui::{self, menu::Item, Prompt, PromptEvent, Select};
++
++#[derive(Clone, Copy, Debug, Default)]
++pub enum CloseChoice {
++    #[default]
++    Save,
++    DontSave,
++    Cancel,
++}
++
++impl Item for CloseChoice {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::Save => "Save",
++            Self::DontSave => "Don't Save",
++            Self::Cancel => "Cancel",
++        }
++        .into()
++    }
++}
++
++#[derive(Clone, Copy, Debug)]
++pub enum SymbolContextAction {
++    GoToDefinition,
++    GoToDeclaration,
++    GoToReferences,
++    GoToTypeDefinition,
++    GoToImplementation,
++    Hover,
++    Rename,
++    CodeAction,
++}
++
++impl Item for SymbolContextAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::GoToDefinition => "Go to Definition",
++            Self::GoToDeclaration => "Go to Declaration",
++            Self::GoToReferences => "Go to References",
++            Self::GoToTypeDefinition => "Go to Type Definition",
++            Self::GoToImplementation => "Go to Implementation",
++            Self::Hover => "Show Hover",
++            Self::Rename => "Rename Symbol",
++            Self::CodeAction => "Code Action",
++        }
++        .into()
++    }
++}
++
++impl SymbolContextAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::GoToDefinition => "goto_definition",
++            Self::GoToDeclaration => "goto_declaration",
++            Self::GoToReferences => "goto_reference",
++            Self::GoToTypeDefinition => "goto_type_definition",
++            Self::GoToImplementation => "goto_implementation",
++            Self::Hover => "hover",
++            Self::Rename => "rename_symbol",
++            Self::CodeAction => "code_action",
++        }
++    }
++}
++
++#[derive(Clone, Copy, Debug)]
++pub enum SelectionContextAction {
++    Copy,
++    Cut,
++    Delete,
++}
++
++impl Item for SelectionContextAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::Copy => "Copy",
++            Self::Cut => "Cut",
++            Self::Delete => "Delete",
++        }
++        .into()
++    }
++}
++
++impl SelectionContextAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::Copy => "copy",
++            Self::Cut => "cut",
++            Self::Delete => "delete",
++        }
++    }
++}
++
++pub fn selection_context_select() -> Select<SelectionContextAction> {
++    Select::new(
++        "Selection",
++        [
++            SelectionContextAction::Copy,
++            SelectionContextAction::Cut,
++            SelectionContextAction::Delete,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::SelectionAction(action.command()));
++            }
++        },
++    )
++}
++
++pub fn symbol_context_select() -> Select<SymbolContextAction> {
++    Select::new(
++        "Editor",
++        [
++            SymbolContextAction::GoToDefinition,
++            SymbolContextAction::GoToDeclaration,
++            SymbolContextAction::GoToReferences,
++            SymbolContextAction::GoToTypeDefinition,
++            SymbolContextAction::GoToImplementation,
++            SymbolContextAction::Hover,
++            SymbolContextAction::Rename,
++            SymbolContextAction::CodeAction,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::SymbolAction(action.command()));
++            }
++        },
++    )
++}
++
++pub fn close_select(doc_id: DocumentId, display_name: String) -> Select<CloseChoice> {
++    Select::new(
++        format!("Save changes to {display_name}?"),
++        [CloseChoice::Save, CloseChoice::DontSave, CloseChoice::Cancel],
++        (),
++        move |editor, choice, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++
++            match choice {
++                CloseChoice::Save => {
++                    let untitled = editor
++                        .document(doc_id)
++                        .is_some_and(|doc| doc.path().is_none());
++                    if untitled {
++                        editor.devtui.requests.push_back(DevTuiRequest::SaveAs {
++                            doc_id,
++                            close_after_save: true,
++                        });
++                    } else {
++                        editor.devtui.close_after_save.insert(doc_id);
++                        if let Err(err) = editor.save(doc_id, None::<PathBuf>, false) {
++                            editor.devtui.close_after_save.remove(&doc_id);
++                            editor.set_error(err.to_string());
++                        }
++                    }
++                }
++                CloseChoice::DontSave => {
++                    let _ = editor.close_document(doc_id, true);
++                }
++                CloseChoice::Cancel => {}
++            }
++        },
++    )
++}
++pub fn save_as_prompt(
++    editor: &Editor,
++    doc_id: DocumentId,
++    close_after_save: bool,
++) -> Prompt {
++    let default_path = std::env::current_dir()
++        .ok()
++        .map(|path| {
++            let mut text = path.to_string_lossy().into_owned();
++            if !text.ends_with(std::path::MAIN_SEPARATOR) {
++                text.push(std::path::MAIN_SEPARATOR);
++            }
++            text
++        })
++        .unwrap_or_default();
++
++    Prompt::new(
++        Cow::Borrowed("Save As: "),
++        None,
++        ui::completers::filename,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate || input.trim().is_empty() {
++                return;
++            }
++
++            if close_after_save {
++                cx.editor.devtui.close_after_save.insert(doc_id);
++            }
++            if let Err(err) = cx
++                .editor
++                .save(doc_id, Some(PathBuf::from(input)), false)
++            {
++                cx.editor.devtui.close_after_save.remove(&doc_id);
++                cx.editor.set_error(err.to_string());
++            }
++        },
++    )
++    .with_line(default_path, editor)
++}
++
++#[derive(Clone, Copy, Debug, Default)]
++pub enum ExplorerAction {
++    #[default]
++    NewFile,
++    NewFolder,
++    Paste,
++    Copy,
++    CopyPath,
++    CopyRelativePath,
++    Rename,
++    Delete,
++}
++
++impl Item for ExplorerAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::NewFile => "New File",
++            Self::NewFolder => "New Folder",
++            Self::Paste => "Paste",
++            Self::Copy => "Copy",
++            Self::CopyPath => "Copy Path",
++            Self::CopyRelativePath => "Copy Relative Path",
++            Self::Rename => "Rename",
++            Self::Delete => "Delete",
++        }
++        .into()
++    }
++}
++
++#[derive(Clone, Copy, Debug, Default)]
++pub enum DeleteChoice {
++    #[default]
++    Delete,
++    Cancel,
++}
++
++impl Item for DeleteChoice {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::Delete => "Delete",
++            Self::Cancel => "Cancel",
++        }
++        .into()
++    }
++}
++
++fn distinct_paths(mut paths: Vec<PathBuf>) -> Vec<PathBuf> {
++    paths.sort_by_key(|path| path.components().count());
++    let mut out: Vec<PathBuf> = Vec::new();
++    for path in paths {
++        if out.iter().any(|parent| path.starts_with(parent)) {
++            continue;
++        }
++        out.push(path);
++    }
++    out
++}
++
++fn clipboard_paths(editor: &mut Editor, root: &Path, paths: &[PathBuf], relative: bool) {
++    let values = paths
++        .iter()
++        .map(|path| {
++            if relative {
++                if path == root {
++                    ".".to_string()
++                } else {
++                    path.strip_prefix(root)
++                        .unwrap_or(path)
++                        .to_string_lossy()
++                        .into_owned()
++                }
++            } else {
++                path.to_string_lossy().into_owned()
++            }
++        })
++        .collect();
++    if let Err(err) = editor.registers.write('+', values) {
++        editor.set_error(err.to_string());
++    }
++}
++
++fn next_copy_destination(directory: &Path, source: &Path) -> PathBuf {
++    let name = source
++        .file_name()
++        .and_then(|name| name.to_str())
++        .unwrap_or("copy");
++    let (stem, extension) = if source.is_file() {
++        match (source.file_stem().and_then(|s| s.to_str()), source.extension().and_then(|s| s.to_str())) {
++            (Some(stem), Some(ext)) => (stem.to_string(), Some(ext.to_string())),
++            _ => (name.to_string(), None),
++        }
++    } else {
++        (name.to_string(), None)
++    };
++
++    let split_copy = |value: &str| -> (String, Option<u32>) {
++        if let Some((base, suffix)) = value.rsplit_once(" copy") {
++            if suffix.is_empty() {
++                return (base.to_string(), Some(2));
++            }
++            if let Ok(number) = suffix.trim_start().parse::<u32>() {
++                return (base.to_string(), Some(number.saturating_add(1)));
++            }
++        }
++        (value.to_string(), None)
++    };
++
++    let (base, mut number) = split_copy(&stem);
++    loop {
++        let copied_stem = match number {
++            None => format!("{base} copy"),
++            Some(number) => format!("{base} copy {number}"),
++        };
++        let filename = extension
++            .as_ref()
++            .map(|ext| format!("{copied_stem}.{ext}"))
++            .unwrap_or(copied_stem);
++        let candidate = directory.join(filename);
++        if !candidate.exists() {
++            return candidate;
++        }
++        number = Some(number.unwrap_or(1).saturating_add(1));
++    }
++}
++
++fn copy_path_recursive(editor: &mut Editor, source: &Path, destination: &Path) -> std::io::Result<()> {
++    if source.is_dir() {
++        editor.create_path(destination, true)?;
++        for entry in fs::read_dir(source)? {
++            let entry = entry?;
++            let child_source = entry.path();
++            let child_destination = destination.join(entry.file_name());
++            copy_path_recursive(editor, &child_source, &child_destination)?;
++        }
++    } else {
++        editor.create_path(destination, false)?;
++        fs::copy(source, destination)?;
++    }
++    Ok(())
++}
++
++pub fn paste_explorer_clipboard(editor: &mut Editor, directory: &Path) {
++    let sources = distinct_paths(editor.devtui.explorer_clipboard.clone());
++    for source in sources {
++        let mut destination = directory.join(source.file_name().unwrap_or_default());
++        if destination.exists() || destination == source {
++            destination = next_copy_destination(directory, &source);
++        }
++        if let Err(err) = copy_path_recursive(editor, &source, &destination) {
++            editor.set_error(format!("Paste failed: {err}"));
++            break;
++        }
++    }
++}
++
++pub fn explorer_context_select(
++    root: PathBuf,
++    target: PathBuf,
++    is_dir: bool,
++    is_root: bool,
++    selection: Vec<PathBuf>,
++) -> Select<ExplorerAction> {
++    let mut actions = Vec::new();
++    if is_dir {
++        actions.extend([
++            ExplorerAction::NewFile,
++            ExplorerAction::NewFolder,
++            ExplorerAction::Paste,
++        ]);
++    }
++    if !is_root {
++        actions.push(ExplorerAction::Copy);
++    }
++    actions.extend([
++        ExplorerAction::CopyPath,
++        ExplorerAction::CopyRelativePath,
++    ]);
++    if !is_root && selection.len() == 1 {
++        actions.push(ExplorerAction::Rename);
++    }
++    if !is_root {
++        actions.push(ExplorerAction::Delete);
++    }
++
++    Select::new("Explorer", actions, (), move |editor, action, event| {
++        if event != PromptEvent::Validate {
++            return;
++        }
++        match action {
++            ExplorerAction::NewFile => {
++                editor.devtui.requests.push_back(DevTuiRequest::ExplorerCreate {
++                    directory: target.clone(),
++                    is_dir: false,
++                });
++            }
++            ExplorerAction::NewFolder => {
++                editor.devtui.requests.push_back(DevTuiRequest::ExplorerCreate {
++                    directory: target.clone(),
++                    is_dir: true,
++                });
++            }
++            ExplorerAction::Paste => paste_explorer_clipboard(editor, &target),
++            ExplorerAction::Copy => {
++                editor.devtui.explorer_clipboard = distinct_paths(selection.clone());
++            }
++            ExplorerAction::CopyPath => clipboard_paths(editor, &root, &selection, false),
++            ExplorerAction::CopyRelativePath => clipboard_paths(editor, &root, &selection, true),
++            ExplorerAction::Rename => {
++                editor.devtui.requests.push_back(DevTuiRequest::ExplorerRename {
++                    path: target.clone(),
++                });
++            }
++            ExplorerAction::Delete => {
++                let paths = distinct_paths(selection.clone())
++                    .into_iter()
++                    .filter(|path| path != &root)
++                    .collect();
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::ExplorerDelete { paths });
++            }
++        }
++    })
++}
++
++pub fn explorer_create_prompt(directory: PathBuf, is_dir: bool) -> Prompt {
++    let label = if is_dir { "New Folder: " } else { "New File: " };
++    Prompt::new(
++        Cow::Owned(label.to_string()),
++        None,
++        ui::completers::none,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++            let name = input.trim();
++            if name.is_empty() {
++                return;
++            }
++            let path = directory.join(name);
++            if let Err(err) = cx.editor.create_path(&path, is_dir) {
++                cx.editor.set_error(err.to_string());
++            }
++        },
++    )
++}
++
++pub fn explorer_rename_prompt(editor: &Editor, path: PathBuf) -> Prompt {
++    let current_name = path
++        .file_name()
++        .and_then(|name| name.to_str())
++        .unwrap_or_default()
++        .to_string();
++    Prompt::new(
++        Cow::Borrowed("Rename: "),
++        None,
++        ui::completers::none,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++            let name = input.trim();
++            if name.is_empty() {
++                return;
++            }
++            let destination = path
++                .parent()
++                .map(|parent| parent.join(name))
++                .unwrap_or_else(|| PathBuf::from(name));
++            if let Err(err) = cx.editor.move_path(&path, &destination) {
++                cx.editor.set_error(err.to_string());
++            }
++        },
++    )
++    .with_line(current_name, editor)
++}
++
++pub fn explorer_delete_select(paths: Vec<PathBuf>) -> Select<DeleteChoice> {
++    let count = paths.len();
++    let title = if count == 1 {
++        format!(
++            "Delete {}?",
++            paths[0]
++                .file_name()
++                .and_then(|name| name.to_str())
++                .unwrap_or("item")
++        )
++    } else {
++        format!("Delete {count} selected items?")
++    };
++
++    Select::new(
++        title,
++        [DeleteChoice::Delete, DeleteChoice::Cancel],
++        (),
++        move |editor, choice, event| {
++            if event != PromptEvent::Validate || !matches!(choice, DeleteChoice::Delete) {
++                return;
++            }
++            for path in &paths {
++                if let Err(err) = editor.delete_path(path, true) {
++                    editor.set_error(err.to_string());
++                    break;
++                }
++            }
++        },
++    )
++}
++
++#[derive(Clone, Debug)]
++pub struct ExplorerRow {
++    pub path: PathBuf,
++    pub depth: usize,
++    pub is_dir: bool,
++}
++
++pub struct DevTuiExplorer {
++    pub root: PathBuf,
++    pub expanded: HashSet<PathBuf>,
++    pub rows: Vec<ExplorerRow>,
++    pub cursor: usize,
++    pub selected_paths: HashSet<PathBuf>,
++    pub scroll_offset: usize,
++    pub focused: bool,
++    pub width: u16,
++    pub dragging_resize: bool,
++    pub show_hidden: bool,
++    pub show_ignored: bool,
++    selection_anchor: Option<usize>,
++    last_click: Option<(Instant, usize)>,
++}
++
++impl Default for DevTuiExplorer {
++    fn default() -> Self {
++        let root = std::env::current_dir()
++            .ok()
++            .map(|path| helix_stdx::path::normalize(path))
++            .unwrap_or_else(|| PathBuf::from("."));
++        let mut expanded = HashSet::new();
++        expanded.insert(root.clone());
++        let mut this = Self {
++            root: root.clone(),
++            expanded,
++            rows: Vec::new(),
++            cursor: 0,
++            selected_paths: HashSet::from([root]),
++            scroll_offset: 0,
++            focused: true,
++            width: Self::load_width().unwrap_or(32),
++            dragging_resize: false,
++            show_hidden: true,
++            show_ignored: true,
++            selection_anchor: None,
++            last_click: None,
++        };
++        this.rebuild();
++        this
++    }
++}
++impl DevTuiExplorer {
++    const MIN_WIDTH: u16 = 12;
++
++    fn state_file() -> Option<PathBuf> {
++        if let Some(base) = std::env::var_os("XDG_STATE_HOME") {
++            return Some(PathBuf::from(base).join("devtui/explorer-width"));
++        }
++        std::env::var_os("HOME")
++            .map(PathBuf::from)
++            .map(|home| home.join(".local/state/devtui/explorer-width"))
++    }
++
++    fn load_width() -> Option<u16> {
++        let text = fs::read_to_string(Self::state_file()?).ok()?;
++        text.trim().parse().ok()
++    }
++
++    pub fn save_width(&self) {
++        let Some(path) = Self::state_file() else {
++            return;
++        };
++        if let Some(parent) = path.parent() {
++            let _ = fs::create_dir_all(parent);
++        }
++        let _ = fs::write(path, format!("{}\n", self.width));
++    }
++
++    pub fn set_width(&mut self, width: u16, total_width: u16) {
++        let max_width = total_width.saturating_sub(20).max(Self::MIN_WIDTH);
++        self.width = width.clamp(Self::MIN_WIDTH, max_width);
++    }
++
++    pub fn sidebar_area(&self, area: Rect) -> Rect {
++        let width = self
++            .width
++            .min(area.width.saturating_sub(20).max(Self::MIN_WIDTH));
++        Rect::new(area.x, area.y, width, area.height.saturating_sub(1))
++    }
++
++    pub fn editor_area(&self, area: Rect) -> Rect {
++        let sidebar = self.sidebar_area(area);
++        let x = sidebar.right().saturating_add(1);
++        Rect::new(
++            x,
++            area.y,
++            area.right().saturating_sub(x),
++            area.height,
++        )
++    }
++
++    pub fn resize_hot_zone(&self, area: Rect, column: u16) -> bool {
++        let sidebar = self.sidebar_area(area);
++        let right = sidebar.right();
++        column >= right.saturating_sub(3) && column <= right
++    }
++    fn child_rows(&self, dir: &Path) -> Vec<(PathBuf, bool)> {
++        let mut builder = WalkBuilder::new(dir);
++        builder
++            .max_depth(Some(1))
++            .hidden(!self.show_hidden)
++            .parents(!self.show_ignored)
++            .ignore(!self.show_ignored)
++            .git_ignore(!self.show_ignored)
++            .git_global(!self.show_ignored)
++            .git_exclude(!self.show_ignored)
++            .follow_links(false);
++
++        let mut children: Vec<_> = builder
++            .build()
++            .filter_map(Result::ok)
++            .filter_map(|entry| {
++                let path = entry.path().to_path_buf();
++                (path != dir).then(|| {
++                    let is_dir = path.is_dir();
++                    (path, is_dir)
++                })
++            })
++            .collect();
++
++        children.sort_by(|(a, ad), (b, bd)| {
++            (!*ad, a.file_name()).cmp(&(!*bd, b.file_name()))
++        });
++        children
++    }
++
++    fn push_children(&self, dir: &Path, depth: usize, out: &mut Vec<ExplorerRow>) {
++        for (path, is_dir) in self.child_rows(dir) {
++            out.push(ExplorerRow {
++                path: path.clone(),
++                depth,
++                is_dir,
++            });
++            if is_dir && self.expanded.contains(&path) {
++                self.push_children(&path, depth + 1, out);
++            }
++        }
++    }
++
++    pub fn rebuild(&mut self) {
++        let selected = self.rows.get(self.cursor).map(|row| row.path.clone());
++        let mut rows = vec![ExplorerRow {
++            path: self.root.clone(),
++            depth: 0,
++            is_dir: true,
++        }];
++        if self.expanded.contains(&self.root) {
++            self.push_children(&self.root, 1, &mut rows);
++        }
++        self.rows = rows;
++        self.cursor = selected
++            .and_then(|path| self.rows.iter().position(|row| row.path == path))
++            .unwrap_or_else(|| self.cursor.min(self.rows.len().saturating_sub(1)));
++
++        let visible: HashSet<_> = self.rows.iter().map(|row| row.path.clone()).collect();
++        self.selected_paths.retain(|path| visible.contains(path));
++        if self.selected_paths.is_empty() {
++            if let Some(row) = self.rows.get(self.cursor) {
++                self.selected_paths.insert(row.path.clone());
++            }
++        }
++    }
++
++    pub fn selected(&self) -> Option<&ExplorerRow> {
++        self.rows.get(self.cursor)
++    }
++
++    pub fn select_single(&mut self, index: usize) {
++        if let Some(row) = self.rows.get(index) {
++            self.cursor = index;
++            self.selection_anchor = Some(index);
++            self.selected_paths.clear();
++            self.selected_paths.insert(row.path.clone());
++        }
++    }
++
++    pub fn select_range(&mut self, index: usize) {
++        if self.rows.is_empty() || index >= self.rows.len() {
++            return;
++        }
++        let anchor = self
++            .selection_anchor
++            .unwrap_or(self.cursor)
++            .min(self.rows.len() - 1);
++        let (start, end) = (anchor.min(index), anchor.max(index));
++        self.cursor = index;
++        self.selected_paths.clear();
++        self.selected_paths.extend(
++            self.rows[start..=end]
++                .iter()
++                .map(|row| row.path.clone()),
++        );
++        self.last_click = None;
++    }
++
++    pub fn toggle_selection(&mut self, index: usize) {
++        let Some(row) = self.rows.get(index) else {
++            return;
++        };
++        self.cursor = index;
++        self.selection_anchor = Some(index);
++        self.last_click = None;
++        if !self.selected_paths.remove(&row.path) {
++            self.selected_paths.insert(row.path.clone());
++        }
++    }
++
++    pub fn is_selected_path(&self, path: &Path) -> bool {
++        self.selected_paths.contains(path)
++    }
++
++    pub fn selected_targets(&self) -> Vec<PathBuf> {
++        let mut targets: Vec<_> = self
++            .rows
++            .iter()
++            .filter(|row| self.selected_paths.contains(&row.path))
++            .map(|row| row.path.clone())
++            .collect();
++        if targets.is_empty() {
++            if let Some(row) = self.selected() {
++                targets.push(row.path.clone());
++            }
++        }
++        targets
++    }
++
++    pub fn distinct_selected_targets(&self) -> Vec<PathBuf> {
++        let mut targets = self.selected_targets();
++        targets.sort_by_key(|path| path.components().count());
++
++        let mut distinct = Vec::new();
++        for path in targets {
++            if distinct.iter().any(|parent: &PathBuf| path.starts_with(parent)) {
++                continue;
++            }
++            distinct.push(path);
++        }
++        distinct
++    }
++
++    pub fn context_target(&mut self, index: usize) -> Option<(ExplorerRow, Vec<PathBuf>)> {
++        let row = self.rows.get(index)?.clone();
++        self.cursor = index;
++        self.last_click = None;
++        if !self.selected_paths.contains(&row.path) {
++            self.selected_paths.clear();
++            self.selected_paths.insert(row.path.clone());
++        }
++        Some((row, self.selected_targets()))
++    }
++
++    pub fn move_cursor(&mut self, delta: isize) {
++        if self.rows.is_empty() {
++            self.cursor = 0;
++            return;
++        }
++        self.cursor = self
++            .cursor
++            .saturating_add_signed(delta)
++            .min(self.rows.len() - 1);
++        if let Some(row) = self.rows.get(self.cursor) {
++            self.selected_paths.clear();
++            self.selected_paths.insert(row.path.clone());
++        }
++    }
++    pub fn toggle_selected_dir(&mut self) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if !row.is_dir {
++            return;
++        }
++        if !self.expanded.remove(&row.path) {
++            self.expanded.insert(row.path);
++        }
++        self.rebuild();
++    }
++
++    pub fn collapse_or_parent(&mut self) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir && self.expanded.remove(&row.path) {
++            self.rebuild();
++            return;
++        }
++        if let Some(parent) = row.path.parent() {
++            if let Some(index) = self.rows.iter().position(|candidate| candidate.path == parent) {
++                self.cursor = index;
++            }
++        }
++    }
++
++    pub fn expand_or_preview(&mut self, editor: &mut Editor) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir {
++            self.expanded.insert(row.path);
++            self.rebuild();
++        } else if let Err(err) = editor.devtui_open_preview(&row.path) {
++            editor.set_error(err.to_string());
++        }
++    }
++
++    pub fn activate_selected(&mut self, editor: &mut Editor, double_click: bool) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir {
++            if double_click {
++                return;
++            }
++            self.toggle_selected_dir();
++        } else if double_click {
++            if let Err(err) = editor.devtui_open_pinned(&row.path) {
++                editor.set_error(err.to_string());
++            }
++        } else if let Err(err) = editor.devtui_open_preview(&row.path) {
++            editor.set_error(err.to_string());
++        }
++    }
++
++    pub fn click_row(&mut self, index: usize, editor: &mut Editor) {
++        if index >= self.rows.len() {
++            return;
++        }
++        self.select_single(index);
++        let now = Instant::now();
++        let double_click = self.last_click.is_some_and(|(at, previous)| {
++            previous == index && now.duration_since(at) <= Duration::from_millis(450)
++        });
++        self.last_click = Some((now, index));
++        self.activate_selected(editor, double_click);
++    }
++    pub fn row_at(&self, area: Rect, row: u16) -> Option<usize> {
++        if row <= area.y || row >= area.bottom() {
++            return None;
++        }
++        let index = self.scroll_offset + (row - area.y - 1) as usize;
++        (index < self.rows.len()).then_some(index)
++    }
++
++    pub fn scroll_by(&mut self, delta: isize, visible_rows: usize) {
++        let max = self.rows.len().saturating_sub(visible_rows.max(1));
++        self.scroll_offset = self.scroll_offset.saturating_add_signed(delta).min(max);
++    }
++
++    pub fn ensure_cursor_visible(&mut self, visible_rows: usize) {
++        let visible_rows = visible_rows.max(1);
++        if self.cursor < self.scroll_offset {
++            self.scroll_offset = self.cursor;
++        } else if self.cursor >= self.scroll_offset + visible_rows {
++            self.scroll_offset = self.cursor + 1 - visible_rows;
++        }
++    }
++
++    pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
++        self.rebuild();
++        let bg = editor.theme.get("ui.background");
++        let text = editor.theme.get("ui.text");
++        let directory = editor.theme.get("ui.text.directory");
++        let selected = editor.theme.get("ui.text.focus");
++        let title = if self.focused {
++            editor.theme.get("ui.statusline.active")
++        } else {
++            editor.theme.get("ui.statusline")
++        };
++
++        surface.clear_with(area, bg);
++        let root_name = self
++            .root
++            .file_name()
++            .and_then(|name| name.to_str())
++            .filter(|name| !name.is_empty())
++            .unwrap_or("workspace")
++            .to_string();
++        surface.set_stringn(
++            area.x,
++            area.y,
++            &format!(" EXPLORER · {root_name}"),
++            area.width as usize,
++            title.add_modifier(Modifier::BOLD),
++        );
++
++        let visible = area.height.saturating_sub(1) as usize;
++        self.ensure_cursor_visible(visible);
++        let scroll = self.scroll_offset;
++        for (screen_index, row) in self
++            .rows
++            .iter()
++            .skip(scroll)
++            .take(visible)
++            .enumerate()
++        {
++            let y = area.y + 1 + screen_index as u16;
++            let indent = "  ".repeat(row.depth);
++            let marker = if row.is_dir {
++                if self.expanded.contains(&row.path) { "▾ " } else { "▸ " }
++            } else {
++                "  "
++            };
++            let name = if row.depth == 0 {
++                root_name.to_string()
++            } else {
++                row.path
++                    .file_name()
++                    .and_then(|name| name.to_str())
++                    .unwrap_or("?")
++                    .to_string()
++            };
++            let style = if self.selected_paths.contains(&row.path) {
++                selected
++            } else if row.is_dir {
++                directory
++            } else {
++                text
++            };
++            surface.set_stringn(
++                area.x,
++                y,
++                &format!("{indent}{marker}{name}"),
++                area.width as usize,
++                style,
++            );
++        }
++    }
++}
 diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
-index 3bd66f9..49ed213 100644
+index 3bd66f9..361b357 100644
 --- a/helix-term/src/ui/editor.rs
 +++ b/helix-term/src/ui/editor.rs
-@@ -42,6 +42,10 @@ pub struct EditorView {
+@@ -29,12 +29,48 @@
+     graphics::{Color, CursorKind, Modifier, Rect, Style},
+     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+     keyboard::{KeyCode, KeyModifiers},
+-    Document, Editor, Theme, View,
++    Document, DocumentId, Editor, Theme, View, ViewId,
++};
++use std::{
++    mem::take,
++    num::NonZeroUsize,
++    ops,
++    path::PathBuf,
++    rc::Rc,
++    time::{Duration, Instant},
+ };
+-use std::{mem::take, num::NonZeroUsize, ops, path::PathBuf, rc::Rc};
+
+ use tui::{buffer::Buffer as Surface, text::Span};
+
++#[derive(Clone, Copy, Debug)]
++struct DevTuiTabHit {
++    doc_id: DocumentId,
++    start: u16,
++    end: u16,
++    close_start: u16,
++}
++
++#[derive(Clone, Copy, Debug)]
++struct DevTuiScrollbarGeometry {
++    view_id: ViewId,
++    x: u16,
++    track_top: u16,
++    track_height: u16,
++    thumb_top: u16,
++    thumb_height: u16,
++    max_top_line: usize,
++}
++
++#[derive(Clone, Copy, Debug)]
++struct DevTuiScrollbarDrag {
++    view_id: ViewId,
++    track_top: u16,
++    track_height: u16,
++    thumb_height: u16,
++    grab_offset: u16,
++    max_top_line: usize,
++}
++
+ pub struct EditorView {
+     pub keymaps: Keymaps,
+     on_next_key: Option<(OnKeyCallback, OnKeyCallbackKind)>,
+@@ -42,6 +78,16 @@ pub struct EditorView {
      pub(crate) last_insert: (commands::MappableCommand, Vec<InsertEvent>),
      pub(crate) completion: Option<Completion>,
      spinners: ProgressSpinners,
@@ -10,52 +2120,532 @@ index 3bd66f9..49ed213 100644
 +    // multi-selection. Helix selections are native, so Insert-mode edits and
 +    // cursor motions immediately apply to every generated selection.
 +    middle_drag_anchor: Option<(u16, u16)>,
++    bufferline_hits: Vec<DevTuiTabHit>,
++    bufferline_used_width: u16,
++    last_bufferline_click: Option<(Instant, u16)>,
++    scrollbar_drag: Option<DevTuiScrollbarDrag>,
++    explorer: crate::ui::devtui::DevTuiExplorer,
++    layout_area: Rect,
      /// Tracks if the terminal window is focused by reaction to terminal focus events
      terminal_focused: bool,
  }
-@@ -66,6 +70,7 @@ pub fn new(keymaps: Keymaps) -> Self {
+@@ -66,6 +112,13 @@ pub fn new(keymaps: Keymaps) -> Self {
              last_insert: (commands::MappableCommand::normal_mode, Vec::new()),
              completion: None,
              spinners: ProgressSpinners::default(),
 +            middle_drag_anchor: None,
++            bufferline_hits: Vec::new(),
++            bufferline_used_width: 0,
++            last_bufferline_click: None,
++            scrollbar_drag: None,
++            explorer: crate::ui::devtui::DevTuiExplorer::default(),
++            layout_area: Rect::default(),
              terminal_focused: true,
          }
      }
-@@ -1199,6 +1204,45 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
+@@ -74,6 +127,113 @@ pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
+         &mut self.spinners
+     }
+
++    fn scrollbar_geometry(editor: &Editor, view_id: ViewId) -> Option<DevTuiScrollbarGeometry> {
++        let view = editor.tree.try_get(view_id)?;
++        let doc = editor.document(view.doc)?;
++        let inner = view.inner_area(doc);
++        if inner.height < 3 || inner.width < 2 {
++            return None;
++        }
++
++        let total_lines = doc.text().len_lines().max(1);
++        let visible_lines = inner.height as usize;
++        if total_lines <= visible_lines {
++            return None;
++        }
++
++        let max_top_line = total_lines.saturating_sub(visible_lines);
++        let top_line = doc
++            .text()
++            .char_to_line(doc.view_offset(view_id).anchor.min(doc.text().len_chars()))
++            .min(max_top_line);
++
++        let track_height = inner.height;
++        let thumb_height = ((visible_lines * track_height as usize) / total_lines)
++            .clamp(1, track_height as usize) as u16;
++        let track_span = track_height.saturating_sub(thumb_height);
++        let thumb_offset = if max_top_line == 0 || track_span == 0 {
++            0
++        } else {
++            ((top_line * track_span as usize) / max_top_line) as u16
++        };
++
++        Some(DevTuiScrollbarGeometry {
++            view_id,
++            x: inner.right().saturating_sub(1),
++            track_top: inner.y,
++            track_height,
++            thumb_top: inner.y.saturating_add(thumb_offset),
++            thumb_height,
++            max_top_line,
++        })
++    }
++
++    fn scrollbar_at(editor: &Editor, row: u16, column: u16) -> Option<DevTuiScrollbarGeometry> {
++        editor.tree.views().find_map(|(view, _)| {
++            let geometry = Self::scrollbar_geometry(editor, view.id)?;
++            (column == geometry.x
++                && row >= geometry.track_top
++                && row < geometry.track_top.saturating_add(geometry.track_height))
++                .then_some(geometry)
++        })
++    }
++
++    fn scroll_from_drag(editor: &mut Editor, drag: DevTuiScrollbarDrag, row: u16) -> bool {
++        let track_span = drag.track_height.saturating_sub(drag.thumb_height);
++        let thumb_top = row
++            .saturating_sub(drag.grab_offset)
++            .saturating_sub(drag.track_top)
++            .min(track_span);
++        let top_line = if track_span == 0 || drag.max_top_line == 0 {
++            0
++        } else {
++            ((thumb_top as usize * drag.max_top_line) + track_span as usize / 2)
++                / track_span as usize
++        };
++
++        let Some(view) = editor.tree.try_get(drag.view_id).cloned() else {
++            return false;
++        };
++        let Some(doc) = editor.document_mut(view.doc) else {
++            return false;
++        };
++        let target_line = top_line.min(doc.text().len_lines().saturating_sub(1));
++        let mut offset = doc.view_offset(drag.view_id);
++        offset.anchor = doc.text().line_to_char(target_line);
++        offset.vertical_offset = 0;
++        doc.set_view_offset(drag.view_id, offset);
++        editor.needs_redraw = true;
++        true
++    }
++
++    fn render_scrollbar(editor: &Editor, doc: &Document, view: &View, surface: &mut Surface) {
++        let Some(geometry) = Self::scrollbar_geometry(editor, view.id) else {
++            return;
++        };
++
++        let track_style = editor
++            .theme
++            .try_get("ui.window")
++            .unwrap_or_else(|| editor.theme.get("ui.text.inactive"));
++        let thumb_style = editor
++            .theme
++            .try_get("ui.menu.scroll")
++            .unwrap_or_else(|| editor.theme.get("ui.text.focus"));
++
++        for y in geometry.track_top..geometry.track_top.saturating_add(geometry.track_height) {
++            if let Some(cell) = surface.get_mut(geometry.x, y) {
++                cell.set_symbol("│").set_style(track_style);
++            }
++        }
++        for y in geometry.thumb_top..geometry.thumb_top.saturating_add(geometry.thumb_height) {
++            if let Some(cell) = surface.get_mut(geometry.x, y) {
++                cell.set_symbol("█").set_style(thumb_style);
++            }
++        }
++
++        let _ = doc;
++    }
++
+     pub fn render_view(
+         &self,
+         editor: &Editor,
+@@ -143,6 +303,15 @@ pub fn render_view(
+             overlays.push(overlay);
+         }
+
++        if !doc.inactive_regions.is_empty() {
++            if let Some(highlight) = theme.find_highlight_exact("comment") {
++                overlays.push(OverlayHighlights::Homogeneous {
++                    highlight,
++                    ranges: doc.inactive_regions.clone(),
++                });
++            }
++        }
++
+         Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
+
+         if is_focused {
+@@ -217,6 +386,8 @@ pub fn render_view(
+             decorations,
+         );
+
++        Self::render_scrollbar(editor, doc, view, surface);
++
+         // if we're not at the edge of the screen, draw a right border
+         if viewport.right() != view.area.right() {
+             let x = area.right();
+@@ -659,9 +830,14 @@ pub fn tabstop_highlights(doc: &Document, theme: &Theme) -> Option<OverlayHighli
+         Some(OverlayHighlights::Homogeneous { highlight, ranges })
+     }
+
+-    /// Render bufferline at the top
+-    pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface) {
+-        let scratch = PathBuf::from(SCRATCH_BUFFER_NAME); // default filename to use for scratch buffer
++    /// Render a VS Code-style bufferline and retain mouse hit geometry.
++    pub fn render_bufferline(
++        &mut self,
++        editor: &Editor,
++        viewport: Rect,
++        surface: &mut Surface,
++    ) {
++        let scratch = PathBuf::from(SCRATCH_BUFFER_NAME);
+         surface.clear_with(
+             viewport,
+             editor
+@@ -674,12 +850,12 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+             .theme
+             .try_get("ui.bufferline.active")
+             .unwrap_or_else(|| editor.theme.get("ui.statusline.active"));
+-
+         let bufferline_inactive = editor
+             .theme
+             .try_get("ui.bufferline")
+             .unwrap_or_else(|| editor.theme.get("ui.statusline.inactive"));
+
++        self.bufferline_hits.clear();
+         let mut x = viewport.x;
+         let current_doc = view!(editor).doc;
+
+@@ -692,24 +868,36 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+                 .to_str()
+                 .unwrap_or_default();
+
+-            let style = if current_doc == doc.id() {
++            let mut style = if current_doc == doc.id() {
+                 bufferline_active
+             } else {
+                 bufferline_inactive
+             };
++            if editor.devtui.preview_document == Some(doc.id()) {
++                style = style.add_modifier(Modifier::ITALIC);
++            }
+
+-            let text = format!(" {}{} ", fname, if doc.is_modified() { "[+]" } else { "" });
+-            let used_width = viewport.x.saturating_sub(x);
+-            let rem_width = surface.area.width.saturating_sub(used_width);
++            let dirty = if doc.is_modified() { " ●" } else { "" };
++            let text = format!(" {fname}{dirty}  × ");
++            let width = text.width() as u16;
++            if x.saturating_add(width) > viewport.right() {
++                break;
++            }
+
++            let start = x;
++            let close_start = x.saturating_add(width.saturating_sub(3));
+             x = surface
+-                .set_stringn(x, viewport.y, &text, rem_width as usize, style)
++                .set_stringn(x, viewport.y, &text, width as usize, style)
+                 .0;
+-
+-            if x >= surface.area.right() {
+-                break;
+-            }
++            self.bufferline_hits.push(DevTuiTabHit {
++                doc_id: doc.id(),
++                start,
++                end: x,
++                close_start,
++            });
+         }
++
++        self.bufferline_used_width = x;
+     }
+
+     pub fn render_gutter<'d>(
+@@ -1199,11 +1387,305 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
          self.pseudo_pending.clear();
      }
 
-+    fn update_middle_drag_selection(&mut self, editor: &mut Editor, row: u16) -> bool {
++    fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool {
++        let focus_explorer = event.modifiers.contains(KeyModifiers::CONTROL)
++            && match event.code {
++                KeyCode::Char('e') => event.modifiers.contains(KeyModifiers::SHIFT),
++                KeyCode::Char('E') => true,
++                _ => false,
++            };
++        if focus_explorer {
++            self.explorer.focused = true;
++            return true;
++        }
++
++        if !self.explorer.focused {
++            return false;
++        }
++
++        if event.modifiers.contains(KeyModifiers::CONTROL) {
++            match event.code {
++                KeyCode::Char('c') | KeyCode::Char('C') => {
++                    self.explorer.rebuild();
++                    let paths = self
++                        .explorer
++                        .distinct_selected_targets()
++                        .into_iter()
++                        .filter(|path| path != &self.explorer.root)
++                        .collect();
++                    editor.devtui.explorer_clipboard = paths;
++                    return true;
++                }
++                KeyCode::Char('v') | KeyCode::Char('V') => {
++                    self.explorer.rebuild();
++                    if let Some(row) = self.explorer.selected().cloned() {
++                        let directory = if row.is_dir {
++                            row.path
++                        } else {
++                            row.path
++                                .parent()
++                                .map(PathBuf::from)
++                                .unwrap_or_else(|| self.explorer.root.clone())
++                        };
++                        crate::ui::devtui::paste_explorer_clipboard(editor, &directory);
++                    }
++                    return true;
++                }
++                _ => {}
++            }
++        }
++
++        if matches!(event.code, KeyCode::Delete) {
++            let paths = self
++                .explorer
++                .distinct_selected_targets()
++                .into_iter()
++                .filter(|path| path != &self.explorer.root)
++                .collect();
++            editor
++                .devtui
++                .requests
++                .push_back(helix_view::editor::DevTuiRequest::ExplorerDelete { paths });
++            return true;
++        }
++
++        match event.code {
++            KeyCode::Esc => {}
++            KeyCode::Char('q') if event.modifiers.is_empty() => {}
++            KeyCode::Up => self.explorer.move_cursor(-1),
++            KeyCode::Down => self.explorer.move_cursor(1),
++            KeyCode::Home => self.explorer.select_single(0),
++            KeyCode::End => {
++                let index = self.explorer.rows.len().saturating_sub(1);
++                self.explorer.select_single(index);
++            }
++            KeyCode::Right => self.explorer.expand_or_preview(editor),
++            KeyCode::Left => self.explorer.collapse_or_parent(),
++            KeyCode::Enter => self.explorer.activate_selected(editor, false),
++            KeyCode::Char('h') | KeyCode::Char('H')
++                if event.modifiers.contains(KeyModifiers::SHIFT) =>
++            {
++                self.explorer.show_hidden = !self.explorer.show_hidden;
++                self.explorer.rebuild();
++            }
++            KeyCode::Char('i') | KeyCode::Char('I')
++                if event.modifiers.contains(KeyModifiers::SHIFT) =>
++            {
++                self.explorer.show_ignored = !self.explorer.show_ignored;
++                self.explorer.rebuild();
++            }
++            _ => {}
++        }
++        true
++    }
++
++    fn handle_explorer_mouse(
++        &mut self,
++        event: &MouseEvent,
++        cxt: &mut commands::Context,
++    ) -> Option<EventResult> {
++        if self.layout_area.width == 0 {
++            return None;
++        }
++
++        let area = self.explorer.sidebar_area(self.layout_area);
++        let inside = event.column >= area.x
++            && event.column < area.right()
++            && event.row >= area.y
++            && event.row < area.bottom();
++
++        if self.explorer.dragging_resize {
++            match event.kind {
++                MouseEventKind::Drag(MouseButton::Left)
++                | MouseEventKind::Down(MouseButton::Left) => {
++                    let width = event.column.saturating_sub(self.layout_area.x) + 1;
++                    self.explorer.set_width(width, self.layout_area.width);
++                }
++                MouseEventKind::Up(MouseButton::Left) => {
++                    self.explorer.dragging_resize = false;
++                    self.explorer.save_width();
++                }
++                _ => {}
++            }
++            return Some(EventResult::Consumed(None));
++        }
++
++        if matches!(event.kind, MouseEventKind::Down(MouseButton::Left))
++            && self.explorer.resize_hot_zone(self.layout_area, event.column)
++        {
++            self.explorer.dragging_resize = true;
++            self.explorer.focused = true;
++            return Some(EventResult::Consumed(None));
++        }
++
++        if inside {
++            self.explorer.focused = true;
++            let visible_rows = area.height.saturating_sub(1) as usize;
++            match event.kind {
++                MouseEventKind::Down(MouseButton::Left) => {
++                    if let Some(index) = self.explorer.row_at(area, event.row) {
++                        if event.modifiers.contains(KeyModifiers::SHIFT)
++                            && !event
++                                .modifiers
++                                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
++                        {
++                            self.explorer.select_range(index);
++                        } else if event
++                            .modifiers
++                            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
++                        {
++                            self.explorer.toggle_selection(index);
++                        } else {
++                            self.explorer.click_row(index, cxt.editor);
++                        }
++                    }
++                }
++                MouseEventKind::Down(MouseButton::Right) => {
++                    if let Some(index) = self.explorer.row_at(area, event.row) {
++                        if let Some((row, selection)) = self.explorer.context_target(index) {
++                            cxt.editor.devtui.requests.push_back(
++                                helix_view::editor::DevTuiRequest::ExplorerContext {
++                                    root: self.explorer.root.clone(),
++                                    target: row.path.clone(),
++                                    is_dir: row.is_dir,
++                                    is_root: row.path == self.explorer.root,
++                                    selection,
++                                },
++                            );
++                        }
++                    }
++                }
++                MouseEventKind::ScrollUp => self.explorer.scroll_by(-3, visible_rows),
++                MouseEventKind::ScrollDown => self.explorer.scroll_by(3, visible_rows),
++                _ => {}
++            }
++            return Some(EventResult::Consumed(None));
++        }
++
++        if matches!(
++            event.kind,
++            MouseEventKind::Down(MouseButton::Left)
++                | MouseEventKind::Down(MouseButton::Middle)
++                | MouseEventKind::Down(MouseButton::Right)
++        ) {
++            self.explorer.focused = false;
++        }
++        None
++    }
++
++    fn update_middle_drag_selection(
++        &mut self,
++        editor: &mut Editor,
++        row: u16,
++        column: u16,
++    ) -> bool {
 +        let Some((anchor_row, anchor_column)) = self.middle_drag_anchor else {
 +            return false;
 +        };
 +
 +        let first_row = anchor_row.min(row);
 +        let last_row = anchor_row.max(row);
++        let left_column = anchor_column.min(column);
++        let right_column = anchor_column.max(column);
++        let is_zero_width = left_column == right_column;
++
 +        let (view, doc) = current!(editor);
 +        let view_id = view.id;
++        let text = doc.text().slice(..);
++        let inner = view.inner_area(doc);
++        let requested_left = left_column.saturating_sub(inner.x) as usize;
++
 +        let mut ranges: Vec<Range> = Vec::new();
-+        let mut primary_index = 0;
-+        let mut last_pos = None;
++        let mut fallback_eol: Vec<(u16, usize)> = Vec::new();
++        let mut primary_index = 0usize;
++        let mut primary_row = None;
++        let mut last_fallback = None;
 +
 +        for screen_row in first_row..=last_row {
-+            let Some(pos) = view.pos_at_screen_coords(doc, screen_row, anchor_column, true) else {
++            let Some(left_pos) =
++                view.pos_at_screen_coords(doc, screen_row, left_column, true)
++            else {
 +                continue;
 +            };
-+            if last_pos == Some(pos) {
++
++            if last_fallback != Some(left_pos) {
++                fallback_eol.push((screen_row, left_pos));
++                last_fallback = Some(left_pos);
++            }
++
++            if is_zero_width {
++                if screen_row == row {
++                    primary_index = ranges.len();
++                    primary_row = Some(screen_row);
++                }
++                ranges.push(Range::point(left_pos));
 +                continue;
 +            }
++
++            // pos_at_screen_coords clamps clicks after EOL. Compare the
++            // resulting visual column with the requested left edge to detect
++            // rows that never reach the rectangle at all (VS Code skips them).
++            let reaches_left = view
++                .screen_coords_at_pos(doc, text, left_pos)
++                .is_some_and(|coords| coords.col >= requested_left);
++            if !reaches_left {
++                continue;
++            }
++
++            let right_pos = view
++                .pos_at_screen_coords(doc, screen_row, right_column, true)
++                .unwrap_or(left_pos);
++
++            let range = if anchor_column <= column {
++                Range::new(left_pos, right_pos)
++            } else {
++                Range::new(right_pos, left_pos)
++            };
++
 +            if screen_row == row {
 +                primary_index = ranges.len();
++                primary_row = Some(screen_row);
 +            }
-+            ranges.push(Range::point(pos));
-+            last_pos = Some(pos);
++            ranges.push(range);
++        }
++
++        // VS Code falls back to one EOL caret per crossed row when the whole
++        // rectangle lies beyond all line ends.
++        if ranges.is_empty() && !fallback_eol.is_empty() {
++            for (screen_row, pos) in fallback_eol {
++                if screen_row == row {
++                    primary_index = ranges.len();
++                    primary_row = Some(screen_row);
++                }
++                ranges.push(Range::point(pos));
++            }
 +        }
 +
 +        if ranges.is_empty() {
 +            return false;
 +        }
++        if primary_row.is_none() {
++            primary_index = ranges.len().saturating_sub(1);
++        }
 +        primary_index = primary_index.min(ranges.len() - 1);
++
 +        doc.set_selection(
 +            view_id,
 +            Selection::new(ranges.into_iter().collect(), primary_index),
@@ -67,7 +2657,110 @@ index 3bd66f9..49ed213 100644
      fn handle_mouse_event(
          &mut self,
          event: &MouseEvent,
-@@ -1237,6 +1281,30 @@ fn handle_mouse_event(
+         cxt: &mut commands::Context,
+     ) -> EventResult {
++        if let Some(result) = self.handle_explorer_mouse(event, cxt) {
++            return result;
++        }
++
+         if event.kind != MouseEventKind::Moved {
+             self.handle_non_key_input(cxt)
+         }
+@@ -1217,6 +1699,93 @@ fn handle_mouse_event(
+             ..
+         } = *event;
+
++        if let Some(drag) = self.scrollbar_drag {
++            match kind {
++                MouseEventKind::Drag(MouseButton::Left) => {
++                    if Self::scroll_from_drag(cxt.editor, drag, row) {
++                        return EventResult::Consumed(None);
++                    }
++                }
++                MouseEventKind::Up(MouseButton::Left) => {
++                    let _ = Self::scroll_from_drag(cxt.editor, drag, row);
++                    self.scrollbar_drag = None;
++                    return EventResult::Consumed(None);
++                }
++                _ => {}
++            }
++        }
++
++        if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
++            if let Some(geometry) = Self::scrollbar_at(cxt.editor, row, column) {
++                cxt.editor.focus(geometry.view_id);
++                let inside_thumb = row >= geometry.thumb_top
++                    && row < geometry.thumb_top.saturating_add(geometry.thumb_height);
++                let grab_offset = if inside_thumb {
++                    row.saturating_sub(geometry.thumb_top)
++                } else {
++                    geometry.thumb_height / 2
++                };
++                let drag = DevTuiScrollbarDrag {
++                    view_id: geometry.view_id,
++                    track_top: geometry.track_top,
++                    track_height: geometry.track_height,
++                    thumb_height: geometry.thumb_height,
++                    grab_offset,
++                    max_top_line: geometry.max_top_line,
++                };
++                self.scrollbar_drag = Some(drag);
++                let _ = Self::scroll_from_drag(cxt.editor, drag, row);
++                return EventResult::Consumed(None);
++            }
++        }
++
++        if row == 0 {
++            if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
++                if let Some(hit) = self
++                    .bufferline_hits
++                    .iter()
++                    .copied()
++                    .find(|hit| column >= hit.start && column < hit.end)
++                {
++                    self.last_bufferline_click = None;
++                    if column >= hit.close_start {
++                        cxt.editor.devtui_request_close(hit.doc_id);
++                    } else {
++                        cxt.editor.switch(hit.doc_id, helix_view::editor::Action::Replace);
++                    }
++                    return EventResult::Consumed(None);
++                }
++
++                if column >= self.bufferline_used_width {
++                    let now = Instant::now();
++                    let double_click = self.last_bufferline_click.is_some_and(|(at, previous)| {
++                        previous.abs_diff(column) <= 2
++                            && now.duration_since(at) <= Duration::from_millis(450)
++                    });
++                    self.last_bufferline_click = Some((now, column));
++                    if double_click {
++                        cxt.editor.devtui_new_untitled();
++                        self.last_bufferline_click = None;
++                    }
++                    return EventResult::Consumed(None);
++                }
++            }
++
++            if matches!(kind, MouseEventKind::Down(MouseButton::Middle)) {
++                if let Some(hit) = self
++                    .bufferline_hits
++                    .iter()
++                    .copied()
++                    .find(|hit| column >= hit.start && column < hit.end)
++                {
++                    cxt.editor.devtui_request_close(hit.doc_id);
++                    return EventResult::Consumed(None);
++                }
++            }
++
++            return EventResult::Consumed(None);
++        }
++
+         let pos_and_view = |editor: &Editor, row, column, ignore_virtual_text| {
+             editor.tree.views().find_map(|(view, _focus)| {
+                 view.pos_at_screen_coords(
+@@ -1237,6 +1806,63 @@ fn handle_mouse_event(
          };
 
          match kind {
@@ -88,17 +2781,50 @@ index 3bd66f9..49ed213 100644
 +            }
 +
 +            MouseEventKind::Drag(MouseButton::Middle) => {
-+                if self.update_middle_drag_selection(cxt.editor, row) {
++                if self.update_middle_drag_selection(cxt.editor, row, column) {
 +                    EventResult::Consumed(None)
 +                } else {
 +                    EventResult::Ignored(None)
 +                }
 +            }
 +
++            MouseEventKind::Down(MouseButton::Right) => {
++                let editor = &mut cxt.editor;
++                if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
++                    editor.focus(view_id);
++                    let doc_id = view!(editor, view_id).doc;
++                    let preserve_selection = editor
++                        .document(doc_id)
++                        .map(|doc| {
++                            let selection = doc.selection(view_id);
++                            selection.ranges().iter().any(|range| {
++                                !range.is_empty() && pos >= range.from() && pos < range.to()
++                            })
++                        })
++                        .unwrap_or(false);
++
++                    if preserve_selection {
++                        editor
++                            .devtui
++                            .requests
++                            .push_back(helix_view::editor::DevTuiRequest::SelectionContext);
++                    } else {
++                        doc_mut!(editor, &doc_id)
++                            .set_selection(view_id, Selection::point(pos));
++                        editor
++                            .devtui
++                            .requests
++                            .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++                    }
++                    return EventResult::Consumed(None);
++                }
++                EventResult::Ignored(None)
++            }
++
              MouseEventKind::Down(MouseButton::Left) => {
                  let editor = &mut cxt.editor;
 
-@@ -1390,37 +1458,13 @@ fn handle_mouse_event(
+@@ -1390,37 +2016,13 @@ fn handle_mouse_event(
              }
 
              MouseEventKind::Up(MouseButton::Middle) => {
@@ -134,12 +2860,175 @@ index 3bd66f9..49ed213 100644
 -                }
 -
 -                EventResult::Ignored(None)
-+                let _ = self.update_middle_drag_selection(cxt.editor, row);
++                let _ = self.update_middle_drag_selection(cxt.editor, row, column);
 +                self.middle_drag_anchor = None;
 +                EventResult::Consumed(None)
              }
 
              _ => EventResult::Ignored(None),
+@@ -1452,6 +2054,17 @@ fn handle_event(
+         event: &Event,
+         context: &mut crate::compositor::Context,
+     ) -> EventResult {
++        if std::mem::take(&mut context.editor.devtui.focus_editor_requested) {
++            self.explorer.focused = false;
++        }
++        context.editor.devtui_promote_modified_preview();
++
++        if let Event::Key(key) = event {
++            if self.handle_explorer_key(*key, context.editor) {
++                return EventResult::Consumed(None);
++            }
++        }
++
+         let mut cx = commands::Context {
+             editor: context.editor,
+             count: None,
+@@ -1616,8 +2229,28 @@ fn handle_event(
+     }
+
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
++        if cx.editor.devtui.focus_editor_requested {
++            self.explorer.focused = false;
++        }
++        cx.editor.devtui_promote_modified_preview();
++        self.layout_area = area;
++
+         // clear with background color
+         surface.set_style(area, cx.editor.theme.get("ui.background"));
++
++        let sidebar_area = self.explorer.sidebar_area(area);
++        let editor_outer = self.explorer.editor_area(area);
++        self.explorer.render(sidebar_area, surface, cx.editor);
++        let separator_x = sidebar_area.right();
++        for y in area.y..area.y + area.height.saturating_sub(1) {
++            surface.set_string(
++                separator_x,
++                y,
++                "│",
++                cx.editor.theme.get("ui.background.separator"),
++            );
++        }
++
+         let config = cx.editor.config();
+
+         // check if bufferline should be rendered
+@@ -1629,7 +2262,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         };
+
+         // -1 for commandline and -1 for bufferline
+-        let mut editor_area = area.clip_bottom(1);
++        let mut editor_area = editor_outer.clip_bottom(1);
+         if use_bufferline {
+             editor_area = editor_area.clip_top(1);
+         }
+@@ -1638,17 +2271,20 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         cx.editor.resize(editor_area);
+
+         if use_bufferline {
+-            Self::render_bufferline(cx.editor, area.with_height(1), surface);
++            self.render_bufferline(cx.editor, editor_outer.with_height(1), surface);
++        } else {
++            self.bufferline_hits.clear();
++            self.bufferline_used_width = editor_outer.x;
+         }
+
+         for (view, is_focused) in cx.editor.tree.views() {
+             let doc = cx.editor.document(view.doc).unwrap();
+-            self.render_view(cx.editor, doc, view, area, surface, is_focused);
++            self.render_view(cx.editor, doc, view, editor_outer, surface, is_focused);
+         }
+
+         if config.auto_info {
+             if let Some(mut info) = cx.editor.autoinfo.take() {
+-                info.render(area, surface, cx);
++                info.render(editor_outer, surface, cx);
+                 cx.editor.autoinfo = Some(info)
+             }
+         }
+@@ -1667,14 +2303,18 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             };
+
+             surface.set_string(
+-                area.x,
+-                area.y + area.height.saturating_sub(1),
++                editor_outer.x,
++                editor_outer.y + editor_outer.height.saturating_sub(1),
+                 status_msg,
+                 style,
+             );
+         }
+
+-        if area.width.saturating_sub(status_msg_width as u16) > key_width {
++        if editor_outer
++            .width
++            .saturating_sub(status_msg_width as u16)
++            > key_width
++        {
+             let mut disp = String::new();
+             if let Some(count) = cx.editor.count {
+                 disp.push_str(&count.to_string())
+@@ -1694,11 +2334,11 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             let restricted = workspace_trust_indicator_visible(cx.editor);
+             let trust_width = if restricted { 3 } else { 0 };
+             surface.set_string(
+-                area.x
+-                    + area
++                editor_outer.x
++                    + editor_outer
+                         .width
+                         .saturating_sub(key_width + macro_width + trust_width),
+-                area.y + area.height.saturating_sub(1),
++                editor_outer.y + editor_outer.height.saturating_sub(1),
+                 disp.get(disp.len().saturating_sub(key_width as usize)..)
+                     .unwrap_or(&disp),
+                 style,
+@@ -1708,9 +2348,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                     .fg(helix_view::graphics::Color::Yellow)
+                     .add_modifier(Modifier::BOLD);
+                 surface.set_string(
+-                    area.x
+-                        .saturating_add(area.width.saturating_sub(3 + macro_width)),
+-                    area.y + area.height.saturating_sub(1),
++                    editor_outer
++                        .x
++                        .saturating_add(editor_outer.width.saturating_sub(3 + macro_width)),
++                    editor_outer.y + editor_outer.height.saturating_sub(1),
+                     "[⚠]",
+                     style,
+                 );
+@@ -1721,8 +2362,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                     .fg(helix_view::graphics::Color::Yellow)
+                     .add_modifier(Modifier::BOLD);
+                 surface.set_string(
+-                    area.x + area.width.saturating_sub(3),
+-                    area.y + area.height.saturating_sub(1),
++                    editor_outer.x + editor_outer.width.saturating_sub(3),
++                    editor_outer.y + editor_outer.height.saturating_sub(1),
+                     &disp,
+                     style,
+                 );
+@@ -1730,7 +2371,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         }
+
+         if let Some(completion) = self.completion.as_mut() {
+-            completion.render(area, surface, cx);
++            completion.render(editor_outer, surface, cx);
+         }
+     }
+
+diff --git a/helix-term/src/ui/mod.rs b/helix-term/src/ui/mod.rs
+index 7c3fa6a..3fd5ad2 100644
+--- a/helix-term/src/ui/mod.rs
++++ b/helix-term/src/ui/mod.rs
+@@ -1,6 +1,7 @@
+ mod completion;
+ mod document;
+ pub(crate) mod editor;
++pub mod devtui;
+ mod info;
+ pub mod lsp;
+ mod markdown;
 diff --git a/helix-term/src/ui/picker.rs b/helix-term/src/ui/picker.rs
 index 81ad3df..34539ff 100644
 --- a/helix-term/src/ui/picker.rs
@@ -311,3 +3200,196 @@ index 81ad3df..34539ff 100644
          match key_event {
              shift!(Tab) | key!(Up) | ctrl!('p') => {
                  self.move_by(1, Direction::Backward);
+diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
+index 79ba871..cce42ab 100644
+--- a/helix-view/src/document.rs
++++ b/helix-view/src/document.rs
+@@ -220,6 +220,8 @@ pub struct Document {
+     pub color_swatches: Option<DocumentColorSwatches>,
+     /// Cached LSP document links for navigation (e.g. goto_file).
+     pub document_links: Vec<DocumentLink>,
++    /// Server-pushed inactive source regions, stored as character ranges.
++    pub inactive_regions: Vec<std::ops::Range<usize>>,
+     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
+     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
+     pub color_swatch_controller: TaskController,
+@@ -769,6 +771,7 @@ pub fn from(
+             code_action_hints: HashSet::new(),
+             color_swatches: None,
+             document_links: Vec::new(),
++            inactive_regions: Vec::new(),
+             color_swatch_controller: TaskController::new(),
+             document_highlight_controllers: HashMap::new(),
+             code_action_controllers: HashMap::new(),
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index adced18..a7de41d 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1270,6 +1270,55 @@ pub struct Breakpoint {
+
+ type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
+
++#[derive(Debug, Clone)]
++pub enum DevTuiRequest {
++    ConfirmClose(DocumentId),
++    SaveAs {
++        doc_id: DocumentId,
++        close_after_save: bool,
++    },
++    ExplorerContext {
++        root: PathBuf,
++        target: PathBuf,
++        is_dir: bool,
++        is_root: bool,
++        selection: Vec<PathBuf>,
++    },
++    ExplorerCreate {
++        directory: PathBuf,
++        is_dir: bool,
++    },
++    ExplorerDelete {
++        paths: Vec<PathBuf>,
++    },
++    ExplorerRename {
++        path: PathBuf,
++    },
++    SymbolContext,
++    SymbolAction(&'static str),
++    SelectionContext,
++    SelectionAction(&'static str),
++    OpenPath {
++        path: PathBuf,
++        line: usize,
++        column: usize,
++    },
++}
++
++#[derive(Debug, Default)]
++pub struct DevTuiState {
++    /// The one reusable VS Code-style preview editor, if any.
++    pub preview_document: Option<DocumentId>,
++    /// Documents that should close after their pending save succeeds.
++    pub close_after_save: HashSet<DocumentId>,
++    /// Explorer Copy/Paste uses a file clipboard, independent from text registers.
++    pub explorer_clipboard: Vec<PathBuf>,
++    /// External navigation can request focus for the actual editor while keeping Explorer visible.
++    pub focus_editor_requested: bool,
++    /// UI requests produced by editor/command code and consumed by helix-term.
++    pub requests: VecDeque<DevTuiRequest>,
++}
++
+ pub struct Editor {
+     /// Current editing mode.
+     pub mode: Mode,
+@@ -1343,6 +1392,7 @@ pub struct Editor {
+     pub mouse_down_range: Option<Range>,
+     pub cursor_cache: CursorCache,
+     pub workspace_trust: WorkspaceTrust,
++    pub devtui: DevTuiState,
+ }
+
+ pub type Motion = Box<dyn Fn(&mut Editor)>;
+@@ -1468,6 +1518,7 @@ pub fn new(
+             cursor_cache: CursorCache::default(),
+             dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
+             workspace_trust,
++            devtui: DevTuiState::default(),
+         }
+     }
+
+@@ -2098,6 +2149,84 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
+         self.document_by_path(path).map(|doc| doc.id)
+     }
+
++    pub fn devtui_promote_modified_preview(&mut self) {
++        let Some(preview) = self.devtui.preview_document else {
++            return;
++        };
++        if self
++            .documents
++            .get(&preview)
++            .is_none_or(|doc| doc.is_modified())
++        {
++            self.devtui.preview_document = None;
++        }
++    }
++
++    pub fn devtui_open_preview(
++        &mut self,
++        path: &Path,
++    ) -> Result<DocumentId, DocumentOpenError> {
++        self.devtui_promote_modified_preview();
++        let canonical = helix_stdx::path::canonicalize(path);
++
++        if let Some(existing) = self.document_id_by_path(&canonical) {
++            self.switch(existing, Action::Replace);
++            return Ok(existing);
++        }
++
++        let old_preview = self.devtui.preview_document;
++        let new_id = self.open(&canonical, Action::Replace)?;
++        self.devtui.preview_document = Some(new_id);
++
++        if let Some(old_id) = old_preview.filter(|id| *id != new_id) {
++            if self
++                .documents
++                .get(&old_id)
++                .is_some_and(|doc| !doc.is_modified())
++            {
++                let _ = self.close_document(old_id, true);
++            }
++        }
++
++        Ok(new_id)
++    }
++
++    pub fn devtui_open_pinned(
++        &mut self,
++        path: &Path,
++    ) -> Result<DocumentId, DocumentOpenError> {
++        self.devtui_promote_modified_preview();
++        let id = self.devtui_open_preview(path)?;
++        self.devtui.preview_document = None;
++        Ok(id)
++    }
++
++    pub fn devtui_new_untitled(&mut self) -> DocumentId {
++        self.devtui_promote_modified_preview();
++        self.new_file(Action::Replace)
++    }
++
++    pub fn devtui_request_close(&mut self, doc_id: DocumentId) {
++        if self
++            .documents
++            .get(&doc_id)
++            .is_some_and(|doc| doc.is_modified())
++        {
++            self.devtui
++                .requests
++                .push_back(DevTuiRequest::ConfirmClose(doc_id));
++        } else {
++            let _ = self.close_document(doc_id, false);
++        }
++    }
++
++    pub fn devtui_request_save_as(&mut self, doc_id: DocumentId, close_after_save: bool) {
++        self.devtui.requests.push_back(DevTuiRequest::SaveAs {
++            doc_id,
++            close_after_save,
++        });
++    }
++
+     // ??? possible use for integration tests
+     pub fn open(&mut self, path: &Path, action: Action) -> Result<DocumentId, DocumentOpenError> {
+         let path = helix_stdx::path::canonicalize(path);
+@@ -2165,6 +2294,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
+
+         // This will also disallow any follow-up writes
+         self.saves.remove(&doc_id);
++        if self.devtui.preview_document == Some(doc_id) {
++            self.devtui.preview_document = None;
++        }
++        self.devtui.close_after_save.remove(&doc_id);
+
+         enum Action {
+             Close(ViewId),

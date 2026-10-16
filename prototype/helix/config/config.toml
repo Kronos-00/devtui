@@ -26,20 +26,54 @@ flatten-dirs = false
 
 [keys.normal]
 C-s = ":write"
+C-S-s = "devtui_save_as"
 C-z = "undo"
 C-y = "redo"
+C-S-z = "redo"
+C-c = "devtui_copy_to_clipboard"
+C-x = "devtui_cut_to_clipboard"
 C-a = "select_all"
+C-l = "extend_line"
 C-f = "search"
 C-p = "file_picker"
 C-S-f = "global_search"
 C-S-p = "command_palette"
 C-S-e = "file_explorer"
+C-S-o = "lsp_or_syntax_symbol_picker"
+"A-g" = "devtui_goto_line_prompt"
+"C-/" = "toggle_comments"
+F1 = "command_palette"
 F12 = "goto_definition"
 S-F12 = "goto_reference"
 F8 = "goto_next_diag"
 S-F8 = "goto_prev_diag"
 
+[keys.normal.space.c]
+h = "switch_source_header"
+
+[keys.normal.space.d]
+b = "dap_toggle_breakpoint"
+c = "dap_continue"
+i = "dap_step_in"
+O = "dap_next"
+o = "dap_step_out"
+u = "dap_variables"
+t = "dap_terminate"
+
 [keys.insert]
 C-s = ":write"
+C-S-s = "devtui_save_as"
 C-z = "undo"
 C-y = "redo"
+C-S-z = "redo"
+C-c = "devtui_copy_to_clipboard"
+C-x = "devtui_cut_to_clipboard"
+"A-g" = "devtui_goto_line_prompt"
+F1 = "command_palette"
+
+[keys.select]
+C-c = "devtui_copy_to_clipboard"
+C-x = "devtui_cut_to_clipboard"
+C-l = "extend_line"
+"C-/" = "toggle_comments"
+F1 = "command_palette"
