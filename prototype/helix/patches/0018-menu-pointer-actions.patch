@@ -1,0 +1,136 @@
+diff --git a/helix-term/src/ui/menu.rs b/helix-term/src/ui/menu.rs
+index 99e8ee4..fea8aa9 100644
+--- a/helix-term/src/ui/menu.rs
++++ b/helix-term/src/ui/menu.rs
+@@ -6,7 +6,7 @@
+ 
+ pub use tui::widgets::{Cell, Row};
+ 
+-use helix_view::{editor::SmartTabConfig, graphics::Rect, Editor};
++use helix_view::{editor::SmartTabConfig, graphics::Rect, input::{MouseButton, MouseEventKind}, Editor};
+ use tui::layout::Constraint;
+ 
+ pub trait Item: Sync + Send + 'static {
+@@ -36,6 +36,8 @@ pub struct Menu<T: Item> {
+     viewport: (u16, u16),
+     recalculate: bool,
+     auto_close: bool,
++    mouse_area: Option<Rect>,
++    mouse_pressed: Option<usize>,
+ }
+ 
+ impl<T: Item> Menu<T> {
+@@ -61,6 +63,8 @@ pub fn new(
+             viewport: (0, 0),
+             recalculate: true,
+             auto_close: false,
++            mouse_area: None,
++            mouse_pressed: None,
+         }
+     }
+ 
+@@ -233,19 +237,62 @@ pub fn replace_option(&mut self, old_option: &impl PartialEq<T>, new_option: T)
+ 
+ impl<T: Item + 'static> Component for Menu<T> {
+     fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
++        let close_fn: Option<Callback> = Some(Box::new(|compositor: &mut Compositor, _| {
++            compositor.pop();
++        }));
++
+         let event = match event {
+             Event::Key(event) => *event,
+-            // Menu is a modal and should consume mouse events so clicks don't fall
+-            // through to the editor underneath
+-            Event::Mouse(_) => return EventResult::Consumed(None),
++            Event::Mouse(mouse) => {
++                let area_hit = self.mouse_area.filter(|area| {
++                    mouse.column >= area.x && mouse.column < area.right()
++                        && mouse.row >= area.y && mouse.row < area.bottom()
++                });
++                let index = area_hit
++                    .map(|area| self.scroll + usize::from(mouse.row - area.y))
++                    .filter(|index| *index < self.matches.len());
++                match mouse.kind {
++                    MouseEventKind::Down(MouseButton::Left) => {
++                        self.mouse_pressed = index;
++                        if let Some(index) = index {
++                            self.cursor = Some(index);
++                            (self.callback_fn)(cx.editor, self.selection(), MenuEvent::Update);
++                        } else if self.auto_close && area_hit.is_none() {
++                            (self.callback_fn)(cx.editor, self.selection(), MenuEvent::Abort);
++                            return EventResult::Consumed(close_fn);
++                        }
++                    }
++                    MouseEventKind::Up(MouseButton::Left) => {
++                        // A release from the gesture which opened this modal must
++                        // not activate its default choice. Require our own press.
++                        if let Some(pressed) = self.mouse_pressed.take() {
++                            if index == Some(pressed) {
++                                self.cursor = Some(pressed);
++                                (self.callback_fn)(cx.editor, self.selection(), MenuEvent::Validate);
++                                return EventResult::Consumed(close_fn);
++                            }
++                        }
++                    }
++                    MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
++                        if area_hit.is_some() && !self.matches.is_empty() =>
++                    {
++                        self.mouse_pressed = None;
++                        let current = self.cursor.unwrap_or(0);
++                        self.cursor = Some(if mouse.kind == MouseEventKind::ScrollUp {
++                            current.saturating_sub(1)
++                        } else {
++                            (current + 1).min(self.matches.len() - 1)
++                        });
++                        self.adjust_scroll();
++                        (self.callback_fn)(cx.editor, self.selection(), MenuEvent::Update);
++                    }
++                    _ => {}
++                }
++                return EventResult::Consumed(None);
++            }
+             _ => return EventResult::Ignored(None),
+         };
+ 
+-        let close_fn: Option<Callback> = Some(Box::new(|compositor: &mut Compositor, _| {
+-            // remove the layer
+-            compositor.pop();
+-        }));
+-
+         // Ignore tab key when supertab is turned on in order not to interfere
+         // with it. (Is there a better way to do this?)
+         if (event == key!(Tab) || event == shift!(Tab))
+@@ -333,6 +380,7 @@ fn required_size(&mut self, viewport: (u16, u16)) -> Option<(u16, u16)> {
+     }
+ 
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
++        self.mouse_area = Some(area);
+         let theme = &cx.editor.theme;
+         let style = theme
+             .try_get("ui.menu")
+diff --git a/helix-term/src/ui/select.rs b/helix-term/src/ui/select.rs
+index e85f629..a3c3dff 100644
+--- a/helix-term/src/ui/select.rs
++++ b/helix-term/src/ui/select.rs
+@@ -71,16 +71,16 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         let max_width = 80.min(((area.width as u32) * 80u32 / 100) as u16);
+         let (message_width, message_height) =
+             super::text::required_size(&self.message.contents, max_width);
+-        let (_, menu_height) = self
++        let (menu_width, menu_height) = self
+             .options
+             .required_size((max_width, area.height))
+             .unwrap();
+         // + 2 for borders and another + 2 for horizontal padding
+-        let width = message_width + 4;
+-        let height = message_height + 2 + menu_height;
++        let width = (message_width + 4).max(menu_width).min(area.width);
++        let height = (message_height + 2 + menu_height).min(area.height);
+         let area = Rect {
+-            x: (area.width / 2) - width / 2,
+-            y: (area.height / 2) - height / 2,
++            x: area.x + area.width.saturating_sub(width) / 2,
++            y: area.y + area.height.saturating_sub(height) / 2,
+             width,
+             height,
+         };
