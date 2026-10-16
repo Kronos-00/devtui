@@ -85,15 +85,15 @@ VS Code interaction semantics are the reference behavior for features described 
 | typing updates all selections immediately in Insert mode | Done |
 | Insert-mode arrow movement moves all selections immediately | Done |
 | starting middle gesture from Insert mode never invokes clipboard paste | Done |
-| zero-width vertical drag clamps short lines to EOL | Partial |
-| non-zero-width rectangular selection | Pending |
-| skip rows shorter than rectangle left edge | Pending |
-| all-short-row EOL-caret fallback | Pending |
-| box-selection Copy / Cut / Delete context menu | Pending |
-| box copy omits skipped rows | Pending |
-| multi-cursor paste `spread` semantics | Pending |
-| keyboard add-cursor above/below | Partial |
-| keyboard add-next-match / add-all-occurrences | Pending |
+| zero-width vertical drag clamps short lines to EOL | Done |
+| non-zero-width rectangular selection | Done |
+| skip rows shorter than rectangle left edge | Done |
+| all-short-row EOL-caret fallback | Done |
+| box-selection Copy / Cut / Delete context menu | Done |
+| box copy omits skipped rows | Done |
+| multi-cursor paste `spread` semantics | Done |
+| keyboard add-cursor above/below | Done |
+| keyboard add-next-match / add-all-occurrences | Done |
 | normal arrow collapse semantics matching VS Code | Pending |
 
 ## Editor mouse and context UI
@@ -151,8 +151,8 @@ VS Code interaction semantics are the reference behavior for features described 
 | Explorer Copy Path / Copy Relative Path | Done |
 | multi-selection newline-separated path copy | Done |
 | copy/cut current line when there is no explicit selection | Done |
-| sparse rectangular copy semantics | Pending |
-| multi-cursor spread paste | Pending |
+| sparse rectangular copy semantics | Done |
+| multi-cursor spread paste | Done |
 
 ## External navigation and Git UI
 
