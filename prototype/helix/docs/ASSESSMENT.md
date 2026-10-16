@@ -27,10 +27,10 @@ The migration is technically feasible and worth prototyping, but it is not a con
 | Explorer file ops/context menu | Core file create/rename/delete APIs exist; UI missing | Medium-High | Later UI patch |
 | Explorer multi-select + mouse semantics | Picker is not a persistent multi-select tree | High | Later UI patch |
 | Explorer resize/persist width | No persistent sidebar yet | High | Follows sidebar patch |
-| Preview/Pinned editors | Picker preview exists, VS Code lifecycle does not | High | Later editor-state patch |
-| Dirty close Save/Don't Save/Cancel | Dirty detection exists; dialog lifecycle differs | Medium | Later UI patch |
-| Scratch Save As flow | Explicit path supported; no VS Code Save As dialog | Medium | Later UI patch |
-| Empty tab-strip double-click new scratch | Bufferline mouse missing | Medium | Later bufferline patch |
+| Preview/Pinned editors | Picker preview exists; devtui state now implements reusable preview + pin foundation | High | Lifecycle foundation implemented; Explorer wiring next |
+| Dirty close Save/Don't Save/Cancel | Dirty detection exists | Medium | Implemented |
+| Scratch Save As flow | Explicit path supported | Medium | Implemented for write/write-quit |
+| Empty tab-strip double-click new scratch | Bufferline needed hit testing | Medium | Implemented |
 | Right-click symbol menu | LSP actions exist; context UI missing | Medium | Later UI patch |
 | Protected editor/Explorer regions | Editor/view lifecycle differs | Medium | Implement after sidebar |
 | Interactive editor scrollbar | No editor scrollbar | High | Optional Rust UI patch |

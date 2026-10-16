@@ -15,7 +15,9 @@ rm -rf "$SRC"
 mkdir -p "$WORK" "$PREFIX/bin"
 git clone -q https://github.com/helix-editor/helix.git "$SRC"
 git -C "$SRC" checkout -q "$COMMIT"
-git -C "$SRC" apply "$ROOT/prototype/helix/patches/0001-middle-drag-multiselection.patch"
+for patch in "$ROOT"/prototype/helix/patches/*.patch; do
+  git -C "$SRC" apply "$patch"
+done
 RUSTUP_TOOLCHAIN="${DEVTUI_HELIX_RUST:-1.95.0}" cargo build --release -p helix-term --bin hx --manifest-path "$SRC/Cargo.toml"
 install -m 0755 "$SRC/target/release/hx" "$PREFIX/bin/hx"
 rm -rf "$PREFIX/runtime"

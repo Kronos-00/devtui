@@ -12,13 +12,24 @@ This branch validates whether devtui can move its editor core from Neovim to a s
 - built-in LSP, diagnostics, DAP baseline, file picker, global search, command palette, bufferline and OSC 52 clipboard;
 - current Zellij + shell + Lazygit pane arrangement.
 
+## Migration status
+
+Implemented and validated in the fork:
+
+- native real-time multiple selections and Insert-mode movement;
+- middle-drag native selections;
+- mouse-operable picker/file explorer overlay;
+- VS Code-style Preview/Pinned editor state foundation;
+- preview edit-to-pin;
+- bufferline mouse switching/closing, dirty marker + close control, and blank-area double-click Untitled;
+- dirty close Save / Don't Save / Cancel;
+- Untitled Save As for write/write-quit;
+- protected local quit/write-quit/exit command families.
+
 ## Deliberately not implemented yet
 
 - persistent Explorer sidebar/tree;
 - Explorer context menu/file-operation UX;
-- VS Code Preview/Pinned editor lifecycle;
-- bufferline mouse switching/closing and blank-area double-click;
-- Save/Don't Save/Cancel close dialog and scratch Save As dialog;
 - right-click symbol menu;
 - editor scrollbar;
 - custom inactive-code LSP regions;

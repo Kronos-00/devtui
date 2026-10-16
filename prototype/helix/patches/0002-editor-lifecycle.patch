@@ -1,0 +1,910 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index ea969f8..452f1d6 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -10,7 +10,7 @@
+ use helix_view::{
+     align_view,
+     document::{DocumentOpenError, DocumentSavedEventResult},
+-    editor::{ConfigEvent, EditorEvent},
++    editor::{ConfigEvent, DevTuiRequest, EditorEvent},
+     graphics::Rect,
+     theme,
+     tree::Layout,
+@@ -654,6 +654,50 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+             "'{}' written, {lines}L {size}",
+             get_relative_path(&doc_save_event.path).to_string_lossy(),
+         ));
++
++        if self
++            .editor
++            .devtui
++            .close_after_save
++            .remove(&doc_save_event.doc_id)
++        {
++            let _ = self.editor.close_document(doc_save_event.doc_id, false);
++        }
++    }
++
++    fn process_devtui_requests(&mut self) -> bool {
++        let mut pushed = false;
++        while let Some(request) = self.editor.devtui.requests.pop_front() {
++            match request {
++                DevTuiRequest::ConfirmClose(doc_id) => {
++                    let Some(doc) = self.editor.document(doc_id) else {
++                        continue;
++                    };
++                    let select = crate::ui::devtui::close_select(
++                        doc_id,
++                        doc.display_name().into_owned(),
++                    );
++                    self.compositor.push(Box::new(select));
++                    pushed = true;
++                }
++                DevTuiRequest::SaveAs {
++                    doc_id,
++                    close_after_save,
++                } => {
++                    if self.editor.document(doc_id).is_none() {
++                        continue;
++                    }
++                    let prompt = crate::ui::devtui::save_as_prompt(
++                        &self.editor,
++                        doc_id,
++                        close_after_save,
++                    );
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++            }
++        }
++        pushed
+     }
+
+     #[inline(always)]
+@@ -701,13 +745,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+         #[cfg(not(windows))]
+         use termina::escape::csi;
+
+-        let mut cx = crate::compositor::Context {
+-            editor: &mut self.editor,
+-            jobs: &mut self.jobs,
+-            scroll: None,
+-        };
+-        // Handle key events
+-        let should_redraw = match event.unwrap() {
++        // Scope the compositor context so its mutable editor borrow ends before
++        // devtui processes any UI requests created by the event.
++        let should_redraw = {
++            let mut cx = crate::compositor::Context {
++                editor: &mut self.editor,
++                jobs: &mut self.jobs,
++                scroll: None,
++            };
++            // Handle key events
++            match event.unwrap() {
+             #[cfg(not(windows))]
+             termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
+                 self.terminal
+@@ -767,9 +814,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+             #[cfg(not(windows))]
+             event if event.is_escape() => false,
+             event => self.compositor.handle_event(&event.into(), &mut cx),
++            }
+         };
+
+-        if should_redraw && !self.editor.should_close() {
++        let devtui_redraw = self.process_devtui_requests();
++
++        if (should_redraw || devtui_redraw) && !self.editor.should_close() {
+             self.render().await;
+         }
+     }
+diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
+index db2f0c2..05ff12e 100644
+--- a/helix-term/src/commands/typed.rs
++++ b/helix-term/src/commands/typed.rs
+@@ -68,61 +68,61 @@ fn for_argument_number(&self, n: usize) -> &Completer {
+     }
+ }
+
+-fn exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++fn devtui_write_close(
++    cx: &mut compositor::Context,
++    args: Args,
++    event: PromptEvent,
++    force: bool,
++    only_if_modified: bool,
++) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
+
+-    if doc!(cx.editor).is_modified() {
+-        write_impl(
+-            cx,
+-            args.first(),
+-            WriteOptions {
+-                force: false,
+-                auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-                code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-            },
+-        )?;
++    let doc_id = view!(cx.editor).doc;
++    let modified = doc!(cx.editor, &doc_id).is_modified();
++    if only_if_modified && !modified {
++        cx.block_try_flush_writes()?;
++        let _ = cx.editor.close_document(doc_id, false);
++        return Ok(());
+     }
+-    cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
+-}
+
+-fn force_exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
++    let explicit_path = args.first().map(ToOwned::to_owned);
++    let untitled = doc!(cx.editor, &doc_id).path().is_none();
++    if untitled && explicit_path.is_none() {
++        cx.editor.devtui_request_save_as(doc_id, true);
+         return Ok(());
+     }
+
+-    if doc!(cx.editor).is_modified() {
+-        write_impl(
+-            cx,
+-            args.first(),
+-            WriteOptions {
+-                force: true,
+-                auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-                code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-            },
+-        )?;
+-    }
++    write_impl(
++        cx,
++        explicit_path.as_deref(),
++        WriteOptions {
++            force,
++            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
++            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
++        },
++    )?;
+     cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
++    let _ = cx.editor.close_document(doc_id, false);
++    Ok(())
+ }
+
+-fn quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    log::debug!("quitting...");
++fn exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_write_close(cx, args, event, false, true)
++}
+
++fn force_exit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_write_close(cx, args, event, true, true)
++}
++
++fn quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
+
+-    // last view and we have unsaved changes
+-    if cx.editor.tree.views().count() == 1 {
+-        buffers_remaining_impl(cx.editor)?
+-    }
+-
+-    cx.block_try_flush_writes()?;
+-    cx.editor.close(view!(cx.editor).id);
+-
++    let doc_id = view!(cx.editor).doc;
++    cx.editor.devtui_request_close(doc_id);
+     Ok(())
+ }
+
+@@ -131,9 +131,9 @@ fn force_quit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) ->
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
+     cx.block_try_flush_writes()?;
+-    cx.editor.close(view!(cx.editor).id);
+-
++    let _ = cx.editor.close_document(doc_id, true);
+     Ok(())
+ }
+
+@@ -533,6 +533,12 @@ fn write(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
++    if doc!(cx.editor, &doc_id).path().is_none() && args.first().is_none() {
++        cx.editor.devtui_request_save_as(doc_id, false);
++        return Ok(());
++    }
++
+     write_impl(
+         cx,
+         args.first(),
+@@ -549,6 +555,12 @@ fn force_write(cx: &mut compositor::Context, args: Args, event: PromptEvent) ->
+         return Ok(());
+     }
+
++    let doc_id = view!(cx.editor).doc;
++    if doc!(cx.editor, &doc_id).path().is_none() && args.first().is_none() {
++        cx.editor.devtui_request_save_as(doc_id, false);
++        return Ok(());
++    }
++
+     write_impl(
+         cx,
+         args.first(),
+@@ -777,21 +789,7 @@ fn later(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow
+ }
+
+ fn write_quit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    write_impl(
+-        cx,
+-        args.first(),
+-        WriteOptions {
+-            force: false,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    cx.block_try_flush_writes()?;
+-    quit(cx, Args::default(), event)
++    devtui_write_close(cx, args, event, false, false)
+ }
+
+ fn force_write_quit(
+@@ -799,21 +797,7 @@ fn force_write_quit(
+     args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    write_impl(
+-        cx,
+-        args.first(),
+-        WriteOptions {
+-            force: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    cx.block_try_flush_writes()?;
+-    force_quit(cx, Args::default(), event)
++    devtui_write_close(cx, args, event, true, false)
+ }
+
+ /// Results in an error if there are modified buffers remaining and sets editor
+@@ -1002,58 +986,36 @@ fn force_write_all(
+     )
+ }
+
+-fn write_all_quit(
++fn devtui_protected_full_quit(
+     cx: &mut compositor::Context,
+-    args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
++    if event == PromptEvent::Validate {
++        cx.editor
++            .set_status("devtui editor region stays open; use Ctrl-q to exit the session");
+     }
+-    write_all_impl(
+-        cx,
+-        WriteAllOptions {
+-            force: false,
+-            write_scratch: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    )?;
+-    quit_all_impl(cx, false)
++    Ok(())
+ }
+
+-fn force_write_all_quit(
++fn write_all_quit(
+     cx: &mut compositor::Context,
+-    args: Args,
++    _args: Args,
+     event: PromptEvent,
+ ) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-    let _ = write_all_impl(
+-        cx,
+-        WriteAllOptions {
+-            force: true,
+-            write_scratch: true,
+-            auto_format: !args.has_flag(WRITE_NO_FORMAT_FLAG.name),
+-            code_actions: !args.has_flag(WRITE_NO_CODE_ACTIONS_FLAG.name),
+-        },
+-    );
+-    quit_all_impl(cx, true)
++    devtui_protected_full_quit(cx, event)
+ }
+
+-fn quit_all_impl(cx: &mut compositor::Context, force: bool) -> anyhow::Result<()> {
+-    cx.block_try_flush_writes()?;
+-    if !force {
+-        buffers_remaining_impl(cx.editor)?;
+-    }
+-
+-    // close all views
+-    let views: Vec<_> = cx.editor.tree.views().map(|(view, _)| view.id).collect();
+-    for view_id in views {
+-        cx.editor.close(view_id);
+-    }
++fn force_write_all_quit(
++    cx: &mut compositor::Context,
++    _args: Args,
++    event: PromptEvent,
++) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
++}
+
++fn quit_all_impl(cx: &mut compositor::Context, _force: bool) -> anyhow::Result<()> {
++    cx.editor
++        .set_status("devtui editor region stays open; use Ctrl-q to exit the session");
+     Ok(())
+ }
+
+@@ -1077,32 +1039,16 @@ fn force_quit_all(
+     quit_all_impl(cx, true)
+ }
+
+-fn cquit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    let exit_code = args
+-        .first()
+-        .and_then(|code| code.parse::<i32>().ok())
+-        .unwrap_or(1);
+-
+-    cx.editor.exit_code = exit_code;
+-    quit_all_impl(cx, false)
++fn cquit(cx: &mut compositor::Context, _args: Args, event: PromptEvent) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
+ }
+
+-fn force_cquit(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+-    if event != PromptEvent::Validate {
+-        return Ok(());
+-    }
+-
+-    let exit_code = args
+-        .first()
+-        .and_then(|code| code.parse::<i32>().ok())
+-        .unwrap_or(1);
+-    cx.editor.exit_code = exit_code;
+-
+-    quit_all_impl(cx, true)
++fn force_cquit(
++    cx: &mut compositor::Context,
++    _args: Args,
++    event: PromptEvent,
++) -> anyhow::Result<()> {
++    devtui_protected_full_quit(cx, event)
+ }
+
+ fn theme(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+@@ -3030,8 +2976,8 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit",
+-        aliases: &["q"],
+-        doc: "Close the current view.",
++        aliases: &["q", "close"],
++        doc: "Close the current devtui buffer/tab while keeping the editor region.",
+         fun: quit,
+         completer: CommandCompleter::none(),
+         signature: Signature {
+@@ -3041,8 +2987,8 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit!",
+-        aliases: &["q!"],
+-        doc: "Force close the current view, ignoring unsaved changes.",
++        aliases: &["q!", "close!"],
++        doc: "Discard changes and close the current devtui buffer/tab.",
+         fun: force_quit,
+         completer: CommandCompleter::none(),
+         signature: Signature {
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+new file mode 100644
+index 0000000..c78c046
+--- /dev/null
++++ b/helix-term/src/ui/devtui.rs
+@@ -0,0 +1,102 @@
++use std::{borrow::Cow, path::PathBuf};
++
++use helix_view::{editor::DevTuiRequest, DocumentId, Editor};
++use tui::widgets::Row;
++
++use crate::ui::{self, menu::Item, Prompt, PromptEvent, Select};
++
++#[derive(Clone, Copy, Debug, Default)]
++pub enum CloseChoice {
++    #[default]
++    Save,
++    DontSave,
++    Cancel,
++}
++
++impl Item for CloseChoice {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::Save => "Save",
++            Self::DontSave => "Don't Save",
++            Self::Cancel => "Cancel",
++        }
++        .into()
++    }
++}
++pub fn close_select(doc_id: DocumentId, display_name: String) -> Select<CloseChoice> {
++    Select::new(
++        format!("Save changes to {display_name}?"),
++        [CloseChoice::Save, CloseChoice::DontSave, CloseChoice::Cancel],
++        (),
++        move |editor, choice, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++
++            match choice {
++                CloseChoice::Save => {
++                    let untitled = editor
++                        .document(doc_id)
++                        .is_some_and(|doc| doc.path().is_none());
++                    if untitled {
++                        editor.devtui.requests.push_back(DevTuiRequest::SaveAs {
++                            doc_id,
++                            close_after_save: true,
++                        });
++                    } else {
++                        editor.devtui.close_after_save.insert(doc_id);
++                        if let Err(err) = editor.save(doc_id, None::<PathBuf>, false) {
++                            editor.devtui.close_after_save.remove(&doc_id);
++                            editor.set_error(err.to_string());
++                        }
++                    }
++                }
++                CloseChoice::DontSave => {
++                    let _ = editor.close_document(doc_id, true);
++                }
++                CloseChoice::Cancel => {}
++            }
++        },
++    )
++}
++pub fn save_as_prompt(
++    editor: &Editor,
++    doc_id: DocumentId,
++    close_after_save: bool,
++) -> Prompt {
++    let default_path = std::env::current_dir()
++        .ok()
++        .map(|path| {
++            let mut text = path.to_string_lossy().into_owned();
++            if !text.ends_with(std::path::MAIN_SEPARATOR) {
++                text.push(std::path::MAIN_SEPARATOR);
++            }
++            text
++        })
++        .unwrap_or_default();
++
++    Prompt::new(
++        Cow::Borrowed("Save As: "),
++        None,
++        ui::completers::filename,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate || input.trim().is_empty() {
++                return;
++            }
++
++            if close_after_save {
++                cx.editor.devtui.close_after_save.insert(doc_id);
++            }
++            if let Err(err) = cx
++                .editor
++                .save(doc_id, Some(PathBuf::from(input)), false)
++            {
++                cx.editor.devtui.close_after_save.remove(&doc_id);
++                cx.editor.set_error(err.to_string());
++            }
++        },
++    )
++    .with_line(default_path, editor)
++}
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 49ed213..df4585a 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -29,12 +29,27 @@
+     graphics::{Color, CursorKind, Modifier, Rect, Style},
+     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+     keyboard::{KeyCode, KeyModifiers},
+-    Document, Editor, Theme, View,
++    Document, DocumentId, Editor, Theme, View,
++};
++use std::{
++    mem::take,
++    num::NonZeroUsize,
++    ops,
++    path::PathBuf,
++    rc::Rc,
++    time::{Duration, Instant},
+ };
+-use std::{mem::take, num::NonZeroUsize, ops, path::PathBuf, rc::Rc};
+
+ use tui::{buffer::Buffer as Surface, text::Span};
+
++#[derive(Clone, Copy, Debug)]
++struct DevTuiTabHit {
++    doc_id: DocumentId,
++    start: u16,
++    end: u16,
++    close_start: u16,
++}
++
+ pub struct EditorView {
+     pub keymaps: Keymaps,
+     on_next_key: Option<(OnKeyCallback, OnKeyCallbackKind)>,
+@@ -46,6 +61,9 @@ pub struct EditorView {
+     // multi-selection. Helix selections are native, so Insert-mode edits and
+     // cursor motions immediately apply to every generated selection.
+     middle_drag_anchor: Option<(u16, u16)>,
++    bufferline_hits: Vec<DevTuiTabHit>,
++    bufferline_used_width: u16,
++    last_bufferline_click: Option<(Instant, u16)>,
+     /// Tracks if the terminal window is focused by reaction to terminal focus events
+     terminal_focused: bool,
+ }
+@@ -71,6 +89,9 @@ pub fn new(keymaps: Keymaps) -> Self {
+             completion: None,
+             spinners: ProgressSpinners::default(),
+             middle_drag_anchor: None,
++            bufferline_hits: Vec::new(),
++            bufferline_used_width: 0,
++            last_bufferline_click: None,
+             terminal_focused: true,
+         }
+     }
+@@ -664,9 +685,14 @@ pub fn tabstop_highlights(doc: &Document, theme: &Theme) -> Option<OverlayHighli
+         Some(OverlayHighlights::Homogeneous { highlight, ranges })
+     }
+
+-    /// Render bufferline at the top
+-    pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface) {
+-        let scratch = PathBuf::from(SCRATCH_BUFFER_NAME); // default filename to use for scratch buffer
++    /// Render a VS Code-style bufferline and retain mouse hit geometry.
++    pub fn render_bufferline(
++        &mut self,
++        editor: &Editor,
++        viewport: Rect,
++        surface: &mut Surface,
++    ) {
++        let scratch = PathBuf::from(SCRATCH_BUFFER_NAME);
+         surface.clear_with(
+             viewport,
+             editor
+@@ -679,12 +705,12 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+             .theme
+             .try_get("ui.bufferline.active")
+             .unwrap_or_else(|| editor.theme.get("ui.statusline.active"));
+-
+         let bufferline_inactive = editor
+             .theme
+             .try_get("ui.bufferline")
+             .unwrap_or_else(|| editor.theme.get("ui.statusline.inactive"));
+
++        self.bufferline_hits.clear();
+         let mut x = viewport.x;
+         let current_doc = view!(editor).doc;
+
+@@ -697,24 +723,36 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+                 .to_str()
+                 .unwrap_or_default();
+
+-            let style = if current_doc == doc.id() {
++            let mut style = if current_doc == doc.id() {
+                 bufferline_active
+             } else {
+                 bufferline_inactive
+             };
++            if editor.devtui.preview_document == Some(doc.id()) {
++                style = style.add_modifier(Modifier::ITALIC);
++            }
+
+-            let text = format!(" {}{} ", fname, if doc.is_modified() { "[+]" } else { "" });
+-            let used_width = viewport.x.saturating_sub(x);
+-            let rem_width = surface.area.width.saturating_sub(used_width);
++            let dirty = if doc.is_modified() { " ●" } else { "" };
++            let text = format!(" {fname}{dirty}  × ");
++            let width = text.width() as u16;
++            if x.saturating_add(width) > viewport.right() {
++                break;
++            }
+
++            let start = x;
++            let close_start = x.saturating_add(width.saturating_sub(3));
+             x = surface
+-                .set_stringn(x, viewport.y, &text, rem_width as usize, style)
++                .set_stringn(x, viewport.y, &text, width as usize, style)
+                 .0;
+-
+-            if x >= surface.area.right() {
+-                break;
+-            }
++            self.bufferline_hits.push(DevTuiTabHit {
++                doc_id: doc.id(),
++                start,
++                end: x,
++                close_start,
++            });
+         }
++
++        self.bufferline_used_width = x;
+     }
+
+     pub fn render_gutter<'d>(
+@@ -1261,6 +1299,53 @@ fn handle_mouse_event(
+             ..
+         } = *event;
+
++        if row == 0 {
++            if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
++                if let Some(hit) = self
++                    .bufferline_hits
++                    .iter()
++                    .copied()
++                    .find(|hit| column >= hit.start && column < hit.end)
++                {
++                    self.last_bufferline_click = None;
++                    if column >= hit.close_start {
++                        cxt.editor.devtui_request_close(hit.doc_id);
++                    } else {
++                        cxt.editor.switch(hit.doc_id, helix_view::editor::Action::Replace);
++                    }
++                    return EventResult::Consumed(None);
++                }
++
++                if column >= self.bufferline_used_width {
++                    let now = Instant::now();
++                    let double_click = self.last_bufferline_click.is_some_and(|(at, previous)| {
++                        previous.abs_diff(column) <= 2
++                            && now.duration_since(at) <= Duration::from_millis(450)
++                    });
++                    self.last_bufferline_click = Some((now, column));
++                    if double_click {
++                        cxt.editor.devtui_new_untitled();
++                        self.last_bufferline_click = None;
++                    }
++                    return EventResult::Consumed(None);
++                }
++            }
++
++            if matches!(kind, MouseEventKind::Down(MouseButton::Middle)) {
++                if let Some(hit) = self
++                    .bufferline_hits
++                    .iter()
++                    .copied()
++                    .find(|hit| column >= hit.start && column < hit.end)
++                {
++                    cxt.editor.devtui_request_close(hit.doc_id);
++                    return EventResult::Consumed(None);
++                }
++            }
++
++            return EventResult::Consumed(None);
++        }
++
+         let pos_and_view = |editor: &Editor, row, column, ignore_virtual_text| {
+             editor.tree.views().find_map(|(view, _focus)| {
+                 view.pos_at_screen_coords(
+@@ -1496,6 +1581,8 @@ fn handle_event(
+         event: &Event,
+         context: &mut crate::compositor::Context,
+     ) -> EventResult {
++        context.editor.devtui_promote_modified_preview();
++
+         let mut cx = commands::Context {
+             editor: context.editor,
+             count: None,
+@@ -1660,6 +1747,8 @@ fn handle_event(
+     }
+
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
++        cx.editor.devtui_promote_modified_preview();
++
+         // clear with background color
+         surface.set_style(area, cx.editor.theme.get("ui.background"));
+         let config = cx.editor.config();
+@@ -1682,7 +1771,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         cx.editor.resize(editor_area);
+
+         if use_bufferline {
+-            Self::render_bufferline(cx.editor, area.with_height(1), surface);
++            self.render_bufferline(cx.editor, area.with_height(1), surface);
++        } else {
++            self.bufferline_hits.clear();
++            self.bufferline_used_width = area.x;
+         }
+
+         for (view, is_focused) in cx.editor.tree.views() {
+diff --git a/helix-term/src/ui/mod.rs b/helix-term/src/ui/mod.rs
+index 7c3fa6a..3fd5ad2 100644
+--- a/helix-term/src/ui/mod.rs
++++ b/helix-term/src/ui/mod.rs
+@@ -1,6 +1,7 @@
+ mod completion;
+ mod document;
+ pub(crate) mod editor;
++pub mod devtui;
+ mod info;
+ pub mod lsp;
+ mod markdown;
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index adced18..b056066 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1270,6 +1270,25 @@ pub struct Breakpoint {
+
+ type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
+
++#[derive(Debug, Clone)]
++pub enum DevTuiRequest {
++    ConfirmClose(DocumentId),
++    SaveAs {
++        doc_id: DocumentId,
++        close_after_save: bool,
++    },
++}
++
++#[derive(Debug, Default)]
++pub struct DevTuiState {
++    /// The one reusable VS Code-style preview editor, if any.
++    pub preview_document: Option<DocumentId>,
++    /// Documents that should close after their pending save succeeds.
++    pub close_after_save: HashSet<DocumentId>,
++    /// UI requests produced by editor/command code and consumed by helix-term.
++    pub requests: VecDeque<DevTuiRequest>,
++}
++
+ pub struct Editor {
+     /// Current editing mode.
+     pub mode: Mode,
+@@ -1343,6 +1362,7 @@ pub struct Editor {
+     pub mouse_down_range: Option<Range>,
+     pub cursor_cache: CursorCache,
+     pub workspace_trust: WorkspaceTrust,
++    pub devtui: DevTuiState,
+ }
+
+ pub type Motion = Box<dyn Fn(&mut Editor)>;
+@@ -1468,6 +1488,7 @@ pub fn new(
+             cursor_cache: CursorCache::default(),
+             dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
+             workspace_trust,
++            devtui: DevTuiState::default(),
+         }
+     }
+
+@@ -2098,6 +2119,86 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
+         self.document_by_path(path).map(|doc| doc.id)
+     }
+
++    pub fn devtui_promote_modified_preview(&mut self) {
++        let Some(preview) = self.devtui.preview_document else {
++            return;
++        };
++        if self
++            .documents
++            .get(&preview)
++            .is_none_or(|doc| doc.is_modified())
++        {
++            self.devtui.preview_document = None;
++        }
++    }
++
++    pub fn devtui_open_preview(
++        &mut self,
++        path: &Path,
++    ) -> Result<DocumentId, DocumentOpenError> {
++        self.devtui_promote_modified_preview();
++        let canonical = helix_stdx::path::canonicalize(path);
++
++        if let Some(existing) = self.document_id_by_path(&canonical) {
++            self.switch(existing, Action::Replace);
++            return Ok(existing);
++        }
++
++        let old_preview = self.devtui.preview_document;
++        let new_id = self.open(&canonical, Action::Replace)?;
++        self.devtui.preview_document = Some(new_id);
++
++        if let Some(old_id) = old_preview.filter(|id| *id != new_id) {
++            if self
++                .documents
++                .get(&old_id)
++                .is_some_and(|doc| !doc.is_modified())
++            {
++                let _ = self.close_document(old_id, true);
++            }
++        }
++
++        Ok(new_id)
++    }
++
++    pub fn devtui_open_pinned(
++        &mut self,
++        path: &Path,
++    ) -> Result<DocumentId, DocumentOpenError> {
++        self.devtui_promote_modified_preview();
++        let id = self.open(path, Action::Replace)?;
++        if self.devtui.preview_document == Some(id) {
++            self.devtui.preview_document = None;
++        }
++        Ok(id)
++    }
++
++    pub fn devtui_new_untitled(&mut self) -> DocumentId {
++        self.devtui_promote_modified_preview();
++        self.new_file(Action::Replace)
++    }
++
++    pub fn devtui_request_close(&mut self, doc_id: DocumentId) {
++        if self
++            .documents
++            .get(&doc_id)
++            .is_some_and(|doc| doc.is_modified())
++        {
++            self.devtui
++                .requests
++                .push_back(DevTuiRequest::ConfirmClose(doc_id));
++        } else {
++            let _ = self.close_document(doc_id, false);
++        }
++    }
++
++    pub fn devtui_request_save_as(&mut self, doc_id: DocumentId, close_after_save: bool) {
++        self.devtui.requests.push_back(DevTuiRequest::SaveAs {
++            doc_id,
++            close_after_save,
++        });
++    }
++
+     // ??? possible use for integration tests
+     pub fn open(&mut self, path: &Path, action: Action) -> Result<DocumentId, DocumentOpenError> {
+         let path = helix_stdx::path::canonicalize(path);
+@@ -2165,6 +2266,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
+
+         // This will also disallow any follow-up writes
+         self.saves.remove(&doc_id);
++        if self.devtui.preview_document == Some(doc_id) {
++            self.devtui.preview_document = None;
++        }
++        self.devtui.close_after_save.remove(&doc_id);
+
+         enum Action {
+             Close(ViewId),
