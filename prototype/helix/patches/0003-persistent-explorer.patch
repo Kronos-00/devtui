@@ -1,0 +1,658 @@
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index c78c046..0126d3a 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1,7 +1,18 @@
+-use std::{borrow::Cow, path::PathBuf};
++use std::{
++    borrow::Cow,
++    collections::HashSet,
++    fs,
++    path::{Path, PathBuf},
++    time::{Duration, Instant},
++};
+
+-use helix_view::{editor::DevTuiRequest, DocumentId, Editor};
+-use tui::widgets::Row;
++use helix_view::{
++    editor::DevTuiRequest,
++    graphics::{Modifier, Rect},
++    DocumentId, Editor,
++};
++use ignore::WalkBuilder;
++use tui::{buffer::Buffer as Surface, widgets::Row};
+
+ use crate::ui::{self, menu::Item, Prompt, PromptEvent, Select};
+
+@@ -100,3 +111,342 @@ pub fn save_as_prompt(
+     )
+     .with_line(default_path, editor)
+ }
++
++#[derive(Clone, Debug)]
++pub struct ExplorerRow {
++    pub path: PathBuf,
++    pub depth: usize,
++    pub is_dir: bool,
++}
++
++pub struct DevTuiExplorer {
++    pub root: PathBuf,
++    pub expanded: HashSet<PathBuf>,
++    pub rows: Vec<ExplorerRow>,
++    pub cursor: usize,
++    pub scroll_offset: usize,
++    pub focused: bool,
++    pub width: u16,
++    pub dragging_resize: bool,
++    pub show_hidden: bool,
++    pub show_ignored: bool,
++    last_click: Option<(Instant, usize)>,
++}
++
++impl Default for DevTuiExplorer {
++    fn default() -> Self {
++        let root = std::env::current_dir()
++            .ok()
++            .map(|path| helix_stdx::path::normalize(path))
++            .unwrap_or_else(|| PathBuf::from("."));
++        let mut expanded = HashSet::new();
++        expanded.insert(root.clone());
++        let mut this = Self {
++            root,
++            expanded,
++            rows: Vec::new(),
++            cursor: 0,
++            scroll_offset: 0,
++            focused: true,
++            width: Self::load_width().unwrap_or(32),
++            dragging_resize: false,
++            show_hidden: true,
++            show_ignored: true,
++            last_click: None,
++        };
++        this.rebuild();
++        this
++    }
++}
++impl DevTuiExplorer {
++    const MIN_WIDTH: u16 = 12;
++
++    fn state_file() -> Option<PathBuf> {
++        if let Some(base) = std::env::var_os("XDG_STATE_HOME") {
++            return Some(PathBuf::from(base).join("devtui/explorer-width"));
++        }
++        std::env::var_os("HOME")
++            .map(PathBuf::from)
++            .map(|home| home.join(".local/state/devtui/explorer-width"))
++    }
++
++    fn load_width() -> Option<u16> {
++        let text = fs::read_to_string(Self::state_file()?).ok()?;
++        text.trim().parse().ok()
++    }
++
++    pub fn save_width(&self) {
++        let Some(path) = Self::state_file() else {
++            return;
++        };
++        if let Some(parent) = path.parent() {
++            let _ = fs::create_dir_all(parent);
++        }
++        let _ = fs::write(path, format!("{}\n", self.width));
++    }
++
++    pub fn set_width(&mut self, width: u16, total_width: u16) {
++        let max_width = total_width.saturating_sub(20).max(Self::MIN_WIDTH);
++        self.width = width.clamp(Self::MIN_WIDTH, max_width);
++    }
++
++    pub fn sidebar_area(&self, area: Rect) -> Rect {
++        let width = self
++            .width
++            .min(area.width.saturating_sub(20).max(Self::MIN_WIDTH));
++        Rect::new(area.x, area.y, width, area.height.saturating_sub(1))
++    }
++
++    pub fn editor_area(&self, area: Rect) -> Rect {
++        let sidebar = self.sidebar_area(area);
++        let x = sidebar.right().saturating_add(1);
++        Rect::new(
++            x,
++            area.y,
++            area.right().saturating_sub(x),
++            area.height,
++        )
++    }
++
++    pub fn resize_hot_zone(&self, area: Rect, column: u16) -> bool {
++        let sidebar = self.sidebar_area(area);
++        let right = sidebar.right();
++        column >= right.saturating_sub(3) && column <= right
++    }
++    fn child_rows(&self, dir: &Path) -> Vec<(PathBuf, bool)> {
++        let mut builder = WalkBuilder::new(dir);
++        builder
++            .max_depth(Some(1))
++            .hidden(!self.show_hidden)
++            .parents(!self.show_ignored)
++            .ignore(!self.show_ignored)
++            .git_ignore(!self.show_ignored)
++            .git_global(!self.show_ignored)
++            .git_exclude(!self.show_ignored)
++            .follow_links(false);
++
++        let mut children: Vec<_> = builder
++            .build()
++            .filter_map(Result::ok)
++            .filter_map(|entry| {
++                let path = entry.path().to_path_buf();
++                (path != dir).then(|| {
++                    let is_dir = path.is_dir();
++                    (path, is_dir)
++                })
++            })
++            .collect();
++
++        children.sort_by(|(a, ad), (b, bd)| {
++            (!*ad, a.file_name()).cmp(&(!*bd, b.file_name()))
++        });
++        children
++    }
++
++    fn push_children(&self, dir: &Path, depth: usize, out: &mut Vec<ExplorerRow>) {
++        for (path, is_dir) in self.child_rows(dir) {
++            out.push(ExplorerRow {
++                path: path.clone(),
++                depth,
++                is_dir,
++            });
++            if is_dir && self.expanded.contains(&path) {
++                self.push_children(&path, depth + 1, out);
++            }
++        }
++    }
++
++    pub fn rebuild(&mut self) {
++        let selected = self.rows.get(self.cursor).map(|row| row.path.clone());
++        let mut rows = vec![ExplorerRow {
++            path: self.root.clone(),
++            depth: 0,
++            is_dir: true,
++        }];
++        if self.expanded.contains(&self.root) {
++            self.push_children(&self.root, 1, &mut rows);
++        }
++        self.rows = rows;
++        self.cursor = selected
++            .and_then(|path| self.rows.iter().position(|row| row.path == path))
++            .unwrap_or_else(|| self.cursor.min(self.rows.len().saturating_sub(1)));
++    }
++
++    pub fn selected(&self) -> Option<&ExplorerRow> {
++        self.rows.get(self.cursor)
++    }
++
++    pub fn move_cursor(&mut self, delta: isize) {
++        if self.rows.is_empty() {
++            self.cursor = 0;
++            return;
++        }
++        self.cursor = self
++            .cursor
++            .saturating_add_signed(delta)
++            .min(self.rows.len() - 1);
++    }
++    pub fn toggle_selected_dir(&mut self) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if !row.is_dir {
++            return;
++        }
++        if !self.expanded.remove(&row.path) {
++            self.expanded.insert(row.path);
++        }
++        self.rebuild();
++    }
++
++    pub fn collapse_or_parent(&mut self) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir && self.expanded.remove(&row.path) {
++            self.rebuild();
++            return;
++        }
++        if let Some(parent) = row.path.parent() {
++            if let Some(index) = self.rows.iter().position(|candidate| candidate.path == parent) {
++                self.cursor = index;
++            }
++        }
++    }
++
++    pub fn expand_or_preview(&mut self, editor: &mut Editor) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir {
++            self.expanded.insert(row.path);
++            self.rebuild();
++        } else if let Err(err) = editor.devtui_open_preview(&row.path) {
++            editor.set_error(err.to_string());
++        }
++    }
++
++    pub fn activate_selected(&mut self, editor: &mut Editor, double_click: bool) {
++        let Some(row) = self.selected().cloned() else {
++            return;
++        };
++        if row.is_dir {
++            if double_click {
++                return;
++            }
++            self.toggle_selected_dir();
++        } else if double_click {
++            if let Err(err) = editor.devtui_open_pinned(&row.path) {
++                editor.set_error(err.to_string());
++            }
++        } else if let Err(err) = editor.devtui_open_preview(&row.path) {
++            editor.set_error(err.to_string());
++        }
++    }
++
++    pub fn click_row(&mut self, index: usize, editor: &mut Editor) {
++        if index >= self.rows.len() {
++            return;
++        }
++        self.cursor = index;
++        let now = Instant::now();
++        let double_click = self.last_click.is_some_and(|(at, previous)| {
++            previous == index && now.duration_since(at) <= Duration::from_millis(450)
++        });
++        self.last_click = Some((now, index));
++        self.activate_selected(editor, double_click);
++    }
++    pub fn row_at(&self, area: Rect, row: u16) -> Option<usize> {
++        if row <= area.y || row >= area.bottom() {
++            return None;
++        }
++        let index = self.scroll_offset + (row - area.y - 1) as usize;
++        (index < self.rows.len()).then_some(index)
++    }
++
++    pub fn scroll_by(&mut self, delta: isize, visible_rows: usize) {
++        let max = self.rows.len().saturating_sub(visible_rows.max(1));
++        self.scroll_offset = self.scroll_offset.saturating_add_signed(delta).min(max);
++    }
++
++    pub fn ensure_cursor_visible(&mut self, visible_rows: usize) {
++        let visible_rows = visible_rows.max(1);
++        if self.cursor < self.scroll_offset {
++            self.scroll_offset = self.cursor;
++        } else if self.cursor >= self.scroll_offset + visible_rows {
++            self.scroll_offset = self.cursor + 1 - visible_rows;
++        }
++    }
++
++    pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
++        self.rebuild();
++        let bg = editor.theme.get("ui.background");
++        let text = editor.theme.get("ui.text");
++        let directory = editor.theme.get("ui.text.directory");
++        let selected = editor.theme.get("ui.text.focus");
++        let title = if self.focused {
++            editor.theme.get("ui.statusline.active")
++        } else {
++            editor.theme.get("ui.statusline")
++        };
++
++        surface.clear_with(area, bg);
++        let root_name = self
++            .root
++            .file_name()
++            .and_then(|name| name.to_str())
++            .filter(|name| !name.is_empty())
++            .unwrap_or("workspace")
++            .to_string();
++        surface.set_stringn(
++            area.x,
++            area.y,
++            &format!(" EXPLORER · {root_name}"),
++            area.width as usize,
++            title.add_modifier(Modifier::BOLD),
++        );
++
++        let visible = area.height.saturating_sub(1) as usize;
++        self.ensure_cursor_visible(visible);
++        let scroll = self.scroll_offset;
++        for (screen_index, row) in self
++            .rows
++            .iter()
++            .skip(scroll)
++            .take(visible)
++            .enumerate()
++        {
++            let absolute = scroll + screen_index;
++            let y = area.y + 1 + screen_index as u16;
++            let indent = "  ".repeat(row.depth);
++            let marker = if row.is_dir {
++                if self.expanded.contains(&row.path) { "▾ " } else { "▸ " }
++            } else {
++                "  "
++            };
++            let name = if row.depth == 0 {
++                root_name.to_string()
++            } else {
++                row.path
++                    .file_name()
++                    .and_then(|name| name.to_str())
++                    .unwrap_or("?")
++                    .to_string()
++            };
++            let style = if absolute == self.cursor {
++                selected
++            } else if row.is_dir {
++                directory
++            } else {
++                text
++            };
++            surface.set_stringn(
++                area.x,
++                y,
++                &format!("{indent}{marker}{name}"),
++                area.width as usize,
++                style,
++            );
++        }
++    }
++}
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index df4585a..c90ac83 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -64,6 +64,8 @@ pub struct EditorView {
+     bufferline_hits: Vec<DevTuiTabHit>,
+     bufferline_used_width: u16,
+     last_bufferline_click: Option<(Instant, u16)>,
++    explorer: crate::ui::devtui::DevTuiExplorer,
++    layout_area: Rect,
+     /// Tracks if the terminal window is focused by reaction to terminal focus events
+     terminal_focused: bool,
+ }
+@@ -92,6 +94,8 @@ pub fn new(keymaps: Keymaps) -> Self {
+             bufferline_hits: Vec::new(),
+             bufferline_used_width: 0,
+             last_bufferline_click: None,
++            explorer: crate::ui::devtui::DevTuiExplorer::default(),
++            layout_area: Rect::default(),
+             terminal_focused: true,
+         }
+     }
+@@ -1242,6 +1246,112 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
+         self.pseudo_pending.clear();
+     }
+
++    fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool {
++        let focus_explorer = event.modifiers.contains(KeyModifiers::CONTROL)
++            && match event.code {
++                KeyCode::Char('e') => event.modifiers.contains(KeyModifiers::SHIFT),
++                KeyCode::Char('E') => true,
++                _ => false,
++            };
++        if focus_explorer {
++            self.explorer.focused = true;
++            return true;
++        }
++
++        if !self.explorer.focused {
++            return false;
++        }
++
++        match event.code {
++            KeyCode::Esc => {}
++            KeyCode::Char('q') if event.modifiers.is_empty() => {}
++            KeyCode::Up => self.explorer.move_cursor(-1),
++            KeyCode::Down => self.explorer.move_cursor(1),
++            KeyCode::Home => self.explorer.cursor = 0,
++            KeyCode::End => {
++                self.explorer.cursor = self.explorer.rows.len().saturating_sub(1);
++            }
++            KeyCode::Right => self.explorer.expand_or_preview(editor),
++            KeyCode::Left => self.explorer.collapse_or_parent(),
++            KeyCode::Enter => self.explorer.activate_selected(editor, false),
++            KeyCode::Char('h') | KeyCode::Char('H')
++                if event.modifiers.contains(KeyModifiers::SHIFT) =>
++            {
++                self.explorer.show_hidden = !self.explorer.show_hidden;
++                self.explorer.rebuild();
++            }
++            KeyCode::Char('i') | KeyCode::Char('I')
++                if event.modifiers.contains(KeyModifiers::SHIFT) =>
++            {
++                self.explorer.show_ignored = !self.explorer.show_ignored;
++                self.explorer.rebuild();
++            }
++            _ => {}
++        }
++        true
++    }
++
++    fn handle_explorer_mouse(
++        &mut self,
++        event: &MouseEvent,
++        cxt: &mut commands::Context,
++    ) -> Option<EventResult> {
++        if self.layout_area.width == 0 {
++            return None;
++        }
++
++        let area = self.explorer.sidebar_area(self.layout_area);
++        let inside = event.column >= area.x
++            && event.column < area.right()
++            && event.row >= area.y
++            && event.row < area.bottom();
++
++        if self.explorer.dragging_resize {
++            match event.kind {
++                MouseEventKind::Drag(MouseButton::Left)
++                | MouseEventKind::Down(MouseButton::Left) => {
++                    let width = event.column.saturating_sub(self.layout_area.x) + 1;
++                    self.explorer.set_width(width, self.layout_area.width);
++                }
++                MouseEventKind::Up(MouseButton::Left) => {
++                    self.explorer.dragging_resize = false;
++                    self.explorer.save_width();
++                }
++                _ => {}
++            }
++            return Some(EventResult::Consumed(None));
++        }
++
++        if matches!(event.kind, MouseEventKind::Down(MouseButton::Left))
++            && self.explorer.resize_hot_zone(self.layout_area, event.column)
++        {
++            self.explorer.dragging_resize = true;
++            self.explorer.focused = true;
++            return Some(EventResult::Consumed(None));
++        }
++
++        if inside {
++            self.explorer.focused = true;
++            let visible_rows = area.height.saturating_sub(1) as usize;
++            match event.kind {
++                MouseEventKind::Down(MouseButton::Left) => {
++                    if let Some(index) = self.explorer.row_at(area, event.row) {
++                        self.explorer.click_row(index, cxt.editor);
++                    }
++                }
++                MouseEventKind::ScrollUp => self.explorer.scroll_by(-3, visible_rows),
++                MouseEventKind::ScrollDown => self.explorer.scroll_by(3, visible_rows),
++                _ => {}
++            }
++            return Some(EventResult::Consumed(None));
++        }
++
++        if matches!(event.kind, MouseEventKind::Down(MouseButton::Left)) {
++            self.explorer.focused = false;
++        }
++        None
++    }
++
+     fn update_middle_drag_selection(&mut self, editor: &mut Editor, row: u16) -> bool {
+         let Some((anchor_row, anchor_column)) = self.middle_drag_anchor else {
+             return false;
+@@ -1286,6 +1396,10 @@ fn handle_mouse_event(
+         event: &MouseEvent,
+         cxt: &mut commands::Context,
+     ) -> EventResult {
++        if let Some(result) = self.handle_explorer_mouse(event, cxt) {
++            return result;
++        }
++
+         if event.kind != MouseEventKind::Moved {
+             self.handle_non_key_input(cxt)
+         }
+@@ -1583,6 +1697,12 @@ fn handle_event(
+     ) -> EventResult {
+         context.editor.devtui_promote_modified_preview();
+
++        if let Event::Key(key) = event {
++            if self.handle_explorer_key(*key, context.editor) {
++                return EventResult::Consumed(None);
++            }
++        }
++
+         let mut cx = commands::Context {
+             editor: context.editor,
+             count: None,
+@@ -1748,9 +1868,24 @@ fn handle_event(
+
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         cx.editor.devtui_promote_modified_preview();
++        self.layout_area = area;
+
+         // clear with background color
+         surface.set_style(area, cx.editor.theme.get("ui.background"));
++
++        let sidebar_area = self.explorer.sidebar_area(area);
++        let editor_outer = self.explorer.editor_area(area);
++        self.explorer.render(sidebar_area, surface, cx.editor);
++        let separator_x = sidebar_area.right();
++        for y in area.y..area.y + area.height.saturating_sub(1) {
++            surface.set_string(
++                separator_x,
++                y,
++                "│",
++                cx.editor.theme.get("ui.background.separator"),
++            );
++        }
++
+         let config = cx.editor.config();
+
+         // check if bufferline should be rendered
+@@ -1762,7 +1897,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         };
+
+         // -1 for commandline and -1 for bufferline
+-        let mut editor_area = area.clip_bottom(1);
++        let mut editor_area = editor_outer.clip_bottom(1);
+         if use_bufferline {
+             editor_area = editor_area.clip_top(1);
+         }
+@@ -1771,20 +1906,20 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         cx.editor.resize(editor_area);
+
+         if use_bufferline {
+-            self.render_bufferline(cx.editor, area.with_height(1), surface);
++            self.render_bufferline(cx.editor, editor_outer.with_height(1), surface);
+         } else {
+             self.bufferline_hits.clear();
+-            self.bufferline_used_width = area.x;
++            self.bufferline_used_width = editor_outer.x;
+         }
+
+         for (view, is_focused) in cx.editor.tree.views() {
+             let doc = cx.editor.document(view.doc).unwrap();
+-            self.render_view(cx.editor, doc, view, area, surface, is_focused);
++            self.render_view(cx.editor, doc, view, editor_outer, surface, is_focused);
+         }
+
+         if config.auto_info {
+             if let Some(mut info) = cx.editor.autoinfo.take() {
+-                info.render(area, surface, cx);
++                info.render(editor_outer, surface, cx);
+                 cx.editor.autoinfo = Some(info)
+             }
+         }
+@@ -1803,14 +1938,18 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             };
+
+             surface.set_string(
+-                area.x,
+-                area.y + area.height.saturating_sub(1),
++                editor_outer.x,
++                editor_outer.y + editor_outer.height.saturating_sub(1),
+                 status_msg,
+                 style,
+             );
+         }
+
+-        if area.width.saturating_sub(status_msg_width as u16) > key_width {
++        if editor_outer
++            .width
++            .saturating_sub(status_msg_width as u16)
++            > key_width
++        {
+             let mut disp = String::new();
+             if let Some(count) = cx.editor.count {
+                 disp.push_str(&count.to_string())
+@@ -1830,11 +1969,11 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             let restricted = workspace_trust_indicator_visible(cx.editor);
+             let trust_width = if restricted { 3 } else { 0 };
+             surface.set_string(
+-                area.x
+-                    + area
++                editor_outer.x
++                    + editor_outer
+                         .width
+                         .saturating_sub(key_width + macro_width + trust_width),
+-                area.y + area.height.saturating_sub(1),
++                editor_outer.y + editor_outer.height.saturating_sub(1),
+                 disp.get(disp.len().saturating_sub(key_width as usize)..)
+                     .unwrap_or(&disp),
+                 style,
+@@ -1844,9 +1983,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                     .fg(helix_view::graphics::Color::Yellow)
+                     .add_modifier(Modifier::BOLD);
+                 surface.set_string(
+-                    area.x
+-                        .saturating_add(area.width.saturating_sub(3 + macro_width)),
+-                    area.y + area.height.saturating_sub(1),
++                    editor_outer
++                        .x
++                        .saturating_add(editor_outer.width.saturating_sub(3 + macro_width)),
++                    editor_outer.y + editor_outer.height.saturating_sub(1),
+                     "[⚠]",
+                     style,
+                 );
+@@ -1857,8 +1997,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                     .fg(helix_view::graphics::Color::Yellow)
+                     .add_modifier(Modifier::BOLD);
+                 surface.set_string(
+-                    area.x + area.width.saturating_sub(3),
+-                    area.y + area.height.saturating_sub(1),
++                    editor_outer.x + editor_outer.width.saturating_sub(3),
++                    editor_outer.y + editor_outer.height.saturating_sub(1),
+                     &disp,
+                     style,
+                 );
+@@ -1866,7 +2006,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         }
+
+         if let Some(completion) = self.completion.as_mut() {
+-            completion.render(area, surface, cx);
++            completion.render(editor_outer, surface, cx);
+         }
+     }
+

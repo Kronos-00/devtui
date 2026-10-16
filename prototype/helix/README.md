@@ -24,11 +24,11 @@ Implemented and validated in the fork:
 - bufferline mouse switching/closing, dirty marker + close control, and blank-area double-click Untitled;
 - dirty close Save / Don't Save / Cancel;
 - Untitled Save As for write/write-quit;
-- protected local quit/write-quit/exit command families.
+- protected local quit/write-quit/exit command families;
+- persistent Explorer sidebar with explicit workspace root, folder expansion, file Preview/Pin wiring, focus protection, hidden/ignored toggles, mouse wheel scrolling, and persistent drag-resize width.
 
 ## Deliberately not implemented yet
 
-- persistent Explorer sidebar/tree;
 - Explorer context menu/file-operation UX;
 - right-click symbol menu;
 - editor scrollbar;

@@ -23,10 +23,10 @@ The migration is technically feasible and worth prototyping, but it is not a con
 | Bufferline mouse switch/close | No current hit testing | Medium | Later Rust patch |
 | OSC 52 clipboard | Native termcode provider | Low | Configure |
 | Markdown source punctuation | Native text source view | Low | No special patch |
-| Persistent Explorer sidebar | Explorer is currently a picker overlay; prototype adds basic mouse operation | High | Later Rust UI patch |
-| Explorer file ops/context menu | Core file create/rename/delete APIs exist; UI missing | Medium-High | Later UI patch |
-| Explorer multi-select + mouse semantics | Picker is not a persistent multi-select tree | High | Later UI patch |
-| Explorer resize/persist width | No persistent sidebar yet | High | Follows sidebar patch |
+| Persistent Explorer sidebar | Implemented in EditorView | High | Implemented |
+| Explorer file ops/context menu | Core file create/rename/delete APIs exist; UI missing | Medium-High | Next migration group |
+| Explorer multi-select + mouse semantics | Persistent tree exists; multi-select/context still pending | High | Next migration group |
+| Explorer resize/persist width | 3-cell drag handle + state file | High | Implemented |
 | Preview/Pinned editors | Picker preview exists; devtui state now implements reusable preview + pin foundation | High | Lifecycle foundation implemented; Explorer wiring next |
 | Dirty close Save/Don't Save/Cancel | Dirty detection exists | Medium | Implemented |
 | Scratch Save As flow | Explicit path supported | Medium | Implemented for write/write-quit |

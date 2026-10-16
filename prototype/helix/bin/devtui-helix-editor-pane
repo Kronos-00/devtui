@@ -6,5 +6,5 @@ fi
 PREFIX="$HOME/.local/opt/devtui/helix-prototype"
 export HELIX_RUNTIME="$PREFIX/runtime"
 export XDG_CONFIG_HOME="$HOME/.config/devtui-helix"
-"$PREFIX/bin/hx" .
+"$PREFIX/bin/hx"
 exec bash --noprofile --norc -i
