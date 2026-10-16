@@ -5,8 +5,14 @@ cleanup() { [ -n "$old_stty" ] && stty "$old_stty" 2>/dev/null || true; printf '
 trap cleanup EXIT INT TERM
 stty -echo -icanon min 0 time 0 2>/dev/null || true
 printf '\033[?25l\033[2J\033[H'
-printf '%s\n' '[HELIX PROTOTYPE] middle-drag: multi-selection | i: realtime insert | arrows: move all selections'
-printf '%s\n' '[NAV] C-P:open | C-S-F:search | C-S-P:commands | C-S-E:file explorer | F12:def | S-F12:refs'
-printf '%s\n' '[SESSION] Ctrl-q:quit devtui | Ctrl-o d:detach | prototype gaps: persistent tree / preview-pinned / editor IPC'
-printf '%s'   '[COMPARE] normal devtui remains installed separately; run devtui-helix only for evaluation'
+cols="$(stty size 2>/dev/null | awk '{print $2}')"
+if [[ "$cols" =~ ^[0-9]+$ ]] && [ "$cols" -ge 240 ]; then
+  printf '%s\n' '[devtui-helix] C-P open | C-S-F search | C-H replace | C-S-E Explorer | F12 definition | S-F12 refs | F5/F10/F11 debug'
+  printf '%s'   '[mouse] middle-drag column edit | Explorer/context menus | Ctrl-q quit | Ctrl-o d detach | Alt-click terminal paths'
+else
+  printf '%s\n' '[devtui-helix] VS Code-style terminal IDE on Helix'
+  printf '%s\n' '[NAV] C-P:open | C-S-F:search | C-H:replace | C-S-P:commands | C-S-E:Explorer | F12:def | S-F12:refs'
+  printf '%s\n' '[EDIT] middle-drag:column edit | C-D:next occurrence | C-S-L:all occurrences | C-S-S:Save As'
+  printf '%s'   '[SESSION] Ctrl-q:quit | Ctrl-o d:detach | Alt-click terminal path opens in the running editor'
+fi
 while IFS= read -rsn1 -t 0.10 _; do :; done

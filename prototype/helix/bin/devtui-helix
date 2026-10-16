@@ -5,4 +5,21 @@ cd "$ROOT"
 export DEVTUI_HELIX_EDITOR_PANE_FILE="/tmp/devtui-helix-editor-${UID}-$$.pane"
 export DEVTUI_HELIX_SOCKET="/tmp/devtui-helix-${UID}-$$.sock"
 rm -f "$DEVTUI_HELIX_EDITOR_PANE_FILE" "$DEVTUI_HELIX_SOCKET"
-exec zellij --config "$HOME/.config/devtui-helix/zellij.kdl" --layout "$HOME/.config/zellij/layouts/dev-helix.kdl"
+
+cols="${DEVTUI_COLUMNS:-}"
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols="$(stty size 2>/dev/null | awk '{print $2}')"
+fi
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols="$(tput cols 2>/dev/null || true)"
+fi
+if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
+  cols=120
+fi
+
+layout="$HOME/.config/zellij/layouts/dev-helix.kdl"
+if [ "$cols" -ge 240 ]; then
+  layout="$HOME/.config/zellij/layouts/dev-helix-wide.kdl"
+fi
+
+exec zellij --config "$HOME/.config/devtui-helix/zellij.kdl" --layout "$layout"

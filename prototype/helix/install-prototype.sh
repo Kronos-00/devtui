@@ -23,6 +23,7 @@ import sys
 root=Path(sys.argv[1]); home=sys.argv[2]
 for src,dst in [
     (root/'prototype/helix/zellij/dev-helix.kdl.in', Path(home)/'.config/zellij/layouts/dev-helix.kdl'),
+    (root/'prototype/helix/zellij/dev-helix-wide.kdl.in', Path(home)/'.config/zellij/layouts/dev-helix-wide.kdl'),
     (root/'prototype/helix/zellij/zellij.kdl.in', Path(home)/'.config/devtui-helix/zellij.kdl'),
     (root/'prototype/helix/config/lazygit.yml', Path(home)/'.config/devtui-helix/lazygit.yml'),
 ]:

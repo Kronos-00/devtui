@@ -14,7 +14,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | Feature | Status |
 | --- | --- |
 | Zellij IDE layout: editor, Git UI, shell, shortcut banner | Done |
-| Normal/wide layout behavior | Pending |
+| Normal/wide layout behavior | Done |
 | `Ctrl-q` exits the full devtui session; detach remains a Zellij action | Done |
 | Editor display region remains present when files/tabs close | Done |
 | Explorer remains present and cannot be dismissed accidentally | Done |
