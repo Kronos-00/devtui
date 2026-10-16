@@ -39,11 +39,11 @@ Implemented and validated in the fork:
 - Lazygit edit actions routed to that editor;
 - dedicated Helix terminal-link plugin build for path/line/column navigation.
 
-## Deliberately not implemented yet
+## Migration parity
 
-- project Replace panel.
+The portable, user-visible features that were added to the Neovim edition are now represented in the Helix fork. See [docs/PARITY.md](docs/PARITY.md) for the regression matrix and [docs/MIGRATION.md](docs/MIGRATION.md) for the detailed feature/commit map.
 
-Those items are assessed in [docs/ASSESSMENT.md](docs/ASSESSMENT.md). They are prototype gaps, not claimed parity.
+Features that were never part of the Neovim baseline (such as multi-selecting tabs for batch operations and Explorer drag/drop moving) are tracked separately as future enhancements rather than migration blockers.
 
 ## Install alongside normal devtui
 

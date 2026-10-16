@@ -17,6 +17,7 @@ install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-git-pane" "$HOME/.local/
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-open" "$HOME/.local/bin/devtui-helix-open"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-shell-pane" "$HOME/.local/bin/devtui-helix-shell-pane"
 cp "$ROOT/prototype/helix/config/config.toml" "$HOME/.config/devtui-helix/helix/config.toml"
+cp "$ROOT/prototype/helix/config/languages.toml" "$HOME/.config/devtui-helix/helix/languages.toml"
 python3 - "$ROOT" "$HOME" <<'PY'
 from pathlib import Path
 import sys
@@ -33,5 +34,6 @@ PY
 if [ "$CONFIG_ONLY" -eq 0 ]; then
   "$ROOT/prototype/helix/scripts/build-helix.sh"
   "$ROOT/prototype/helix/scripts/build-link-plugin.sh"
+  "$ROOT/prototype/helix/scripts/install-tools.sh"
 fi
 echo "Prototype installed. Run: devtui-helix [project-directory]"

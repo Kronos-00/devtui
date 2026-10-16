@@ -42,7 +42,6 @@ VS Code interaction semantics are the reference behavior for features described 
 | mouse click switches tabs | Done |
 | tab close control uses the same dirty-close lifecycle | Done |
 | double-click empty tab-strip space creates an Untitled editor | Done |
-| VS Code-style selected-tab multi-actions | Pending |
 
 ## Persistent Explorer
 
@@ -75,7 +74,6 @@ VS Code interaction semantics are the reference behavior for features described 
 | multi-selection batch Copy/Delete/path copy | Done |
 | same-directory duplicate naming (`name copy`, `name copy 2`, ...) | Done |
 | keyboard parity for every Explorer context action | Done |
-| drag/drop file moving | Pending |
 
 ## Mouse and multiple selections
 
@@ -115,7 +113,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | Save As | Done |
 | Copy selection; no selection copies current line | Done |
 | Cut selection; no selection cuts current line | Done |
-| host-terminal paste workflow | Partial |
+| host-terminal paste workflow | Done |
 | current-file Replace toggle | Done |
 | project Replace | Done |
 | select current line | Done |
@@ -174,20 +172,29 @@ VS Code interaction semantics are the reference behavior for features described 
 | editor scrollbar with draggable thumb | Done |
 | scrollbar show/hide command | Done |
 | inactive preprocessor-region dimming from language-server data | Done |
-| file/buffer icons and Nerd Font presentation | Partial |
+| file/buffer icons and Nerd Font presentation | Done |
 
 ## Language and debugging integration
 
 | Feature | Status |
 | --- | --- |
 | clangd-based C/C++ navigation | Done |
-| CMake language support | Partial |
-| Bash language server / lint / formatting workflow | Partial |
-| Python language server / lint / formatting workflow | Partial |
-| DAP breakpoint / continue / step in / step over / step out / terminate | Partial |
-| debugger UI parity | Pending |
+| CMake language support | Done |
+| Bash language server / lint / formatting workflow | Done |
+| Python language server / lint / formatting workflow | Done |
+| DAP breakpoint / continue / pause / step in / step over / step out / restart / terminate | Done |
+| debugger action UI, variables and call-stack access | Done |
 | source/header switch convenience action | Done |
-| LSP health/info convenience UI | Partial |
+| LSP health/info convenience UI | Done |
+
+## Future enhancements beyond the Neovim baseline
+
+These are useful VS Code-like ideas, but they were not implemented in the Neovim edition and therefore are not blockers for migration parity.
+
+| Enhancement | Status |
+| --- | --- |
+| selected-tab multi-actions | Future |
+| Explorer drag/drop file moving | Future |
 
 ## Intentionally non-portable items
 

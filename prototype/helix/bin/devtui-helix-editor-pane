@@ -6,7 +6,21 @@ fi
 PREFIX="$HOME/.local/opt/devtui/helix-prototype"
 export HELIX_RUNTIME="$PREFIX/runtime"
 export XDG_CONFIG_HOME="$HOME/.config/devtui-helix"
-"$PREFIX/bin/hx"
+TOOLS="$HOME/.local/opt/devtui/helix-tools/bin"
+
+# Restore the workspace-selected Python environment for editor/LSP/debugging.
+WORKSPACE="$(pwd -P)"
+WORKSPACE_KEY="$(printf '%s' "$WORKSPACE" | od -An -tx1 | tr -d ' \n')"
+PY_STATE="$HOME/.local/state/devtui/helix-python-envs/$WORKSPACE_KEY"
+if [ -f "$PY_STATE" ]; then
+  VENV="$(cat "$PY_STATE")"
+  if [ -x "$VENV/bin/python" ]; then
+    export VIRTUAL_ENV="$VENV"
+    export PATH="$VENV/bin:$PATH"
+  fi
+fi
+
+PATH="$TOOLS:$PATH" "$PREFIX/bin/hx"
 rm -f "${DEVTUI_HELIX_SOCKET:-}"
 unset DEVTUI_HELIX_SOCKET
 unset DEVTUI_HELIX_EDITOR_PANE_FILE

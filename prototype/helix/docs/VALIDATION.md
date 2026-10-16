@@ -53,6 +53,6 @@ The prototype also validates the initial Helix file-explorer overlay with real S
 
 PTY verification opened `a.txt` by double-click and changed `AAAA` to `DAAAA`; a wheel step selected `03.txt` and changed `F03` to `SF03`; editor text clicking moved the insertion point inside `0123456789ABCDEFGHIJ`, producing `0123456Q789ABCDEFGHIJ`.
 
-## What this does not validate
+## Broader parity validation
 
-The prototype does not claim parity for the persistent Explorer, Preview/Pinned tabs, bufferline mouse controls, dirty-close dialog, editor scrollbar, project Replace UI, inactive-region extension, or running-editor IPC. Those remain explicit follow-up items in `ASSESSMENT.md`.
+Subsequent migration commits added and separately regression-tested the persistent Explorer, Preview/Pinned lifecycle, bufferline mouse controls, dirty-close/Save As flow, Explorer file actions and multi-selection, editor scrollbar, current-file and project Replace UI, inactive-region protocol handling, and running-editor IPC. The authoritative current matrix is `PARITY.md`; this file preserves the original PTY evidence for the prototype's core multi-selection and mouse assumptions.

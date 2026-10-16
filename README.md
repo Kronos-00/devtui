@@ -81,6 +81,6 @@ See [LICENSE](LICENSE).
 
 ## Experimental Helix prototype
 
-The `helix-prototype` branch contains a side-by-side Helix editor prototype. It does not replace the normal `devtui` launcher. The prototype validates native real-time multiple-selection editing and a middle-drag selection patch, while documenting the remaining migration work for Explorer, Preview/Pinned editors, bufferline mouse controls, close dialogs, scrollbar, Replace UI, and running-editor IPC.
+The `helix-prototype` branch contains a side-by-side Helix edition. It does not replace the normal `devtui` launcher. The portable, user-visible features that were added to the Neovim edition have been migrated into a pinned Helix fork, including native real-time multiple selections, persistent Explorer, Preview/Pinned editors, dirty-close/Save As behavior, editor/Explorer mouse interactions, running-editor IPC, scrollbar, inactive-region rendering, VS Code-style shortcuts/search/replace, and portable language/debug integration.
 
-See [`prototype/helix/README.md`](prototype/helix/README.md) and [`prototype/helix/docs/ASSESSMENT.md`](prototype/helix/docs/ASSESSMENT.md).
+See [`prototype/helix/README.md`](prototype/helix/README.md), [`prototype/helix/docs/PARITY.md`](prototype/helix/docs/PARITY.md), and [`prototype/helix/docs/MIGRATION.md`](prototype/helix/docs/MIGRATION.md).

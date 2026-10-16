@@ -118,7 +118,7 @@ index d99014e..b95089f 100644
              lsp::notification::ShowMessage::METHOD => {
                  let params: lsp::ShowMessageParams = params.parse()?;
 diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
-index ea969f8..5f46c9a 100644
+index ea969f8..408f665 100644
 --- a/helix-term/src/application.rs
 +++ b/helix-term/src/application.rs
 @@ -10,12 +10,13 @@
@@ -273,7 +273,7 @@ index ea969f8..5f46c9a 100644
                  event = self.editor.wait_event() => {
                      let _idle_handled = self.handle_editor_event(event).await;
 
-@@ -654,6 +741,224 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+@@ -654,6 +741,254 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
              "'{}' written, {lines}L {size}",
              get_relative_path(&doc_save_event.path).to_string_lossy(),
          ));
@@ -421,6 +421,36 @@ index ea969f8..5f46c9a 100644
 +                        }
 +                    }
 +                }
++                DevTuiRequest::DebugAction(name) => {
++                    let command = match name {
++                        "start_or_continue" => {
++                            crate::commands::MappableCommand::devtui_debug_start_or_continue
++                        }
++                        "pause" => crate::commands::MappableCommand::dap_pause,
++                        "step_over" => crate::commands::MappableCommand::dap_next,
++                        "step_into" => crate::commands::MappableCommand::dap_step_in,
++                        "step_out" => crate::commands::MappableCommand::dap_step_out,
++                        "variables" => crate::commands::MappableCommand::dap_variables,
++                        "call_stack" => crate::commands::MappableCommand::dap_switch_stack_frame,
++                        "toggle_breakpoint" => crate::commands::MappableCommand::dap_toggle_breakpoint,
++                        "restart" => crate::commands::MappableCommand::dap_restart,
++                        "stop" => crate::commands::MappableCommand::dap_terminate,
++                        _ => {
++                            self.editor
++                                .set_error(format!("Unknown debug action: {name}"));
++                            continue;
++                        }
++                    };
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    command.execute(&mut cx);
++                }
 +                DevTuiRequest::OpenPath { path, line, column } => {
 +                    self.editor.devtui.focus_editor_requested = true;
 +                    match self.editor.devtui_open_preview(&path) {
@@ -498,7 +528,7 @@ index ea969f8..5f46c9a 100644
      }
 
      #[inline(always)]
-@@ -701,13 +1006,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+@@ -701,13 +1036,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
          #[cfg(not(windows))]
          use termina::escape::csi;
 
@@ -522,7 +552,7 @@ index ea969f8..5f46c9a 100644
              #[cfg(not(windows))]
              termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
                  self.terminal
-@@ -767,9 +1075,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+@@ -767,9 +1105,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
              #[cfg(not(windows))]
              event if event.is_escape() => false,
              event => self.compositor.handle_event(&event.into(), &mut cx),
@@ -536,7 +566,7 @@ index ea969f8..5f46c9a 100644
              self.render().await;
          }
      }
-@@ -850,6 +1161,46 @@ macro_rules! language_server {
+@@ -850,6 +1191,46 @@ macro_rules! language_server {
                              params.diagnostics,
                          );
                      }
@@ -584,7 +614,7 @@ index ea969f8..5f46c9a 100644
                          self.handle_show_message(params.typ, params.message);
                      }
 diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
-index bced450..a8717f3 100644
+index bced450..1ee4dd3 100644
 --- a/helix-term/src/commands.rs
 +++ b/helix-term/src/commands.rs
 @@ -429,6 +429,7 @@ pub fn doc(&self) -> &str {
@@ -618,7 +648,18 @@ index bced450..a8717f3 100644
          yank_to_clipboard, "Yank selections to clipboard",
          yank_to_primary_clipboard, "Yank selections to primary clipboard",
          yank_joined, "Join and yank selections",
-@@ -749,19 +759,30 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
+@@ -583,6 +593,10 @@ pub fn doc(&self) -> &str {
+         goto_next_paragraph, "Goto next paragraph",
+         goto_prev_paragraph, "Goto previous paragraph",
+         dap_launch, "Launch debug target",
++        devtui_debug_start_or_continue, "Start debugging or continue the active debug session",
++        devtui_debug_menu, "Open the devtui Run and Debug action menu",
++        devtui_lsp_info, "Show language servers attached to the current buffer",
++        devtui_python_venv, "Select a Python virtual environment and restart language servers",
+         dap_restart, "Restart debugging session",
+         dap_toggle_breakpoint, "Toggle breakpoint",
+         dap_continue, "Continue program execution",
+@@ -749,19 +763,30 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
 
  use helix_core::movement::{move_horizontally, move_vertically};
 
@@ -649,7 +690,7 @@ index bced450..a8717f3 100644
      move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
  }
 
-@@ -3995,6 +4016,34 @@ fn goto_line(cx: &mut Context) {
+@@ -3995,6 +4020,34 @@ fn goto_line(cx: &mut Context) {
      goto_line_impl(cx, Movement::Move);
  }
 
@@ -684,7 +725,7 @@ index bced450..a8717f3 100644
  fn goto_line_impl(cx: &mut Context, movement: Movement) {
      if cx.count.is_some() {
          let (view, doc) = current!(cx.editor);
-@@ -4829,6 +4878,176 @@ fn yank(cx: &mut Context) {
+@@ -4829,6 +4882,201 @@ fn yank(cx: &mut Context) {
      exit_select_mode(cx);
  }
 
@@ -788,6 +829,31 @@ index bced450..a8717f3 100644
 +    cx.push_layer(Box::new(ui::devtui::project_replace_search_prompt()));
 +}
 +
++fn devtui_debug_start_or_continue(cx: &mut Context) {
++    if cx.editor.debug_adapters.get_active_client().is_some() {
++        dap_continue(cx);
++    } else {
++        dap_launch(cx);
++    }
++}
++
++fn devtui_debug_menu(cx: &mut Context) {
++    cx.push_layer(Box::new(ui::devtui::debug_action_select()));
++}
++
++fn devtui_lsp_info(cx: &mut Context) {
++    if let Some(select) = ui::devtui::lsp_info_select(cx.editor) {
++        cx.push_layer(Box::new(select));
++    } else {
++        cx.editor.set_status("LSP: no language server attached");
++    }
++}
++
++fn devtui_python_venv(cx: &mut Context) {
++    let prompt = ui::devtui::python_venv_prompt(cx.editor);
++    cx.push_layer(Box::new(prompt));
++}
++
 +fn devtui_prepare_occurrence_selection(editor: &mut Editor) {
 +    if editor.mode != Mode::Normal {
 +        return;
@@ -861,7 +927,7 @@ index bced450..a8717f3 100644
  fn yank_to_clipboard(cx: &mut Context) {
      yank_impl(cx.editor, '+');
      exit_select_mode(cx);
-@@ -5021,6 +5240,20 @@ fn paste_impl(
+@@ -5021,6 +5269,20 @@ fn paste_impl(
      doc.append_changes_to_history(view);
  }
 
@@ -882,7 +948,7 @@ index bced450..a8717f3 100644
  pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
      let count = cx.count();
      let paste = match cx.editor.mode {
-@@ -5028,7 +5261,23 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+@@ -5028,7 +5290,23 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
          Mode::Normal => Paste::Before,
      };
      let (view, doc) = current!(cx.editor);
@@ -907,7 +973,7 @@ index bced450..a8717f3 100644
      exit_select_mode(cx);
  }
 
-@@ -7226,3 +7475,26 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
+@@ -7226,3 +7504,26 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
          syntax_workspace_symbol_picker(cx);
      }
  }
@@ -934,6 +1000,26 @@ index bced450..a8717f3 100644
 +        assert_eq!(devtui_spread_paste_values("A\nB\nC", 1), None);
 +    }
 +}
+diff --git a/helix-term/src/commands/dap.rs b/helix-term/src/commands/dap.rs
+index f5b3c7f..eb31271 100644
+--- a/helix-term/src/commands/dap.rs
++++ b/helix-term/src/commands/dap.rs
+@@ -219,7 +219,14 @@ fn prepare_dap_params(template: &DebugTemplate, params: &[std::borrow::Cow<str>]
+ fn map_value(value: &Value, params: &[String]) -> Value {
+     match value {
+         Value::String(string) => {
+-            let mut string = string.clone();
++            let mut string = if string == "__DEVTUI_PYTHON__" {
++                std::env::var_os("VIRTUAL_ENV")
++                    .map(std::path::PathBuf::from)
++                    .map(|path| path.join("bin/python").to_string_lossy().into_owned())
++                    .unwrap_or_else(|| "python".to_string())
++            } else {
++                string.clone()
++            };
+             for (i, x) in params.iter().enumerate() {
+                 let pattern = format!("{{{}}}", i);
+                 string = string.replace(&pattern, x);
 diff --git a/helix-term/src/commands/lsp.rs b/helix-term/src/commands/lsp.rs
 index d7fd8f7..a7eab40 100644
 --- a/helix-term/src/commands/lsp.rs
@@ -978,7 +1064,7 @@ index d7fd8f7..a7eab40 100644
      goto_single_impl(
          cx,
 diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
-index db2f0c2..05ff12e 100644
+index db2f0c2..a824589 100644
 --- a/helix-term/src/commands/typed.rs
 +++ b/helix-term/src/commands/typed.rs
 @@ -68,61 +68,61 @@ fn for_argument_number(&self, n: usize) -> &Completer {
@@ -1283,6 +1369,15 @@ index db2f0c2..05ff12e 100644
  }
 
  fn theme(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+@@ -1799,7 +1745,7 @@ fn lsp_workspace_command(
+     Ok(())
+ }
+
+-fn lsp_restart(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++pub(crate) fn lsp_restart(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
 @@ -3030,8 +2976,8 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
      },
      TypableCommand {
@@ -1307,10 +1402,10 @@ index db2f0c2..05ff12e 100644
          signature: Signature {
 diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
 new file mode 100644
-index 0000000..952d689
+index 0000000..c9bfb80
 --- /dev/null
 +++ b/helix-term/src/ui/devtui.rs
-@@ -0,0 +1,1455 @@
+@@ -0,0 +1,1676 @@
 +use std::{
 +    borrow::Cow,
 +    collections::HashSet,
@@ -1330,6 +1425,29 @@ index 0000000..952d689
 +use tui::{buffer::Buffer as Surface, widgets::Row};
 +
 +use crate::ui::{self, menu::Item, Picker, PickerColumn, Prompt, PromptEvent, Select};
++
++pub fn path_icon(path: &Path, is_dir: bool) -> &'static str {
++    if is_dir {
++        return "";
++    }
++    match path.extension().and_then(|ext| ext.to_str()).unwrap_or_default() {
++        "c" => "",
++        "cc" | "cpp" | "cxx" => "",
++        "h" | "hh" | "hpp" | "hxx" => "",
++        "py" | "pyi" => "",
++        "sh" | "bash" | "zsh" => "",
++        "cmake" => "",
++        "md" | "mdx" => "",
++        "json" => "",
++        "toml" => "",
++        "yaml" | "yml" => "",
++        "lua" => "",
++        "rs" => "",
++        "js" | "jsx" => "",
++        "ts" | "tsx" => "",
++        _ => "",
++    }
++}
 +
 +#[derive(Clone, Copy, Debug, Default)]
 +pub enum CloseChoice {
@@ -1425,6 +1543,84 @@ index 0000000..952d689
 +            Self::Delete => "delete",
 +        }
 +    }
++}
++
++#[derive(Clone, Copy, Debug)]
++pub enum DebugAction {
++    StartOrContinue,
++    Pause,
++    StepOver,
++    StepInto,
++    StepOut,
++    Variables,
++    CallStack,
++    ToggleBreakpoint,
++    Restart,
++    Stop,
++}
++
++impl Item for DebugAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::StartOrContinue => "Start / Continue",
++            Self::Pause => "Pause",
++            Self::StepOver => "Step Over",
++            Self::StepInto => "Step Into",
++            Self::StepOut => "Step Out",
++            Self::Variables => "Variables",
++            Self::CallStack => "Call Stack",
++            Self::ToggleBreakpoint => "Toggle Breakpoint",
++            Self::Restart => "Restart",
++            Self::Stop => "Stop",
++        }
++        .into()
++    }
++}
++
++impl DebugAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::StartOrContinue => "start_or_continue",
++            Self::Pause => "pause",
++            Self::StepOver => "step_over",
++            Self::StepInto => "step_into",
++            Self::StepOut => "step_out",
++            Self::Variables => "variables",
++            Self::CallStack => "call_stack",
++            Self::ToggleBreakpoint => "toggle_breakpoint",
++            Self::Restart => "restart",
++            Self::Stop => "stop",
++        }
++    }
++}
++
++pub fn debug_action_select() -> Select<DebugAction> {
++    Select::new(
++        "Run and Debug",
++        [
++            DebugAction::StartOrContinue,
++            DebugAction::Pause,
++            DebugAction::StepOver,
++            DebugAction::StepInto,
++            DebugAction::StepOut,
++            DebugAction::Variables,
++            DebugAction::CallStack,
++            DebugAction::ToggleBreakpoint,
++            DebugAction::Restart,
++            DebugAction::Stop,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::DebugAction(action.command()));
++            }
++        },
++    )
 +}
 +
 +pub fn selection_context_select() -> Select<SelectionContextAction> {
@@ -2740,6 +2936,7 @@ index 0000000..952d689
 +            } else {
 +                "  "
 +            };
++            let icon = path_icon(&row.path, row.is_dir);
 +            let name = if row.depth == 0 {
 +                root_name.to_string()
 +            } else {
@@ -2759,15 +2956,134 @@ index 0000000..952d689
 +            surface.set_stringn(
 +                area.x,
 +                y,
-+                &format!("{indent}{marker}{name}"),
++                &format!("{indent}{marker}{icon} {name}"),
 +                area.width as usize,
 +                style,
 +            );
 +        }
 +    }
 +}
++
++fn python_workspace_state_path() -> Option<PathBuf> {
++    let home = std::env::var_os("HOME").map(PathBuf::from)?;
++    let workspace = helix_stdx::path::canonicalize(&std::env::current_dir().ok()?);
++    let key = workspace
++        .as_os_str()
++        .to_string_lossy()
++        .as_bytes()
++        .iter()
++        .map(|byte| format!("{byte:02x}"))
++        .collect::<String>();
++    Some(
++        home.join(".local/state/devtui/helix-python-envs")
++            .join(key),
++    )
++}
++
++fn persist_python_environment(path: &Path) -> std::io::Result<()> {
++    let Some(state) = python_workspace_state_path() else {
++        return Ok(());
++    };
++    if let Some(parent) = state.parent() {
++        fs::create_dir_all(parent)?;
++    }
++    fs::write(state, path.to_string_lossy().as_bytes())
++}
++
++pub fn python_venv_prompt(editor: &Editor) -> Prompt {
++    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
++    let default = [".venv", "venv"]
++        .into_iter()
++        .map(|name| cwd.join(name))
++        .find(|path| path.join("bin/python").is_file())
++        .unwrap_or_else(|| cwd.join(".venv"))
++        .to_string_lossy()
++        .into_owned();
++
++    Prompt::new(
++        Cow::Borrowed("Python Environment: "),
++        None,
++        ui::completers::filename,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate || input.trim().is_empty() {
++                return;
++            }
++
++            let path = helix_stdx::path::canonicalize(Path::new(input));
++            let python = path.join("bin/python");
++            if !python.is_file() {
++                cx.editor
++                    .set_error(format!("Not a Python virtual environment: {}", path.display()));
++                return;
++            }
++
++            let bin = path.join("bin");
++            let old_path = std::env::var_os("PATH").unwrap_or_default();
++            let mut entries: Vec<PathBuf> = std::env::split_paths(&old_path).collect();
++            entries.retain(|entry| entry != &bin);
++            entries.insert(0, bin);
++            match std::env::join_paths(entries) {
++                Ok(new_path) => {
++                    std::env::set_var("VIRTUAL_ENV", &path);
++                    std::env::set_var("PATH", new_path);
++                    if let Err(err) = persist_python_environment(&path) {
++                        cx.editor.set_error(err.to_string());
++                        return;
++                    }
++                    if let Err(err) = crate::commands::typed::lsp_restart(
++                        cx,
++                        helix_core::command_line::Args::default(),
++                        PromptEvent::Validate,
++                    ) {
++                        cx.editor.set_error(err.to_string());
++                    } else {
++                        cx.editor
++                            .set_status(format!("Python environment: {}", path.display()));
++                    }
++                }
++                Err(err) => cx.editor.set_error(err.to_string()),
++            }
++        },
++    )
++    .with_line(default, editor)
++}
++#[derive(Clone, Debug)]
++pub struct LspInfoItem {
++    pub name: String,
++    pub id: String,
++}
++
++impl Item for LspInfoItem {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        format!("{}  [{}]", self.name, self.id).into()
++    }
++}
++
++pub fn lsp_info_select(editor: &Editor) -> Option<Select<LspInfoItem>> {
++    let doc = editor.document(editor.tree.get(editor.tree.focus).doc)?;
++    let items = doc
++        .language_servers()
++        .map(|server| LspInfoItem {
++            name: server.name().to_string(),
++            id: server.id().to_string(),
++        })
++        .collect::<Vec<_>>();
++
++    if items.is_empty() {
++        return None;
++    }
++
++    Some(Select::new(
++        "Language Servers",
++        items,
++        (),
++        |_editor, _item, _event| {},
++    ))
++}
 diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
-index 3bd66f9..31e56d9 100644
+index 3bd66f9..96bc630 100644
 --- a/helix-term/src/ui/editor.rs
 +++ b/helix-term/src/ui/editor.rs
 @@ -29,12 +29,48 @@
@@ -3009,7 +3325,7 @@ index 3bd66f9..31e56d9 100644
          surface.clear_with(
              viewport,
              editor
-@@ -674,12 +850,12 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+@@ -674,42 +850,54 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
              .theme
              .try_get("ui.bufferline.active")
              .unwrap_or_else(|| editor.theme.get("ui.statusline.active"));
@@ -3023,7 +3339,14 @@ index 3bd66f9..31e56d9 100644
          let mut x = viewport.x;
          let current_doc = view!(editor).doc;
 
-@@ -692,24 +868,36 @@ pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface)
+         for doc in editor.documents() {
+-            let fname = doc
+-                .path()
+-                .unwrap_or(&scratch)
++            let display_path = doc.path().unwrap_or(&scratch);
++            let fname = display_path
+                 .file_name()
+                 .unwrap_or_default()
                  .to_str()
                  .unwrap_or_default();
 
@@ -3041,7 +3364,8 @@ index 3bd66f9..31e56d9 100644
 -            let used_width = viewport.x.saturating_sub(x);
 -            let rem_width = surface.area.width.saturating_sub(used_width);
 +            let dirty = if doc.is_modified() { " ●" } else { "" };
-+            let text = format!(" {fname}{dirty}  × ");
++            let icon = crate::ui::devtui::path_icon(display_path, false);
++            let text = format!(" {icon} {fname}{dirty}  × ");
 +            let width = text.width() as u16;
 +            if x.saturating_add(width) > viewport.right() {
 +                break;
@@ -3964,10 +4288,10 @@ index 79ba871..cce42ab 100644
              document_highlight_controllers: HashMap::new(),
              code_action_controllers: HashMap::new(),
 diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
-index adced18..fa34503 100644
+index adced18..defc020 100644
 --- a/helix-view/src/editor.rs
 +++ b/helix-view/src/editor.rs
-@@ -1270,6 +1270,74 @@ pub struct Breakpoint {
+@@ -1270,6 +1270,75 @@ pub struct Breakpoint {
 
  type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
 
@@ -3999,6 +4323,7 @@ index adced18..fa34503 100644
 +    SymbolAction(&'static str),
 +    SelectionContext,
 +    SelectionAction(&'static str),
++    DebugAction(&'static str),
 +    OpenPath {
 +        path: PathBuf,
 +        line: usize,
@@ -4042,7 +4367,7 @@ index adced18..fa34503 100644
  pub struct Editor {
      /// Current editing mode.
      pub mode: Mode,
-@@ -1343,6 +1411,7 @@ pub struct Editor {
+@@ -1343,6 +1412,7 @@ pub struct Editor {
      pub mouse_down_range: Option<Range>,
      pub cursor_cache: CursorCache,
      pub workspace_trust: WorkspaceTrust,
@@ -4050,7 +4375,7 @@ index adced18..fa34503 100644
  }
 
  pub type Motion = Box<dyn Fn(&mut Editor)>;
-@@ -1468,6 +1537,7 @@ pub fn new(
+@@ -1468,6 +1538,7 @@ pub fn new(
              cursor_cache: CursorCache::default(),
              dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
              workspace_trust,
@@ -4058,7 +4383,7 @@ index adced18..fa34503 100644
          }
      }
 
-@@ -2098,6 +2168,84 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
+@@ -2098,6 +2169,84 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
          self.document_by_path(path).map(|doc| doc.id)
      }
 
@@ -4143,7 +4468,7 @@ index adced18..fa34503 100644
      // ??? possible use for integration tests
      pub fn open(&mut self, path: &Path, action: Action) -> Result<DocumentId, DocumentOpenError> {
          let path = helix_stdx::path::canonicalize(path);
-@@ -2165,6 +2313,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
+@@ -2165,6 +2314,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
 
          // This will also disallow any follow-up writes
          self.saves.remove(&doc_id);

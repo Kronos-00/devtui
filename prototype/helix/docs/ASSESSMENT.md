@@ -35,7 +35,7 @@ The migration is technically feasible and worth prototyping, but it is not a con
 | Protected editor/Explorer regions | Editor/view lifecycle differs | Medium | Implemented in fork |
 | Interactive editor scrollbar | No upstream editor scrollbar | High | Implemented and drag-validated in fork |
 | Inactive preprocessor region highlighting | Upstream Helix lacks the optional notification extension | High | Implemented and protocol-validated in fork |
-| Project Replace panel | Search exists; dedicated replace panel absent | High | External workflow or UI patch |
+| Project Replace panel | Search exists upstream | High | Implemented in fork |
 | Terminal path -> running editor | No stable upstream running-instance IPC | Medium-High | Implemented with per-session Unix socket |
 | Zellij/Lazygit/shell environment | Editor-independent | Low | Reuse current design |
 
@@ -45,14 +45,10 @@ Helix stores multiple ranges in the document selection itself. Character inserti
 
 The prototype patch therefore touches only mouse-to-selection creation. It does not implement a second multi-cursor engine.
 
-## Main risks
+## Remaining maintenance risk
 
-1. The current file explorer is an overlay picker, not an always-visible tree.
-2. Preview/pinned semantics require explicit document state beyond Helix's current picker preview.
-3. Bufferline rendering has no mouse hit targets today.
-4. External tools need a supported IPC endpoint to target the already-running editor.
-5. These extensions currently require maintaining a Helix source fork because a stable plugin API is not available on the mainline used by this prototype.
+The migration now covers the Neovim baseline. The primary long-term cost is maintaining a Helix source patch because the required workbench features (persistent Explorer, Preview/Pinned lifecycle, bufferline mouse hit targets, running-instance IPC, scrollbar, and inactive-region extension) are not all available through a stable upstream plugin API.
 
-## Go/no-go recommendation
+## Recommendation
 
-**Go for prototype.** The difficult work is sizable but localized in the terminal UI layer. The editing model removes the most fundamental mismatch in the current editor implementation, so the long-term trade is favorable if exact multi-cursor behavior is a priority.
+The migration is viable. Helix removes the structural mismatch around real-time multiple selections while the remaining IDE behavior is localized in the terminal UI/workbench layer and is now implemented in the fork.
