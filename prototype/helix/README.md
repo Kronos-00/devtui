@@ -17,7 +17,9 @@ This branch validates whether devtui can move its editor core from Neovim to a s
 Implemented and validated in the fork:
 
 - native real-time multiple selections and Insert-mode movement;
-- middle-drag native selections;
+- middle-drag VS Code-style zero-width and rectangular selections, including short-line skip and all-EOL fallback;
+- selection right-click Copy / Cut / Delete;
+- VS Code-style spread paste when pasted row count matches the active selection count;
 - mouse-operable picker/file explorer overlay;
 - VS Code-style Preview/Pinned editor state foundation;
 - preview edit-to-pin;

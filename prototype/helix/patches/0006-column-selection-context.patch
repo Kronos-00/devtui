@@ -1,0 +1,334 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 50b30c3..f2ec2bd 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -852,6 +852,41 @@ fn process_devtui_requests(&mut self) -> bool {
+                     };
+                     command.execute(&mut cx);
+                 }
++                DevTuiRequest::SelectionContext => {
++                    self.compositor
++                        .push(Box::new(crate::ui::devtui::selection_context_select()));
++                    pushed = true;
++                }
++                DevTuiRequest::SelectionAction(name) => {
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    match name {
++                        "copy" => {
++                            crate::commands::MappableCommand::yank_joined_to_clipboard
++                                .execute(&mut cx);
++                        }
++                        "cut" => {
++                            crate::commands::MappableCommand::yank_joined_to_clipboard
++                                .execute(&mut cx);
++                            crate::commands::MappableCommand::delete_selection_noyank
++                                .execute(&mut cx);
++                        }
++                        "delete" => {
++                            crate::commands::MappableCommand::delete_selection_noyank
++                                .execute(&mut cx);
++                        }
++                        _ => {
++                            cx.editor
++                                .set_error(format!("Unknown selection context action: {name}"));
++                        }
++                    }
++                }
+                 DevTuiRequest::OpenPath { path, line, column } => {
+                     self.editor.devtui.focus_editor_requested = true;
+                     match self.editor.devtui_open_preview(&path) {
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index bced450..a2ab234 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -5028,7 +5028,29 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+         Mode::Normal => Paste::Before,
+     };
+     let (view, doc) = current!(cx.editor);
+-    paste_impl(&[contents], doc, view, paste, count, cx.editor.mode);
++
++    // VS Code's default editor.multiCursorPaste="spread": when pasted rows
++    // match the number of selections, distribute one row to each selection in
++    // document order. Otherwise every selection receives the full pasted block.
++    let selection_count = doc.selection(view.id).len();
++    let normalized = LINE_ENDING_REGEX.replace_all(&contents, "\n");
++    let spread_values: Vec<String> = normalized
++        .split_terminator('\n')
++        .map(ToOwned::to_owned)
++        .collect();
++
++    if selection_count > 1 && spread_values.len() == selection_count {
++        paste_impl(
++            &spread_values,
++            doc,
++            view,
++            paste,
++            count,
++            cx.editor.mode,
++        );
++    } else {
++        paste_impl(&[contents], doc, view, paste, count, cx.editor.mode);
++    }
+     exit_select_mode(cx);
+ }
+
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index a0f01ae..68f94dd 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -82,6 +82,56 @@ fn command(self) -> &'static str {
+     }
+ }
+
++#[derive(Clone, Copy, Debug)]
++pub enum SelectionContextAction {
++    Copy,
++    Cut,
++    Delete,
++}
++
++impl Item for SelectionContextAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::Copy => "Copy",
++            Self::Cut => "Cut",
++            Self::Delete => "Delete",
++        }
++        .into()
++    }
++}
++
++impl SelectionContextAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::Copy => "copy",
++            Self::Cut => "cut",
++            Self::Delete => "delete",
++        }
++    }
++}
++
++pub fn selection_context_select() -> Select<SelectionContextAction> {
++    Select::new(
++        "Selection",
++        [
++            SelectionContextAction::Copy,
++            SelectionContextAction::Cut,
++            SelectionContextAction::Delete,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::SelectionAction(action.command()));
++            }
++        },
++    )
++}
++
+ pub fn symbol_context_select() -> Select<SymbolContextAction> {
+     Select::new(
+         "Editor",
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index b49f0e1..92241a6 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1421,43 +1421,113 @@ fn handle_explorer_mouse(
+             return Some(EventResult::Consumed(None));
+         }
+
+-        if matches!(event.kind, MouseEventKind::Down(MouseButton::Left)) {
++        if matches!(
++            event.kind,
++            MouseEventKind::Down(MouseButton::Left)
++                | MouseEventKind::Down(MouseButton::Middle)
++                | MouseEventKind::Down(MouseButton::Right)
++        ) {
+             self.explorer.focused = false;
+         }
+         None
+     }
+
+-    fn update_middle_drag_selection(&mut self, editor: &mut Editor, row: u16) -> bool {
++    fn update_middle_drag_selection(
++        &mut self,
++        editor: &mut Editor,
++        row: u16,
++        column: u16,
++    ) -> bool {
+         let Some((anchor_row, anchor_column)) = self.middle_drag_anchor else {
+             return false;
+         };
+
+         let first_row = anchor_row.min(row);
+         let last_row = anchor_row.max(row);
++        let left_column = anchor_column.min(column);
++        let right_column = anchor_column.max(column);
++        let is_zero_width = left_column == right_column;
++
+         let (view, doc) = current!(editor);
+         let view_id = view.id;
++        let text = doc.text().slice(..);
++        let inner = view.inner_area(doc);
++        let requested_left = left_column.saturating_sub(inner.x) as usize;
++
+         let mut ranges: Vec<Range> = Vec::new();
+-        let mut primary_index = 0;
+-        let mut last_pos = None;
++        let mut fallback_eol: Vec<(u16, usize)> = Vec::new();
++        let mut primary_index = 0usize;
++        let mut primary_row = None;
++        let mut last_fallback = None;
+
+         for screen_row in first_row..=last_row {
+-            let Some(pos) = view.pos_at_screen_coords(doc, screen_row, anchor_column, true) else {
++            let Some(left_pos) =
++                view.pos_at_screen_coords(doc, screen_row, left_column, true)
++            else {
+                 continue;
+             };
+-            if last_pos == Some(pos) {
++
++            if last_fallback != Some(left_pos) {
++                fallback_eol.push((screen_row, left_pos));
++                last_fallback = Some(left_pos);
++            }
++
++            if is_zero_width {
++                if screen_row == row {
++                    primary_index = ranges.len();
++                    primary_row = Some(screen_row);
++                }
++                ranges.push(Range::point(left_pos));
++                continue;
++            }
++
++            // pos_at_screen_coords clamps clicks after EOL. Compare the
++            // resulting visual column with the requested left edge to detect
++            // rows that never reach the rectangle at all (VS Code skips them).
++            let reaches_left = view
++                .screen_coords_at_pos(doc, text, left_pos)
++                .is_some_and(|coords| coords.col >= requested_left);
++            if !reaches_left {
+                 continue;
+             }
++
++            let right_pos = view
++                .pos_at_screen_coords(doc, screen_row, right_column, true)
++                .unwrap_or(left_pos);
++
++            let range = if anchor_column <= column {
++                Range::new(left_pos, right_pos)
++            } else {
++                Range::new(right_pos, left_pos)
++            };
++
+             if screen_row == row {
+                 primary_index = ranges.len();
++                primary_row = Some(screen_row);
++            }
++            ranges.push(range);
++        }
++
++        // VS Code falls back to one EOL caret per crossed row when the whole
++        // rectangle lies beyond all line ends.
++        if ranges.is_empty() && !fallback_eol.is_empty() {
++            for (screen_row, pos) in fallback_eol {
++                if screen_row == row {
++                    primary_index = ranges.len();
++                    primary_row = Some(screen_row);
++                }
++                ranges.push(Range::point(pos));
+             }
+-            ranges.push(Range::point(pos));
+-            last_pos = Some(pos);
+         }
+
+         if ranges.is_empty() {
+             return false;
+         }
++        if primary_row.is_none() {
++            primary_index = ranges.len().saturating_sub(1);
++        }
+         primary_index = primary_index.min(ranges.len() - 1);
++
+         doc.set_selection(
+             view_id,
+             Selection::new(ranges.into_iter().collect(), primary_index),
+@@ -1572,7 +1642,7 @@ fn handle_mouse_event(
+             }
+
+             MouseEventKind::Drag(MouseButton::Middle) => {
+-                if self.update_middle_drag_selection(cxt.editor, row) {
++                if self.update_middle_drag_selection(cxt.editor, row, column) {
+                     EventResult::Consumed(None)
+                 } else {
+                     EventResult::Ignored(None)
+@@ -1584,11 +1654,29 @@ fn handle_mouse_event(
+                 if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
+                     editor.focus(view_id);
+                     let doc_id = view!(editor, view_id).doc;
+-                    doc_mut!(editor, &doc_id).set_selection(view_id, Selection::point(pos));
+-                    editor
+-                        .devtui
+-                        .requests
+-                        .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++                    let preserve_selection = editor
++                        .document(doc_id)
++                        .map(|doc| {
++                            let selection = doc.selection(view_id);
++                            selection.ranges().iter().any(|range| {
++                                !range.is_empty() && pos >= range.from() && pos < range.to()
++                            })
++                        })
++                        .unwrap_or(false);
++
++                    if preserve_selection {
++                        editor
++                            .devtui
++                            .requests
++                            .push_back(helix_view::editor::DevTuiRequest::SelectionContext);
++                    } else {
++                        doc_mut!(editor, &doc_id)
++                            .set_selection(view_id, Selection::point(pos));
++                        editor
++                            .devtui
++                            .requests
++                            .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++                    }
+                     return EventResult::Consumed(None);
+                 }
+                 EventResult::Ignored(None)
+@@ -1751,7 +1839,7 @@ fn handle_mouse_event(
+                     return EventResult::Ignored(None);
+                 }
+
+-                let _ = self.update_middle_drag_selection(cxt.editor, row);
++                let _ = self.update_middle_drag_selection(cxt.editor, row, column);
+                 self.middle_drag_anchor = None;
+                 EventResult::Consumed(None)
+             }
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index baaa58b..a7de41d 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1296,6 +1296,8 @@ pub enum DevTuiRequest {
+     },
+     SymbolContext,
+     SymbolAction(&'static str),
++    SelectionContext,
++    SelectionAction(&'static str),
+     OpenPath {
+         path: PathBuf,
+         line: usize,

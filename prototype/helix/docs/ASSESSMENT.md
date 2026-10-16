@@ -10,33 +10,33 @@ The migration is technically feasible and worth prototyping, but it is not a con
 
 | devtui feature | Helix baseline | migration cost | prototype decision |
 | --- | --- | ---: | --- |
-| Real-time multi-selection insert | Native | Low | Validate directly |
-| Insert-mode arrow movement for all selections | Native | Low | Validate directly |
-| Middle-drag vertical cursors | Mouse API exists; middle is paste by default | Medium | Rust patch in prototype |
+| Real-time multi-selection insert | Native | Low | Implemented and validated |
+| Insert-mode arrow movement for all selections | Native | Low | Implemented and validated |
+| Middle-drag vertical cursors / rectangular selection | Mouse API exists; middle is paste by default | Medium | Implemented with VS Code short-line/EOL rules |
 | LSP navigation/hover/rename/actions | Native | Low | Use built-in |
 | Diagnostics | Native | Low | Use built-in |
 | C/C++/CMake/Bash/Python language support | Native language configs/LSP | Low | Use built-in |
 | DAP baseline | Native, experimental | Low-Medium | Use built-in |
 | Quick Open/global search/command palette | Native pickers | Low | Remap keys |
-| VS Code copy/cut semantics when there is no explicit range | Native selections differ | Medium | Later command patch |
+| Selection context Copy/Cut/Delete | Native operations exist | Medium | Implemented for mouse-selected ranges |
 | Bufferline + dirty indicator | Native render | Low | Enable always |
-| Bufferline mouse switch/close | No current hit testing | Medium | Later Rust patch |
+| Bufferline mouse switch/close | No upstream hit testing | Medium | Implemented in fork |
 | OSC 52 clipboard | Native termcode provider | Low | Configure |
 | Markdown source punctuation | Native text source view | Low | No special patch |
 | Persistent Explorer sidebar | Implemented in EditorView | High | Implemented |
-| Explorer file ops/context menu | Core file create/rename/delete APIs exist; UI missing | Medium-High | Next migration group |
-| Explorer multi-select + mouse semantics | Persistent tree exists; multi-select/context still pending | High | Next migration group |
+| Explorer file ops/context menu | Core file create/rename/delete APIs exist | Medium-High | Implemented in fork |
+| Explorer multi-select + mouse semantics | Persistent tree exists | High | Implemented in fork |
 | Explorer resize/persist width | 3-cell drag handle + state file | High | Implemented |
-| Preview/Pinned editors | Picker preview exists; devtui state now implements reusable preview + pin foundation | High | Lifecycle foundation implemented; Explorer wiring next |
+| Preview/Pinned editors | Picker preview exists upstream | High | Implemented in fork with Explorer single-click/double-click wiring |
 | Dirty close Save/Don't Save/Cancel | Dirty detection exists | Medium | Implemented |
 | Scratch Save As flow | Explicit path supported | Medium | Implemented for write/write-quit |
 | Empty tab-strip double-click new scratch | Bufferline needed hit testing | Medium | Implemented |
-| Right-click symbol menu | LSP actions exist; context UI missing | Medium | Later UI patch |
-| Protected editor/Explorer regions | Editor/view lifecycle differs | Medium | Implement after sidebar |
+| Right-click symbol menu | LSP actions exist | Medium | Implemented in fork |
+| Protected editor/Explorer regions | Editor/view lifecycle differs | Medium | Implemented in fork |
 | Interactive editor scrollbar | No editor scrollbar | High | Optional Rust UI patch |
 | Inactive preprocessor region highlighting | No matching custom LSP extension | High | Optional LSP extension |
 | Project Replace panel | Search exists; dedicated replace panel absent | High | External workflow or UI patch |
-| Terminal path -> running editor | No stable running-instance IPC | Medium-High | Add small Unix-socket IPC later |
+| Terminal path -> running editor | No stable upstream running-instance IPC | Medium-High | Implemented with per-session Unix socket |
 | Zellij/Lazygit/shell environment | Editor-independent | Low | Reuse current design |
 
 ## Why the editing core is a better fit
