@@ -1402,7 +1402,7 @@ index db2f0c2..a824589 100644
          signature: Signature {
 diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
 new file mode 100644
-index 0000000..c9bfb80
+index 0000000..36c8b31
 --- /dev/null
 +++ b/helix-term/src/ui/devtui.rs
 @@ -0,0 +1,1676 @@
@@ -1723,7 +1723,7 @@ index 0000000..c9bfb80
 +    Prompt::new(
 +        Cow::Borrowed("Save As: "),
 +        None,
-+        ui::completers::filename,
++        ui::completers::none,
 +        move |cx, input, event| {
 +            if event != PromptEvent::Validate || input.trim().is_empty() {
 +                return;
