@@ -34,13 +34,13 @@ Implemented and validated in the fork:
 - internal Explorer file clipboard with incremental `copy` naming and batch operations;
 - editor right-click Symbol menu for Definition, Declaration, References, Implementation, Type Definition, Hover, Rename, and Code Action;
 - interactive right-edge editor scrollbar with proportional thumb and mouse drag scrolling;
+- optional inactive-source-region rendering from language servers that publish `textDocument/inactiveRegions`;
 - per-session Unix-socket navigation into the already-running editor;
 - Lazygit edit actions routed to that editor;
 - dedicated Helix terminal-link plugin build for path/line/column navigation.
 
 ## Deliberately not implemented yet
 
-- custom inactive-code LSP regions;
 - project Replace panel.
 
 Those items are assessed in [docs/ASSESSMENT.md](docs/ASSESSMENT.md). They are prototype gaps, not claimed parity.

@@ -34,7 +34,7 @@ The migration is technically feasible and worth prototyping, but it is not a con
 | Right-click symbol menu | LSP actions exist | Medium | Implemented in fork |
 | Protected editor/Explorer regions | Editor/view lifecycle differs | Medium | Implemented in fork |
 | Interactive editor scrollbar | No upstream editor scrollbar | High | Implemented and drag-validated in fork |
-| Inactive preprocessor region highlighting | No matching custom LSP extension | High | Optional LSP extension |
+| Inactive preprocessor region highlighting | Upstream Helix lacks the optional notification extension | High | Implemented and protocol-validated in fork |
 | Project Replace panel | Search exists; dedicated replace panel absent | High | External workflow or UI patch |
 | Terminal path -> running editor | No stable upstream running-instance IPC | Medium-High | Implemented with per-session Unix socket |
 | Zellij/Lazygit/shell environment | Editor-independent | Low | Reuse current design |

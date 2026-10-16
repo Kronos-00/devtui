@@ -1,0 +1,175 @@
+diff --git a/helix-lsp-types/src/lib.rs b/helix-lsp-types/src/lib.rs
+index afba1f2..035ccc3 100644
+--- a/helix-lsp-types/src/lib.rs
++++ b/helix-lsp-types/src/lib.rs
+@@ -1461,6 +1461,13 @@ fn deserialize_compat<'de, S>(serializer: S) -> Result<Option<TagSupport<T>>, S:
+ }
+
+ /// Text document specific client capabilities.
++#[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase")]
++pub struct InactiveRegionsClientCapabilities {
++    #[serde(skip_serializing_if = "Option::is_none")]
++    pub inactive_regions: Option<bool>,
++}
++
+ #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
+ #[serde(rename_all = "camelCase")]
+ pub struct TextDocumentClientCapabilities {
+@@ -1592,6 +1599,10 @@ pub struct TextDocumentClientCapabilities {
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub inlay_hint: Option<InlayHintClientCapabilities>,
+
++    /// Optional support for server-pushed inactive source regions.
++    #[serde(skip_serializing_if = "Option::is_none")]
++    pub inactive_regions_capabilities: Option<InactiveRegionsClientCapabilities>,
++
+     /// Capabilities specific to the diagnostic pull model.
+     ///
+     /// @since 3.17.0
+diff --git a/helix-lsp/src/client.rs b/helix-lsp/src/client.rs
+index 2ce5c60..c7947cc 100644
+--- a/helix-lsp/src/client.rs
++++ b/helix-lsp/src/client.rs
+@@ -727,6 +727,11 @@ pub(crate) async fn initialize(&self, enable_snippets: bool) -> Result<lsp::Init
+                         dynamic_registration: Some(false),
+                         resolve_support: None,
+                     }),
++                    inactive_regions_capabilities: Some(
++                        lsp::InactiveRegionsClientCapabilities {
++                            inactive_regions: Some(true),
++                        },
++                    ),
+                     document_link: Some(lsp::DocumentLinkClientCapabilities {
+                         dynamic_registration: Some(false),
+                         tooltip_support: Some(false),
+diff --git a/helix-lsp/src/lib.rs b/helix-lsp/src/lib.rs
+index d99014e..b95089f 100644
+--- a/helix-lsp/src/lib.rs
++++ b/helix-lsp/src/lib.rs
+@@ -532,6 +532,14 @@ pub fn parse(method: &str, params: jsonrpc::Params) -> Result<MethodCall> {
+     }
+ }
+
++#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
++#[serde(rename_all = "camelCase")]
++pub struct InactiveRegionsParams {
++    pub text_document: lsp::TextDocumentIdentifier,
++    #[serde(default)]
++    pub regions: Vec<lsp::Range>,
++}
++
+ #[derive(Debug, PartialEq, Clone)]
+ pub enum Notification {
+     // we inject this notification to signal the LSP is ready
+@@ -539,6 +547,7 @@ pub enum Notification {
+     // and this notification to signal that the LSP exited
+     Exit,
+     PublishDiagnostics(lsp::PublishDiagnosticsParams),
++    InactiveRegions(InactiveRegionsParams),
+     ShowMessage(lsp::ShowMessageParams),
+     LogMessage(lsp::LogMessageParams),
+     ProgressMessage(lsp::ProgressParams),
+@@ -555,6 +564,10 @@ pub fn parse(method: &str, params: jsonrpc::Params) -> Result<Notification> {
+                 let params: lsp::PublishDiagnosticsParams = params.parse()?;
+                 Self::PublishDiagnostics(params)
+             }
++            "textDocument/inactiveRegions" => {
++                let params: InactiveRegionsParams = params.parse()?;
++                Self::InactiveRegions(params)
++            }
+
+             lsp::notification::ShowMessage::METHOD => {
+                 let params: lsp::ShowMessageParams = params.parse()?;
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index f2ec2bd..7fad84f 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -1115,6 +1115,46 @@ macro_rules! language_server {
+                             params.diagnostics,
+                         );
+                     }
++                    Notification::InactiveRegions(params) => {
++                        let language_server = language_server!();
++                        if !language_server.is_initialized() {
++                            return;
++                        }
++                        let offset_encoding = language_server.offset_encoding();
++                        let uri = match helix_core::Uri::try_from(params.text_document.uri) {
++                            Ok(uri) => uri,
++                            Err(err) => {
++                                log::error!("{err}");
++                                return;
++                            }
++                        };
++                        let Some(path) = uri.as_path() else {
++                            return;
++                        };
++                        let Some(doc_id) = self.editor.document_id_by_path(path) else {
++                            return;
++                        };
++                        let doc = doc_mut!(self.editor, &doc_id);
++                        let ranges = params
++                            .regions
++                            .into_iter()
++                            .filter_map(|range| {
++                                lsp_range_to_range(doc.text(), range, offset_encoding)
++                            })
++                            .map(|range| {
++                                let start = range.from();
++                                let end = range.to();
++                                start.min(end)..start.max(end)
++                            })
++                            .collect();
++                        doc.inactive_regions = ranges;
++                        log::debug!(
++                            "updated {} inactive source region(s) for {}",
++                            doc.inactive_regions.len(),
++                            path.display()
++                        );
++                        self.editor.needs_redraw = true;
++                    }
+                     Notification::ShowMessage(params) => {
+                         self.handle_show_message(params.typ, params.message);
+                     }
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 2dd4292..361b357 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -303,6 +303,15 @@ pub fn render_view(
+             overlays.push(overlay);
+         }
+
++        if !doc.inactive_regions.is_empty() {
++            if let Some(highlight) = theme.find_highlight_exact("comment") {
++                overlays.push(OverlayHighlights::Homogeneous {
++                    highlight,
++                    ranges: doc.inactive_regions.clone(),
++                });
++            }
++        }
++
+         Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
+
+         if is_focused {
+diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
+index 79ba871..cce42ab 100644
+--- a/helix-view/src/document.rs
++++ b/helix-view/src/document.rs
+@@ -220,6 +220,8 @@ pub struct Document {
+     pub color_swatches: Option<DocumentColorSwatches>,
+     /// Cached LSP document links for navigation (e.g. goto_file).
+     pub document_links: Vec<DocumentLink>,
++    /// Server-pushed inactive source regions, stored as character ranges.
++    pub inactive_regions: Vec<std::ops::Range<usize>>,
+     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
+     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
+     pub color_swatch_controller: TaskController,
+@@ -769,6 +771,7 @@ pub fn from(
+             code_action_hints: HashSet::new(),
+             color_swatches: None,
+             document_links: Vec::new(),
++            inactive_regions: Vec::new(),
+             color_swatch_controller: TaskController::new(),
+             document_highlight_controllers: HashMap::new(),
+             code_action_controllers: HashMap::new(),
