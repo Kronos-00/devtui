@@ -117,7 +117,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | Cut selection; no selection cuts current line | Done |
 | host-terminal paste workflow | Partial |
 | current-file Replace toggle | Pending |
-| project Replace | Pending |
+| project Replace | Done |
 | select current line | Done |
 | go to line | Done |
 | go to symbol in file | Done |
@@ -138,7 +138,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | command palette | Done |
 | current-file find | Done |
 | current-file replace UI | Pending |
-| project replace UI | Pending |
+| project replace UI | Done |
 | go to line | Done |
 | document symbols | Done |
 
