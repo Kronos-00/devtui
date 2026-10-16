@@ -1,0 +1,212 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 408f665..66426ab 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -679,6 +679,9 @@ pub fn handle_document_write(&mut self, doc_save_event: DocumentSavedEventResult
+         let doc_save_event = match doc_save_event {
+             Ok(event) => event,
+             Err(err) => {
++                // A failed write vetoes close. Never close unexpectedly after a
++                // later manual save of the same document.
++                self.editor.devtui.close_after_save.clear();
+                 self.editor.set_error(err.to_string());
+                 return;
+             }
+@@ -770,6 +773,7 @@ fn process_devtui_requests(&mut self) -> bool {
+                 DevTuiRequest::SaveAs {
+                     doc_id,
+                     close_after_save,
++                    force,
+                 } => {
+                     if self.editor.document(doc_id).is_none() {
+                         continue;
+@@ -778,10 +782,17 @@ fn process_devtui_requests(&mut self) -> bool {
+                         &self.editor,
+                         doc_id,
+                         close_after_save,
++                        force,
+                     );
+                     self.compositor.push(Box::new(prompt));
+                     pushed = true;
+                 }
++                DevTuiRequest::ConfirmOverwrite { doc_id, path, close_after_save } => {
++                    if self.editor.document(doc_id).is_some() {
++                        self.compositor.push(Box::new(crate::ui::devtui::overwrite_select(doc_id, path, close_after_save)));
++                        pushed = true;
++                    }
++                }
+                 DevTuiRequest::ExplorerContext {
+                     root,
+                     target,
+diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
+index a824589..da01ddb 100644
+--- a/helix-term/src/commands/typed.rs
++++ b/helix-term/src/commands/typed.rs
+@@ -90,7 +90,7 @@ fn devtui_write_close(
+     let explicit_path = args.first().map(ToOwned::to_owned);
+     let untitled = doc!(cx.editor, &doc_id).path().is_none();
+     if untitled && explicit_path.is_none() {
+-        cx.editor.devtui_request_save_as(doc_id, true);
++        cx.editor.devtui_request_save_as_with_force(doc_id, true, force);
+         return Ok(());
+     }
+ 
+@@ -557,7 +557,7 @@ fn force_write(cx: &mut compositor::Context, args: Args, event: PromptEvent) ->
+ 
+     let doc_id = view!(cx.editor).doc;
+     if doc!(cx.editor, &doc_id).path().is_none() && args.first().is_none() {
+-        cx.editor.devtui_request_save_as(doc_id, false);
++        cx.editor.devtui_request_save_as_with_force(doc_id, false, true);
+         return Ok(());
+     }
+ 
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 4105221..a936591 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -279,6 +279,7 @@ pub fn close_select(doc_id: DocumentId, display_name: String) -> Select<CloseCho
+                         editor.devtui.requests.push_back(DevTuiRequest::SaveAs {
+                             doc_id,
+                             close_after_save: true,
++                            force: false,
+                         });
+                     } else {
+                         editor.devtui.close_after_save.insert(doc_id);
+@@ -296,47 +297,77 @@ pub fn close_select(doc_id: DocumentId, display_name: String) -> Select<CloseCho
+         },
+     )
+ }
++#[derive(Clone, Copy)]
++pub enum OverwriteChoice {
++    Replace,
++    Cancel,
++}
++
++impl Item for OverwriteChoice {
++    type Data = ();
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self { Self::Replace => "Replace", Self::Cancel => "Cancel" }.into()
++    }
++}
++
++fn begin_save_as(editor: &mut Editor, doc_id: DocumentId, path: PathBuf, close_after_save: bool, force: bool) {
++    if editor.document(doc_id).is_none() { return; }
++    if let Some(other) = editor.document_by_path(&path) {
++        if other.id() != doc_id && other.is_modified() {
++            editor.set_error("Target has unsaved changes in another tab; save those changes first");
++            return;
++        }
++    }
++    if close_after_save { editor.devtui.close_after_save.insert(doc_id); }
++    if let Err(err) = editor.save(doc_id, Some(path), force) {
++        editor.devtui.close_after_save.remove(&doc_id);
++        editor.set_error(err.to_string());
++    }
++}
++
++pub fn overwrite_select(doc_id: DocumentId, path: PathBuf, close_after_save: bool) -> Select<OverwriteChoice> {
++    Select::new(
++        format!("Replace existing {}?", path.file_name().unwrap_or_default().to_string_lossy()),
++        [OverwriteChoice::Replace, OverwriteChoice::Cancel], (),
++        move |editor, choice, event| {
++            if event == PromptEvent::Validate && matches!(choice, OverwriteChoice::Replace) {
++                begin_save_as(editor, doc_id, path.clone(), close_after_save, true);
++            }
++        },
++    )
++}
++
+ pub fn save_as_prompt(
+     editor: &Editor,
+     doc_id: DocumentId,
+     close_after_save: bool,
++    force: bool,
+ ) -> Prompt {
+-    let default_path = std::env::current_dir()
+-        .ok()
+-        .map(|path| {
++    let default_path = editor.document(doc_id).and_then(|doc| doc.path())
++        .map(|path| path.to_string_lossy().into_owned())
++        .unwrap_or_else(|| std::env::current_dir().ok().map(|path| {
+             let mut text = path.to_string_lossy().into_owned();
+-            if !text.ends_with(std::path::MAIN_SEPARATOR) {
+-                text.push(std::path::MAIN_SEPARATOR);
+-            }
++            if !text.ends_with(std::path::MAIN_SEPARATOR) { text.push(std::path::MAIN_SEPARATOR); }
+             text
+-        })
+-        .unwrap_or_default();
++        }).unwrap_or_default());
+ 
+-    Prompt::new(
+-        Cow::Borrowed("Save As: "),
+-        None,
+-        ui::completers::none,
++    Prompt::new(Cow::Borrowed("Save As: "), None, ui::completers::none,
+         move |cx, input, event| {
+-            if event != PromptEvent::Validate || input.trim().is_empty() {
+-                return;
+-            }
+-
+-            if close_after_save {
+-                cx.editor.devtui.close_after_save.insert(doc_id);
+-            }
+-            if let Err(err) = cx
+-                .editor
+-                .save(doc_id, Some(PathBuf::from(input)), false)
+-            {
+-                cx.editor.devtui.close_after_save.remove(&doc_id);
+-                cx.editor.set_error(err.to_string());
++            if event != PromptEvent::Validate || input.trim().is_empty() { return; }
++            let path = helix_stdx::path::canonicalize(Path::new(input));
++            let same_file = cx.editor.document(doc_id).and_then(|doc| doc.path())
++                .is_some_and(|current| current == path);
++            if !force && !same_file && fs::symlink_metadata(&path).is_ok() {
++                cx.editor.devtui.requests.push_back(DevTuiRequest::ConfirmOverwrite {
++                    doc_id, path, close_after_save,
++                });
++            } else {
++                begin_save_as(cx.editor, doc_id, path, close_after_save, force);
+             }
+         },
+-    )
+-    .with_line(default_path, editor)
++    ).with_line(default_path, editor)
+ }
+ 
+-
+ #[derive(Clone, Debug)]
+ pub enum ProjectReplaceItem {
+     ReplaceAll { count: usize },
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 5bc023d..20eb8ca 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1276,6 +1276,12 @@ pub enum DevTuiRequest {
+     SaveAs {
+         doc_id: DocumentId,
+         close_after_save: bool,
++        force: bool,
++    },
++    ConfirmOverwrite {
++        doc_id: DocumentId,
++        path: PathBuf,
++        close_after_save: bool,
+     },
+     ExplorerContext {
+         root: PathBuf,
+@@ -2248,9 +2254,14 @@ pub fn devtui_request_close(&mut self, doc_id: DocumentId) {
+     }
+ 
+     pub fn devtui_request_save_as(&mut self, doc_id: DocumentId, close_after_save: bool) {
++        self.devtui_request_save_as_with_force(doc_id, close_after_save, false);
++    }
++
++    pub fn devtui_request_save_as_with_force(&mut self, doc_id: DocumentId, close_after_save: bool, force: bool) {
+         self.devtui.requests.push_back(DevTuiRequest::SaveAs {
+             doc_id,
+             close_after_save,
++            force,
+         });
+     }
+ 
