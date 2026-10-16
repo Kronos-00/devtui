@@ -25,11 +25,14 @@ Implemented and validated in the fork:
 - dirty close Save / Don't Save / Cancel;
 - Untitled Save As for write/write-quit;
 - protected local quit/write-quit/exit command families;
-- persistent Explorer sidebar with explicit workspace root, folder expansion, file Preview/Pin wiring, focus protection, hidden/ignored toggles, mouse wheel scrolling, and persistent drag-resize width.
+- persistent Explorer sidebar with explicit workspace root, folder expansion, file Preview/Pin wiring, focus protection, hidden/ignored toggles, mouse wheel scrolling, and persistent drag-resize width;
+- Explorer Ctrl/Alt toggle-selection and Shift range selection;
+- VS Code-style Explorer context targeting for selected/unselected rows;
+- root/folder/file context actions for New File, New Folder, Copy, Paste, Rename, Delete, Copy Path, and Copy Relative Path;
+- internal Explorer file clipboard with incremental `copy` naming and batch operations.
 
 ## Deliberately not implemented yet
 
-- Explorer context menu/file-operation UX;
 - right-click symbol menu;
 - editor scrollbar;
 - custom inactive-code LSP regions;
