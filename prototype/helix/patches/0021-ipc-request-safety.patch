@@ -1,0 +1,69 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 66426ab..a3323cd 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -67,8 +67,8 @@ struct DevTuiOpenRequest {
+ #[cfg(unix)]
+ fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>> {
+     use std::{
+-        io::{BufRead, BufReader},
+-        os::unix::net::UnixListener,
++        io::{BufRead, BufReader, Read},
++        os::unix::{fs::PermissionsExt, net::UnixListener},
+     };
+ 
+     let socket_path = std::env::var_os("DEVTUI_HELIX_SOCKET").map(PathBuf::from)?;
+@@ -76,11 +76,13 @@ fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenR
+         return None;
+     }
+ 
+-    if socket_path.exists() {
+-        let _ = std::fs::remove_file(&socket_path);
++    // Never unlink an arbitrary file or steal another running editor's endpoint.
++    if std::fs::symlink_metadata(&socket_path).is_ok() {
++        log::warn!("devtui IPC endpoint already exists; leaving it untouched");
++        return None;
+     }
+-
+     let listener = UnixListener::bind(&socket_path).ok()?;
++    std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o600)).ok()?;
+     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+ 
+     std::thread::Builder::new()
+@@ -90,13 +92,24 @@ fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenR
+                 let Ok(stream) = stream else {
+                     break;
+                 };
+-                let mut reader = BufReader::new(stream);
++                // A partial or oversized request must not block all later clients
++                // or grow a string without limit. The endpoint is owner-only.
++                if stream.set_read_timeout(Some(std::time::Duration::from_millis(500))).is_err() {
++                    continue;
++                }
++                let mut reader = BufReader::new(stream.take(65536));
+                 let mut line = String::new();
+-                if reader.read_line(&mut line).is_err() {
++                if reader.read_line(&mut line).is_err() || !line.ends_with('\n') || line.len() >= 65536 {
+                     continue;
+                 }
+                 match serde_json::from_str::<DevTuiOpenRequest>(&line) {
+                     Ok(request) => {
++                        if request.path.as_os_str().is_empty() {
++                            continue;
++                        }
++                        if request.path.exists() && !request.path.is_file() {
++                            continue;
++                        }
+                         if tx.send(request).is_err() {
+                             break;
+                         }
+@@ -937,7 +950,8 @@ fn process_devtui_requests(&mut self) -> bool {
+                             let max_line = doc.text().len_lines().saturating_sub(1);
+                             let row = line.saturating_sub(1).min(max_line);
+                             let line_start = doc.text().line_to_char(row);
+-                            let line_len = doc.text().line(row).len_chars();
++                            let line_text = doc.text().line(row);
++                            let line_len = line_text.chars().take_while(|ch| !matches!(ch, '\n' | '\r')).count();
+                             let col = column.saturating_sub(1).min(line_len);
+                             doc.set_selection(
+                                 view_id,

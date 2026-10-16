@@ -22,6 +22,7 @@ import json, socket, sys
 sock_path, path, line, column = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 payload = json.dumps({"path": path, "line": line, "column": column}) + "\n"
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.settimeout(2.0)
     s.connect(sock_path)
     s.sendall(payload.encode())
 PY
