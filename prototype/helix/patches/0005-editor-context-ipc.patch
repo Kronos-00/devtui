@@ -1,0 +1,465 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 0cc9c01..50b30c3 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -16,6 +16,7 @@
+     tree::Layout,
+     Align, Editor,
+ };
++use serde::Deserialize;
+ use serde_json::json;
+ use tui::backend::Backend;
+ 
+@@ -32,7 +33,7 @@
+ use log::{debug, error, info, warn};
+ use std::{
+     io::{stdin, IsTerminal},
+-    path::Path,
++    path::{Path, PathBuf},
+     sync::Arc,
+ };
+ 
+@@ -55,6 +56,66 @@
+ 
+ #[cfg(all(not(windows), not(feature = "integration")))]
+ type TerminalBackend = TerminaBackend;
++
++#[derive(Debug, Deserialize)]
++struct DevTuiOpenRequest {
++    path: PathBuf,
++    line: usize,
++    column: usize,
++}
++
++#[cfg(unix)]
++fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>> {
++    use std::{
++        io::{BufRead, BufReader},
++        os::unix::net::UnixListener,
++    };
++
++    let socket_path = std::env::var_os("DEVTUI_HELIX_SOCKET").map(PathBuf::from)?;
++    if socket_path.as_os_str().is_empty() {
++        return None;
++    }
++
++    if socket_path.exists() {
++        let _ = std::fs::remove_file(&socket_path);
++    }
++
++    let listener = UnixListener::bind(&socket_path).ok()?;
++    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
++
++    std::thread::Builder::new()
++        .name("devtui-helix-ipc".into())
++        .spawn(move || {
++            for stream in listener.incoming() {
++                let Ok(stream) = stream else {
++                    break;
++                };
++                let mut reader = BufReader::new(stream);
++                let mut line = String::new();
++                if reader.read_line(&mut line).is_err() {
++                    continue;
++                }
++                match serde_json::from_str::<DevTuiOpenRequest>(&line) {
++                    Ok(request) => {
++                        if tx.send(request).is_err() {
++                            break;
++                        }
++                    }
++                    Err(err) => {
++                        log::warn!("devtui IPC request ignored: {err}");
++                    }
++                }
++            }
++        })
++        .ok()?;
++
++    Some(rx)
++}
++
++#[cfg(not(unix))]
++fn start_devtui_ipc() -> Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>> {
++    None
++}
+ #[cfg(all(windows, not(feature = "integration")))]
+ type TerminalBackend = CrosstermBackend<std::io::Stdout>;
+ #[cfg(feature = "integration")]
+@@ -79,6 +140,7 @@ pub struct Application {
+     lsp_progress: LspProgressMap,
+ 
+     theme_mode: Option<theme::Mode>,
++    devtui_ipc: Option<tokio::sync::mpsc::UnboundedReceiver<DevTuiOpenRequest>>,
+ }
+ 
+ #[cfg(feature = "integration")]
+@@ -140,6 +202,7 @@ pub fn new(
+         compositor.push(editor_view);
+ 
+         let jobs = Jobs::new();
++        let devtui_ipc = start_devtui_ipc();
+ 
+         if args.load_tutor {
+             let path = helix_loader::runtime_file(Path::new("tutor"));
+@@ -253,6 +316,7 @@ pub fn new(
+             jobs,
+             lsp_progress: LspProgressMap::new(),
+             theme_mode,
++            devtui_ipc,
+         };
+ 
+         Ok(app)
+@@ -304,6 +368,21 @@ pub async fn event_loop<S>(&mut self, input_stream: &mut S)
+         }
+     }
+ 
++    fn process_devtui_ipc(&mut self) -> bool {
++        let mut changed = false;
++        if let Some(receiver) = self.devtui_ipc.as_mut() {
++            while let Ok(request) = receiver.try_recv() {
++                self.editor.devtui.requests.push_back(DevTuiRequest::OpenPath {
++                    path: request.path,
++                    line: request.line,
++                    column: request.column,
++                });
++                changed = true;
++            }
++        }
++        changed
++    }
++
+     pub async fn event_loop_until_idle<S>(&mut self, input_stream: &mut S) -> bool
+     where
+         S: Stream<Item = std::io::Result<TerminalEvent>> + Unpin,
+@@ -349,6 +428,14 @@ pub async fn event_loop_until_idle<S>(&mut self, input_stream: &mut S) -> bool
+                     }
+                     self.render().await;
+                 }
++                _ = tokio::time::sleep(std::time::Duration::from_millis(25)), if self.devtui_ipc.is_some() => {
++                    if self.process_devtui_ipc() {
++                        let devtui_redraw = self.process_devtui_requests();
++                        if devtui_redraw {
++                            self.render().await;
++                        }
++                    }
++                }
+                 event = self.editor.wait_event() => {
+                     let _idle_handled = self.handle_editor_event(event).await;
+ 
+@@ -731,6 +818,63 @@ fn process_devtui_requests(&mut self) -> bool {
+                     self.compositor.push(Box::new(prompt));
+                     pushed = true;
+                 }
++                DevTuiRequest::SymbolContext => {
++                    self.compositor
++                        .push(Box::new(crate::ui::devtui::symbol_context_select()));
++                    pushed = true;
++                }
++                DevTuiRequest::SymbolAction(name) => {
++                    let command = match name {
++                        "goto_definition" => crate::commands::MappableCommand::goto_definition,
++                        "goto_declaration" => crate::commands::MappableCommand::goto_declaration,
++                        "goto_reference" => crate::commands::MappableCommand::goto_reference,
++                        "goto_type_definition" => {
++                            crate::commands::MappableCommand::goto_type_definition
++                        }
++                        "goto_implementation" => {
++                            crate::commands::MappableCommand::goto_implementation
++                        }
++                        "hover" => crate::commands::MappableCommand::hover,
++                        "rename_symbol" => crate::commands::MappableCommand::rename_symbol,
++                        "code_action" => crate::commands::MappableCommand::code_action,
++                        _ => {
++                            self.editor.set_error(format!("Unknown editor context action: {name}"));
++                            continue;
++                        }
++                    };
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    command.execute(&mut cx);
++                }
++                DevTuiRequest::OpenPath { path, line, column } => {
++                    self.editor.devtui.focus_editor_requested = true;
++                    match self.editor.devtui_open_preview(&path) {
++                        Ok(doc_id) => {
++                            let view_id = self.editor.tree.focus;
++                            let Some(doc) = self.editor.documents.get_mut(&doc_id) else {
++                                continue;
++                            };
++                            let max_line = doc.text().len_lines().saturating_sub(1);
++                            let row = line.saturating_sub(1).min(max_line);
++                            let line_start = doc.text().line_to_char(row);
++                            let line_len = doc.text().line(row).len_chars();
++                            let col = column.saturating_sub(1).min(line_len);
++                            doc.set_selection(
++                                view_id,
++                                helix_core::Selection::point(line_start + col),
++                            );
++                            self.editor.ensure_cursor_in_view(view_id);
++                        }
++                        Err(err) => self.editor.set_error(err.to_string()),
++                    }
++                    pushed = true;
++                }
+             }
+         }
+         pushed
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index b925c6c..a0f01ae 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -36,6 +36,77 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+         .into()
+     }
+ }
++
++#[derive(Clone, Copy, Debug)]
++pub enum SymbolContextAction {
++    GoToDefinition,
++    GoToDeclaration,
++    GoToReferences,
++    GoToTypeDefinition,
++    GoToImplementation,
++    Hover,
++    Rename,
++    CodeAction,
++}
++
++impl Item for SymbolContextAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::GoToDefinition => "Go to Definition",
++            Self::GoToDeclaration => "Go to Declaration",
++            Self::GoToReferences => "Go to References",
++            Self::GoToTypeDefinition => "Go to Type Definition",
++            Self::GoToImplementation => "Go to Implementation",
++            Self::Hover => "Show Hover",
++            Self::Rename => "Rename Symbol",
++            Self::CodeAction => "Code Action",
++        }
++        .into()
++    }
++}
++
++impl SymbolContextAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::GoToDefinition => "goto_definition",
++            Self::GoToDeclaration => "goto_declaration",
++            Self::GoToReferences => "goto_reference",
++            Self::GoToTypeDefinition => "goto_type_definition",
++            Self::GoToImplementation => "goto_implementation",
++            Self::Hover => "hover",
++            Self::Rename => "rename_symbol",
++            Self::CodeAction => "code_action",
++        }
++    }
++}
++
++pub fn symbol_context_select() -> Select<SymbolContextAction> {
++    Select::new(
++        "Editor",
++        [
++            SymbolContextAction::GoToDefinition,
++            SymbolContextAction::GoToDeclaration,
++            SymbolContextAction::GoToReferences,
++            SymbolContextAction::GoToTypeDefinition,
++            SymbolContextAction::GoToImplementation,
++            SymbolContextAction::Hover,
++            SymbolContextAction::Rename,
++            SymbolContextAction::CodeAction,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::SymbolAction(action.command()));
++            }
++        },
++    )
++}
++
+ pub fn close_select(doc_id: DocumentId, display_name: String) -> Select<CloseChoice> {
+     Select::new(
+         format!("Save changes to {display_name}?"),
+@@ -445,6 +516,7 @@ pub struct DevTuiExplorer {
+     pub dragging_resize: bool,
+     pub show_hidden: bool,
+     pub show_ignored: bool,
++    selection_anchor: Option<usize>,
+     last_click: Option<(Instant, usize)>,
+ }
+ 
+@@ -457,17 +529,18 @@ fn default() -> Self {
+         let mut expanded = HashSet::new();
+         expanded.insert(root.clone());
+         let mut this = Self {
+-            root,
++            root: root.clone(),
+             expanded,
+             rows: Vec::new(),
+             cursor: 0,
+-            selected_paths: HashSet::new(),
++            selected_paths: HashSet::from([root]),
+             scroll_offset: 0,
+             focused: true,
+             width: Self::load_width().unwrap_or(32),
+             dragging_resize: false,
+             show_hidden: true,
+             show_ignored: true,
++            selection_anchor: None,
+             last_click: None,
+         };
+         this.rebuild();
+@@ -603,23 +676,41 @@ pub fn selected(&self) -> Option<&ExplorerRow> {
+     pub fn select_single(&mut self, index: usize) {
+         if let Some(row) = self.rows.get(index) {
+             self.cursor = index;
++            self.selection_anchor = Some(index);
+             self.selected_paths.clear();
+             self.selected_paths.insert(row.path.clone());
+         }
+     }
+ 
++    pub fn select_range(&mut self, index: usize) {
++        if self.rows.is_empty() || index >= self.rows.len() {
++            return;
++        }
++        let anchor = self
++            .selection_anchor
++            .unwrap_or(self.cursor)
++            .min(self.rows.len() - 1);
++        let (start, end) = (anchor.min(index), anchor.max(index));
++        self.cursor = index;
++        self.selected_paths.clear();
++        self.selected_paths.extend(
++            self.rows[start..=end]
++                .iter()
++                .map(|row| row.path.clone()),
++        );
++        self.last_click = None;
++    }
++
+     pub fn toggle_selection(&mut self, index: usize) {
+         let Some(row) = self.rows.get(index) else {
+             return;
+         };
+         self.cursor = index;
++        self.selection_anchor = Some(index);
+         self.last_click = None;
+         if !self.selected_paths.remove(&row.path) {
+             self.selected_paths.insert(row.path.clone());
+         }
+-        if self.selected_paths.is_empty() {
+-            self.selected_paths.insert(row.path.clone());
+-        }
+     }
+ 
+     pub fn is_selected_path(&self, path: &Path) -> bool {
+@@ -810,7 +901,6 @@ pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
+             .take(visible)
+             .enumerate()
+         {
+-            let absolute = scroll + screen_index;
+             let y = area.y + 1 + screen_index as u16;
+             let indent = "  ".repeat(row.depth);
+             let marker = if row.is_dir {
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 235cb4d..b49f0e1 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1383,7 +1383,13 @@ fn handle_explorer_mouse(
+             match event.kind {
+                 MouseEventKind::Down(MouseButton::Left) => {
+                     if let Some(index) = self.explorer.row_at(area, event.row) {
+-                        if event
++                        if event.modifiers.contains(KeyModifiers::SHIFT)
++                            && !event
++                                .modifiers
++                                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
++                        {
++                            self.explorer.select_range(index);
++                        } else if event
+                             .modifiers
+                             .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+                         {
+@@ -1573,6 +1579,21 @@ fn handle_mouse_event(
+                 }
+             }
+ 
++            MouseEventKind::Down(MouseButton::Right) => {
++                let editor = &mut cxt.editor;
++                if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
++                    editor.focus(view_id);
++                    let doc_id = view!(editor, view_id).doc;
++                    doc_mut!(editor, &doc_id).set_selection(view_id, Selection::point(pos));
++                    editor
++                        .devtui
++                        .requests
++                        .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++                    return EventResult::Consumed(None);
++                }
++                EventResult::Ignored(None)
++            }
++
+             MouseEventKind::Down(MouseButton::Left) => {
+                 let editor = &mut cxt.editor;
+ 
+@@ -1764,6 +1785,9 @@ fn handle_event(
+         event: &Event,
+         context: &mut crate::compositor::Context,
+     ) -> EventResult {
++        if std::mem::take(&mut context.editor.devtui.focus_editor_requested) {
++            self.explorer.focused = false;
++        }
+         context.editor.devtui_promote_modified_preview();
+ 
+         if let Event::Key(key) = event {
+@@ -1936,6 +1960,9 @@ fn handle_event(
+     }
+ 
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
++        if cx.editor.devtui.focus_editor_requested {
++            self.explorer.focused = false;
++        }
+         cx.editor.devtui_promote_modified_preview();
+         self.layout_area = area;
+ 
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 036a828..baaa58b 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1294,6 +1294,13 @@ pub enum DevTuiRequest {
+     ExplorerRename {
+         path: PathBuf,
+     },
++    SymbolContext,
++    SymbolAction(&'static str),
++    OpenPath {
++        path: PathBuf,
++        line: usize,
++        column: usize,
++    },
+ }
+ 
+ #[derive(Debug, Default)]
+@@ -1304,6 +1311,8 @@ pub struct DevTuiState {
+     pub close_after_save: HashSet<DocumentId>,
+     /// Explorer Copy/Paste uses a file clipboard, independent from text registers.
+     pub explorer_clipboard: Vec<PathBuf>,
++    /// External navigation can request focus for the actual editor while keeping Explorer visible.
++    pub focus_editor_requested: bool,
+     /// UI requests produced by editor/command code and consumed by helix-term.
+     pub requests: VecDeque<DevTuiRequest>,
+ }

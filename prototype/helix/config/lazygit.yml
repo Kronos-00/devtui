@@ -9,9 +9,7 @@ git:
     - colorArg: always
       command: delta --dark --paging=never
 os:
-  # Running-editor integration requires the Helix IPC prototype and is
-  # intentionally disabled here rather than opening a second editor instance.
-  edit: 'true'
-  editAtLine: 'true'
+  edit: '__HOME__/.local/bin/devtui-helix-open "{{filename}}"'
+  editAtLine: '__HOME__/.local/bin/devtui-helix-open "{{filename}}" "{{line}}"'
   editInTerminal: false
 promptToReturnFromSubprocess: false

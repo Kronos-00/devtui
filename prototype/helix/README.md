@@ -29,15 +29,17 @@ Implemented and validated in the fork:
 - Explorer Ctrl/Alt toggle-selection and Shift range selection;
 - VS Code-style Explorer context targeting for selected/unselected rows;
 - root/folder/file context actions for New File, New Folder, Copy, Paste, Rename, Delete, Copy Path, and Copy Relative Path;
-- internal Explorer file clipboard with incremental `copy` naming and batch operations.
+- internal Explorer file clipboard with incremental `copy` naming and batch operations;
+- editor right-click Symbol menu for Definition, Declaration, References, Implementation, Type Definition, Hover, Rename, and Code Action;
+- per-session Unix-socket navigation into the already-running editor;
+- Lazygit edit actions routed to that editor;
+- dedicated Helix terminal-link plugin build for path/line/column navigation.
 
 ## Deliberately not implemented yet
 
-- right-click symbol menu;
 - editor scrollbar;
 - custom inactive-code LSP regions;
-- project Replace panel;
-- terminal/Lazygit open-in-the-already-running-editor IPC.
+- project Replace panel.
 
 Those items are assessed in [docs/ASSESSMENT.md](docs/ASSESSMENT.md). They are prototype gaps, not claimed parity.
 

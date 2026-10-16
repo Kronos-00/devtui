@@ -6,7 +6,7 @@ layout {
                 pane name="editor" size="62%" command="__HOME__/.local/bin/devtui-helix-editor-pane" focus=true
                 pane split_direction="horizontal" {
                     pane name="git" size="58%" command="__HOME__/.local/bin/devtui-helix-git-pane"
-                    pane name="shell" command="__HOME__/.local/bin/devtui-shell-pane"
+                    pane name="shell" command="__HOME__/.local/bin/devtui-helix-shell-pane"
                 }
             }
         }

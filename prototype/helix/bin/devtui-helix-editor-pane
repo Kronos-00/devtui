@@ -7,4 +7,7 @@ PREFIX="$HOME/.local/opt/devtui/helix-prototype"
 export HELIX_RUNTIME="$PREFIX/runtime"
 export XDG_CONFIG_HOME="$HOME/.config/devtui-helix"
 "$PREFIX/bin/hx"
+rm -f "${DEVTUI_HELIX_SOCKET:-}"
+unset DEVTUI_HELIX_SOCKET
+unset DEVTUI_HELIX_EDITOR_PANE_FILE
 exec bash --noprofile --norc -i

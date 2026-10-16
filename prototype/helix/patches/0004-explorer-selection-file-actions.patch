@@ -52,7 +52,7 @@ index 0126d3a..b925c6c 100644
 @@ -112,6 +112,320 @@ pub fn save_as_prompt(
      .with_line(default_path, editor)
  }
-
+ 
 +#[derive(Clone, Copy, Debug, Default)]
 +pub enum ExplorerAction {
 +    #[default]
@@ -399,11 +399,11 @@ index 0126d3a..b925c6c 100644
 +            }
 +        }
      }
-
+ 
      pub fn selected(&self) -> Option<&ExplorerRow> {
          self.rows.get(self.cursor)
      }
-
+ 
 +    pub fn select_single(&mut self, index: usize) {
 +        if let Some(row) = self.rows.get(index) {
 +            self.cursor = index;
@@ -509,7 +509,7 @@ index c90ac83..235cb4d 100644
 @@ -1262,14 +1262,61 @@ fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool
              return false;
          }
-
+ 
 +        if event.modifiers.contains(KeyModifiers::CONTROL) {
 +            match event.code {
 +                KeyCode::Char('c') | KeyCode::Char('C') => {
@@ -627,7 +627,7 @@ index b056066..036a828 100644
 +        path: PathBuf,
 +    },
  }
-
+ 
  #[derive(Debug, Default)]
 @@ -1285,6 +1302,8 @@ pub struct DevTuiState {
      pub preview_document: Option<DocumentId>,
@@ -650,3 +650,4 @@ index b056066..036a828 100644
 +        self.devtui.preview_document = None;
          Ok(id)
      }
+ 

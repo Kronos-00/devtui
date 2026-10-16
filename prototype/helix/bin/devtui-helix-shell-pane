@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -e
+unset DEVTUI_HELIX_SOCKET
+unset DEVTUI_HELIX_EDITOR_PANE_FILE
+exec bash --noprofile --norc -i

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -e
+file="${1:-}"
+line="${2:-1}"
+column="${3:-1}"
+[ -n "$file" ] || exit 2
+file="$(realpath -m -- "$file")"
+[[ "$line" =~ ^[0-9]+$ ]] && [ "$line" -gt 0 ] || line=1
+[[ "$column" =~ ^[0-9]+$ ]] && [ "$column" -gt 0 ] || column=1
+
+focus_editor() {
+  if [ -n "${DEVTUI_HELIX_EDITOR_PANE_FILE:-}" ] && [ -f "$DEVTUI_HELIX_EDITOR_PANE_FILE" ] && [ -n "${ZELLIJ:-}" ]; then
+    pane_id="$(cat "$DEVTUI_HELIX_EDITOR_PANE_FILE" 2>/dev/null || true)"
+    [ -n "$pane_id" ] && zellij action focus-pane-id "$pane_id" >/dev/null 2>&1 || true
+  fi
+}
+
+if [ -n "${DEVTUI_HELIX_SOCKET:-}" ] && [ -S "$DEVTUI_HELIX_SOCKET" ]; then
+  focus_editor
+  python3 - "$DEVTUI_HELIX_SOCKET" "$file" "$line" "$column" <<'PY'
+import json, socket, sys
+sock_path, path, line, column = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+payload = json.dumps({"path": path, "line": line, "column": column}) + "\n"
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.connect(sock_path)
+    s.sendall(payload.encode())
+PY
+  exit 0
+fi
+
+exec "$HOME/.local/opt/devtui/helix-prototype/bin/hx" "$file:$line:$column"
