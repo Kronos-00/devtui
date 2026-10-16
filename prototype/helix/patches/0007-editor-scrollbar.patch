@@ -1,0 +1,227 @@
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 92241a6..2dd4292 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -29,7 +29,7 @@
+     graphics::{Color, CursorKind, Modifier, Rect, Style},
+     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+     keyboard::{KeyCode, KeyModifiers},
+-    Document, DocumentId, Editor, Theme, View,
++    Document, DocumentId, Editor, Theme, View, ViewId,
+ };
+ use std::{
+     mem::take,
+@@ -50,6 +50,27 @@ struct DevTuiTabHit {
+     close_start: u16,
+ }
+
++#[derive(Clone, Copy, Debug)]
++struct DevTuiScrollbarGeometry {
++    view_id: ViewId,
++    x: u16,
++    track_top: u16,
++    track_height: u16,
++    thumb_top: u16,
++    thumb_height: u16,
++    max_top_line: usize,
++}
++
++#[derive(Clone, Copy, Debug)]
++struct DevTuiScrollbarDrag {
++    view_id: ViewId,
++    track_top: u16,
++    track_height: u16,
++    thumb_height: u16,
++    grab_offset: u16,
++    max_top_line: usize,
++}
++
+ pub struct EditorView {
+     pub keymaps: Keymaps,
+     on_next_key: Option<(OnKeyCallback, OnKeyCallbackKind)>,
+@@ -64,6 +85,7 @@ pub struct EditorView {
+     bufferline_hits: Vec<DevTuiTabHit>,
+     bufferline_used_width: u16,
+     last_bufferline_click: Option<(Instant, u16)>,
++    scrollbar_drag: Option<DevTuiScrollbarDrag>,
+     explorer: crate::ui::devtui::DevTuiExplorer,
+     layout_area: Rect,
+     /// Tracks if the terminal window is focused by reaction to terminal focus events
+@@ -94,6 +116,7 @@ pub fn new(keymaps: Keymaps) -> Self {
+             bufferline_hits: Vec::new(),
+             bufferline_used_width: 0,
+             last_bufferline_click: None,
++            scrollbar_drag: None,
+             explorer: crate::ui::devtui::DevTuiExplorer::default(),
+             layout_area: Rect::default(),
+             terminal_focused: true,
+@@ -104,6 +127,113 @@ pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
+         &mut self.spinners
+     }
+
++    fn scrollbar_geometry(editor: &Editor, view_id: ViewId) -> Option<DevTuiScrollbarGeometry> {
++        let view = editor.tree.try_get(view_id)?;
++        let doc = editor.document(view.doc)?;
++        let inner = view.inner_area(doc);
++        if inner.height < 3 || inner.width < 2 {
++            return None;
++        }
++
++        let total_lines = doc.text().len_lines().max(1);
++        let visible_lines = inner.height as usize;
++        if total_lines <= visible_lines {
++            return None;
++        }
++
++        let max_top_line = total_lines.saturating_sub(visible_lines);
++        let top_line = doc
++            .text()
++            .char_to_line(doc.view_offset(view_id).anchor.min(doc.text().len_chars()))
++            .min(max_top_line);
++
++        let track_height = inner.height;
++        let thumb_height = ((visible_lines * track_height as usize) / total_lines)
++            .clamp(1, track_height as usize) as u16;
++        let track_span = track_height.saturating_sub(thumb_height);
++        let thumb_offset = if max_top_line == 0 || track_span == 0 {
++            0
++        } else {
++            ((top_line * track_span as usize) / max_top_line) as u16
++        };
++
++        Some(DevTuiScrollbarGeometry {
++            view_id,
++            x: inner.right().saturating_sub(1),
++            track_top: inner.y,
++            track_height,
++            thumb_top: inner.y.saturating_add(thumb_offset),
++            thumb_height,
++            max_top_line,
++        })
++    }
++
++    fn scrollbar_at(editor: &Editor, row: u16, column: u16) -> Option<DevTuiScrollbarGeometry> {
++        editor.tree.views().find_map(|(view, _)| {
++            let geometry = Self::scrollbar_geometry(editor, view.id)?;
++            (column == geometry.x
++                && row >= geometry.track_top
++                && row < geometry.track_top.saturating_add(geometry.track_height))
++                .then_some(geometry)
++        })
++    }
++
++    fn scroll_from_drag(editor: &mut Editor, drag: DevTuiScrollbarDrag, row: u16) -> bool {
++        let track_span = drag.track_height.saturating_sub(drag.thumb_height);
++        let thumb_top = row
++            .saturating_sub(drag.grab_offset)
++            .saturating_sub(drag.track_top)
++            .min(track_span);
++        let top_line = if track_span == 0 || drag.max_top_line == 0 {
++            0
++        } else {
++            ((thumb_top as usize * drag.max_top_line) + track_span as usize / 2)
++                / track_span as usize
++        };
++
++        let Some(view) = editor.tree.try_get(drag.view_id).cloned() else {
++            return false;
++        };
++        let Some(doc) = editor.document_mut(view.doc) else {
++            return false;
++        };
++        let target_line = top_line.min(doc.text().len_lines().saturating_sub(1));
++        let mut offset = doc.view_offset(drag.view_id);
++        offset.anchor = doc.text().line_to_char(target_line);
++        offset.vertical_offset = 0;
++        doc.set_view_offset(drag.view_id, offset);
++        editor.needs_redraw = true;
++        true
++    }
++
++    fn render_scrollbar(editor: &Editor, doc: &Document, view: &View, surface: &mut Surface) {
++        let Some(geometry) = Self::scrollbar_geometry(editor, view.id) else {
++            return;
++        };
++
++        let track_style = editor
++            .theme
++            .try_get("ui.window")
++            .unwrap_or_else(|| editor.theme.get("ui.text.inactive"));
++        let thumb_style = editor
++            .theme
++            .try_get("ui.menu.scroll")
++            .unwrap_or_else(|| editor.theme.get("ui.text.focus"));
++
++        for y in geometry.track_top..geometry.track_top.saturating_add(geometry.track_height) {
++            if let Some(cell) = surface.get_mut(geometry.x, y) {
++                cell.set_symbol("│").set_style(track_style);
++            }
++        }
++        for y in geometry.thumb_top..geometry.thumb_top.saturating_add(geometry.thumb_height) {
++            if let Some(cell) = surface.get_mut(geometry.x, y) {
++                cell.set_symbol("█").set_style(thumb_style);
++            }
++        }
++
++        let _ = doc;
++    }
++
+     pub fn render_view(
+         &self,
+         editor: &Editor,
+@@ -247,6 +377,8 @@ pub fn render_view(
+             decorations,
+         );
+
++        Self::render_scrollbar(editor, doc, view, surface);
++
+         // if we're not at the edge of the screen, draw a right border
+         if viewport.right() != view.area.right() {
+             let x = area.right();
+@@ -1558,6 +1690,46 @@ fn handle_mouse_event(
+             ..
+         } = *event;
+
++        if let Some(drag) = self.scrollbar_drag {
++            match kind {
++                MouseEventKind::Drag(MouseButton::Left) => {
++                    if Self::scroll_from_drag(cxt.editor, drag, row) {
++                        return EventResult::Consumed(None);
++                    }
++                }
++                MouseEventKind::Up(MouseButton::Left) => {
++                    let _ = Self::scroll_from_drag(cxt.editor, drag, row);
++                    self.scrollbar_drag = None;
++                    return EventResult::Consumed(None);
++                }
++                _ => {}
++            }
++        }
++
++        if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
++            if let Some(geometry) = Self::scrollbar_at(cxt.editor, row, column) {
++                cxt.editor.focus(geometry.view_id);
++                let inside_thumb = row >= geometry.thumb_top
++                    && row < geometry.thumb_top.saturating_add(geometry.thumb_height);
++                let grab_offset = if inside_thumb {
++                    row.saturating_sub(geometry.thumb_top)
++                } else {
++                    geometry.thumb_height / 2
++                };
++                let drag = DevTuiScrollbarDrag {
++                    view_id: geometry.view_id,
++                    track_top: geometry.track_top,
++                    track_height: geometry.track_height,
++                    thumb_height: geometry.thumb_height,
++                    grab_offset,
++                    max_top_line: geometry.max_top_line,
++                };
++                self.scrollbar_drag = Some(drag);
++                let _ = Self::scroll_from_drag(cxt.editor, drag, row);
++                return EventResult::Consumed(None);
++            }
++        }
++
+         if row == 0 {
+             if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
+                 if let Some(hit) = self
