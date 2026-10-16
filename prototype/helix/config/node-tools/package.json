@@ -1,0 +1,9 @@
+{
+  "name": "devtui-helix-language-tools",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "bash-language-server": "5.8.1",
+    "pyright": "1.1.414"
+  }
+}

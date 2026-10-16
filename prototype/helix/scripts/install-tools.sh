@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 PREFIX="$HOME/.local/opt/devtui/helix-tools"
 NODE_PREFIX="$PREFIX/node"
@@ -15,10 +16,11 @@ done
 
 mkdir -p "$NODE_PREFIX" "$BIN"
 
-npm install --silent --no-audit --no-fund --prefix "$NODE_PREFIX"   bash-language-server@5.8.1   pyright@1.1.414
+cp "$ROOT/prototype/helix/config/node-tools/"package*.json "$NODE_PREFIX/"
+npm ci --silent --no-audit --no-fund --prefix "$NODE_PREFIX" --registry=https://registry.npmjs.org
 
-python3 -m venv "$PYTHON_PREFIX"
-"$PYTHON_PREFIX/bin/python" -m pip install --disable-pip-version-check --quiet   cmake-language-server==0.1.11   cmakelang==0.6.13   debugpy==1.8.22   ruff==0.17.0
+python3 -I -m venv "$PYTHON_PREFIX"
+"$PYTHON_PREFIX/bin/python" -I -m pip install --disable-pip-version-check --quiet -r "$ROOT/prototype/helix/config/python-tools.lock.txt"
 
 link_tool() {
   local source="$1"

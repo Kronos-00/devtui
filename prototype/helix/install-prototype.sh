@@ -2,16 +2,27 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG_ONLY=0
-if [ "${1:-}" = "--config-only" ]; then
+if [ "${1:-}" = "--help" ]; then
+  echo 'Usage: ./prototype/helix/install-prototype.sh [--config-only]'
+  echo 'Installs alongside Neovim devtui and backs up previous Helix settings.'
+  exit 0
+elif [ "${1:-}" = "--config-only" ]; then
   CONFIG_ONLY=1
 elif [ $# -gt 0 ]; then
   echo "Usage: ./prototype/helix/install-prototype.sh [--config-only]" >&2
   exit 2
 fi
+BACKUP="$HOME/.local/state/devtui/helix-backup-$(date +%Y%m%d-%H%M%S)-$$"
+mkdir -p "$BACKUP"
+for path in .config/devtui-helix .config/zellij/layouts/dev-helix.kdl .config/zellij/layouts/dev-helix-wide.kdl; do
+  if [ -e "$HOME/$path" ]; then
+    mkdir -p "$BACKUP/$(dirname "$path")"
+    cp -a "$HOME/$path" "$BACKUP/$path"
+  fi
+done
 mkdir -p "$HOME/.local/bin" "$HOME/.config/devtui-helix/helix" "$HOME/.config/zellij/layouts"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix" "$HOME/.local/bin/devtui-helix"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-banner" "$HOME/.local/bin/devtui-helix-banner"
-install -m 0755 "$ROOT/bin/devtui-shell-pane" "$HOME/.local/bin/devtui-shell-pane"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-editor-pane" "$HOME/.local/bin/devtui-helix-editor-pane"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-git-pane" "$HOME/.local/bin/devtui-helix-git-pane"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-open" "$HOME/.local/bin/devtui-helix-open"
@@ -36,4 +47,5 @@ if [ "$CONFIG_ONLY" -eq 0 ]; then
   "$ROOT/prototype/helix/scripts/build-link-plugin.sh"
   "$ROOT/prototype/helix/scripts/install-tools.sh"
 fi
-echo "Prototype installed. Run: devtui-helix [project-directory]"
+echo "Helix edition installed. Backup: $BACKUP"
+echo "Run: devtui-helix [project-directory]"

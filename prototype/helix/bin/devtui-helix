@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 set -e
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo 'Usage: devtui-helix [project-directory]'
+  echo 'Starts the Helix edition without changing your shell or SDK environment.'
+  exit 0
+fi
 ROOT="${1:-$PWD}"
 cd "$ROOT"
 export DEVTUI_HELIX_EDITOR_PANE_FILE="/tmp/devtui-helix-editor-${UID}-$$.pane"

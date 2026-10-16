@@ -23,9 +23,10 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 RUSTUP_TOOLCHAIN="$TOOLCHAIN" cargo build --locked --release -p helix-term --bin hx --manifest-path "$SRC/Cargo.toml"
 # Rename, rather than overwrite the executable of a running editor.
 install -m 0755 "$CARGO_TARGET_DIR/release/hx" "$PREFIX/bin/hx.new"
-cp -a "$SRC/runtime" "$PREFIX/runtime.new"
+RUNTIME_STAGE="$(mktemp -d "$PREFIX/runtime-stage.XXXXXX")"
+cp -a "$SRC/runtime/." "$RUNTIME_STAGE/"
 if [ -d "$PREFIX/runtime" ]; then mv "$PREFIX/runtime" "$WORK/runtime-$(date +%s%N)"; fi
-mv "$PREFIX/runtime.new" "$PREFIX/runtime"
+mv "$RUNTIME_STAGE" "$PREFIX/runtime"
 mv -f "$PREFIX/bin/hx.new" "$PREFIX/bin/hx"
 python3 - "$ROOT" "$SRC" "$PREFIX" "$TOOLCHAIN" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
