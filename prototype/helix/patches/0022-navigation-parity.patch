@@ -1,0 +1,317 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 1ee4dd3..fdfed7f 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -491,6 +491,7 @@ pub fn doc(&self) -> &str {
+         later, "Move forward in history",
+         commit_undo_checkpoint, "Commit changes to new checkpoint",
+         yank, "Yank selection",
++        devtui_clear_selections, "Collapse selections and keep the primary cursor",
+         devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
+         devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
+         devtui_save_as, "Open Save As for the current buffer",
+@@ -763,31 +764,53 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
+ 
+ use helix_core::movement::{move_horizontally, move_vertically};
+ 
+-fn devtui_prepare_plain_cursor_move(cx: &mut Context) {
+-    if cx.editor.devtui.column_selection_active {
+-        collapse_selection(cx);
+-        cx.editor.devtui.column_selection_active = false;
+-    }
++fn devtui_plain_cursor_move(cx: &mut Context, dir: Direction, vertical: bool) -> bool {
++    if !cx.editor.devtui.column_selection_active { return false; }
++    cx.editor.devtui.column_selection_active = false;
++    let count = cx.count();
++    let (view, doc) = current!(cx.editor);
++    let text = doc.text().slice(..);
++    let text_fmt = doc.text_format(view.inner_area(doc).width, None);
++    let mut annotations = view.text_annotations(doc, None);
++    let selection = doc.selection(view.id).clone().transform(|range| {
++        let had_selection = !range.is_empty();
++        let point = if had_selection {
++            Range::point(if dir == Direction::Backward { range.from() } else { range.to() })
++        } else { range };
++        if vertical {
++            move_vertically(text, point, dir, count, Movement::Move, &text_fmt, &mut annotations)
++        } else if had_selection {
++            // VS Code Left/Right collapses to the boundary without taking an
++            // additional step. Zero-width carets still move normally.
++            point
++        } else {
++            move_horizontally(text, point, dir, count, Movement::Move, &text_fmt, &mut annotations)
++        }
++    });
++    drop(annotations);
++    doc.set_selection(view.id, selection);
++    true
+ }
+ 
+ fn move_char_left(cx: &mut Context) {
+-    devtui_prepare_plain_cursor_move(cx);
+-    move_impl(cx, move_horizontally, Direction::Backward, Movement::Move)
++    if !devtui_plain_cursor_move(cx, Direction::Backward, false) {
++        move_impl(cx, move_horizontally, Direction::Backward, Movement::Move)
++    }
+ }
+-
+ fn move_char_right(cx: &mut Context) {
+-    devtui_prepare_plain_cursor_move(cx);
+-    move_impl(cx, move_horizontally, Direction::Forward, Movement::Move)
++    if !devtui_plain_cursor_move(cx, Direction::Forward, false) {
++        move_impl(cx, move_horizontally, Direction::Forward, Movement::Move)
++    }
+ }
+-
+ fn move_line_up(cx: &mut Context) {
+-    devtui_prepare_plain_cursor_move(cx);
+-    move_impl(cx, move_vertically, Direction::Backward, Movement::Move)
++    if !devtui_plain_cursor_move(cx, Direction::Backward, true) {
++        move_impl(cx, move_vertically, Direction::Backward, Movement::Move)
++    }
+ }
+-
+ fn move_line_down(cx: &mut Context) {
+-    devtui_prepare_plain_cursor_move(cx);
+-    move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
++    if !devtui_plain_cursor_move(cx, Direction::Forward, true) {
++        move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
++    }
+ }
+ 
+ fn move_visual_line_up(cx: &mut Context) {
+@@ -4005,6 +4028,13 @@ fn open_above(cx: &mut Context) {
+     open(cx, Open::Above, CommentContinuation::Enabled)
+ }
+ 
++fn devtui_clear_selections(cx: &mut Context) {
++    cx.editor.enter_normal_mode();
++    cx.editor.devtui.column_selection_active = false;
++    collapse_selection(cx);
++    keep_primary_selection(cx);
++}
++
+ fn normal_mode(cx: &mut Context) {
+     cx.editor.enter_normal_mode();
+ }
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index a936591..71a9e47 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1010,18 +1010,25 @@ fn copy_path_recursive(editor: &mut Editor, source: &Path, destination: &Path) -
+ }
+ 
+ pub fn paste_explorer_clipboard(editor: &mut Editor, directory: &Path) {
+-    let sources = distinct_paths(editor.devtui.explorer_clipboard.clone());
++    let sources: Vec<_> = distinct_paths(editor.devtui.explorer_clipboard.clone()).into_iter().map(|source| {
++        // Pasting on the copied item itself duplicates beside it, as VS Code
++        // does; only pasting into a proper descendant is rejected.
++        let target = if source == directory {
++            source.parent().unwrap_or(directory).to_path_buf()
++        } else { directory.to_path_buf() };
++        (source, target)
++    }).collect();
+     // Validate the entire batch before creating any destination.
+-    for source in &sources {
++    for (source, directory) in &sources {
+         if let Err(err) = validate_copy_parent(source, directory) {
+             editor.set_error(format!("Paste failed: {err}"));
+             return;
+         }
+     }
+-    for source in sources {
++    for (source, directory) in sources {
+         let mut destination = directory.join(source.file_name().unwrap_or_default());
+         if fs::symlink_metadata(&destination).is_ok() || destination == source {
+-            destination = next_copy_destination(directory, &source);
++            destination = next_copy_destination(&directory, &source);
+         }
+         if let Err(err) = copy_path_recursive(editor, &source, &destination) {
+             editor.set_error(format!("Paste failed: {err}"));
+@@ -1208,6 +1215,7 @@ pub struct DevTuiExplorer {
+     pub dragging_resize: bool,
+     pub show_hidden: bool,
+     pub show_ignored: bool,
++    pub follow_selection: bool,
+     selection_anchor: Option<usize>,
+     last_click: Option<(Instant, usize)>,
+ }
+@@ -1232,6 +1240,7 @@ fn default() -> Self {
+             dragging_resize: false,
+             show_hidden: true,
+             show_ignored: true,
++            follow_selection: true,
+             selection_anchor: None,
+             last_click: None,
+         };
+@@ -1542,6 +1551,8 @@ pub fn row_at(&self, area: Rect, row: u16) -> Option<usize> {
+     }
+ 
+     pub fn scroll_by(&mut self, delta: isize, visible_rows: usize) {
++        // Wheel scrolling changes the viewport, not the selection/focus.
++        self.follow_selection = false;
+         let max = self.rows.len().saturating_sub(visible_rows.max(1));
+         self.scroll_offset = self.scroll_offset.saturating_add_signed(delta).min(max);
+     }
+@@ -1584,7 +1595,10 @@ pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
+         );
+ 
+         let visible = area.height.saturating_sub(1) as usize;
+-        self.ensure_cursor_visible(visible);
++        if self.follow_selection {
++            self.ensure_cursor_visible(visible);
++        }
++        self.scroll_offset = self.scroll_offset.min(self.rows.len().saturating_sub(visible.max(1)));
+         let scroll = self.scroll_offset;
+         for (screen_index, row) in self
+             .rows
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 96bc630..aca929e 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -19,12 +19,12 @@
+     movement::Direction,
+     syntax::{self, OverlayHighlights},
+     text_annotations::TextAnnotations,
+-    unicode::width::UnicodeWidthStr,
++    unicode::{segmentation::UnicodeSegmentation, width::UnicodeWidthStr},
+     visual_offset_from_block, Change, Position, Range, Selection, Transaction,
+ };
+ use helix_view::{
+     annotations::diagnostics::DiagnosticFilter,
+-    document::{Mode, SCRATCH_BUFFER_NAME},
++    document::Mode,
+     editor::{CompleteAction, CursorShapeConfig},
+     graphics::{Color, CursorKind, Modifier, Rect, Style},
+     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
+@@ -837,7 +837,7 @@ pub fn render_bufferline(
+         viewport: Rect,
+         surface: &mut Surface,
+     ) {
+-        let scratch = PathBuf::from(SCRATCH_BUFFER_NAME);
++        let scratch = PathBuf::from("[No Name]");
+         surface.clear_with(
+             viewport,
+             editor
+@@ -859,42 +859,42 @@ pub fn render_bufferline(
+         let mut x = viewport.x;
+         let current_doc = view!(editor).doc;
+ 
+-        for doc in editor.documents() {
++        let docs: Vec<_> = editor.documents().collect();
++        let labels: Vec<_> = docs.iter().map(|doc| {
+             let display_path = doc.path().unwrap_or(&scratch);
+-            let fname = display_path
+-                .file_name()
+-                .unwrap_or_default()
+-                .to_str()
+-                .unwrap_or_default();
+-
+-            let mut style = if current_doc == doc.id() {
+-                bufferline_active
+-            } else {
+-                bufferline_inactive
+-            };
++            let fname = display_path.file_name().unwrap_or_default().to_string_lossy();
++            let prefix = format!(" {} ", crate::ui::devtui::path_icon(display_path, false));
++            let suffix = if doc.is_modified() { " ●  × " } else { "  × " };
++            let maximum = usize::from(viewport.width).min(48);
++            let room = maximum.saturating_sub(prefix.width() + suffix.width());
++            let mut name = String::new();
++            if fname.width() > room {
++                for grapheme in fname.graphemes(true) {
++                    if name.width() + grapheme.width() > room.saturating_sub(1) { break; }
++                    name.push_str(grapheme);
++                }
++                if room > 0 { name.push('…'); }
++            } else { name.push_str(&fname); }
++            format!("{prefix}{name}{suffix}")
++        }).collect();
++        let active = docs.iter().position(|doc| doc.id() == current_doc).unwrap_or(0);
++        let mut first = 0;
++        while first < active && labels[first..=active].iter().map(|label| label.width()).sum::<usize>() > usize::from(viewport.width) {
++            first += 1;
++        }
++        // Keep the active tab and its close control visible even in a narrow
++        // terminal or after opening more documents than fit in one row.
++        for (doc, text) in docs.iter().zip(&labels).skip(first) {
++            let mut style = if current_doc == doc.id() { bufferline_active } else { bufferline_inactive };
+             if editor.devtui.preview_document == Some(doc.id()) {
+                 style = style.add_modifier(Modifier::ITALIC);
+             }
+-
+-            let dirty = if doc.is_modified() { " ●" } else { "" };
+-            let icon = crate::ui::devtui::path_icon(display_path, false);
+-            let text = format!(" {icon} {fname}{dirty}  × ");
+             let width = text.width() as u16;
+-            if x.saturating_add(width) > viewport.right() {
+-                break;
+-            }
+-
++            if x.saturating_add(width) > viewport.right() { break; }
+             let start = x;
+             let close_start = x.saturating_add(width.saturating_sub(3));
+-            x = surface
+-                .set_stringn(x, viewport.y, &text, width as usize, style)
+-                .0;
+-            self.bufferline_hits.push(DevTuiTabHit {
+-                doc_id: doc.id(),
+-                start,
+-                end: x,
+-                close_start,
+-            });
++            x = surface.set_stringn(x, viewport.y, text, width as usize, style).0;
++            self.bufferline_hits.push(DevTuiTabHit { doc_id: doc.id(), start, end: x, close_start });
+         }
+ 
+         self.bufferline_used_width = x;
+@@ -1402,6 +1402,7 @@ fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool
+         if !self.explorer.focused {
+             return false;
+         }
++        self.explorer.follow_selection = true;
+ 
+         if event.modifiers.contains(KeyModifiers::CONTROL) {
+             match event.code {
+@@ -1552,6 +1553,9 @@ fn handle_explorer_mouse(
+ 
+         if inside {
+             self.explorer.focused = true;
++            if matches!(event.kind, MouseEventKind::Down(_)) {
++                self.explorer.follow_selection = true;
++            }
+             let visible_rows = area.height.saturating_sub(1) as usize;
+             match event.kind {
+                 MouseEventKind::Down(MouseButton::Left) => {
+@@ -1773,6 +1777,16 @@ fn handle_mouse_event(
+         }
+ 
+         if row == 0 {
++            if matches!(kind, MouseEventKind::ScrollUp | MouseEventKind::ScrollDown) {
++                let docs: Vec<_> = cxt.editor.documents().map(|doc| doc.id()).collect();
++                let current = view!(cxt.editor).doc;
++                if let Some(index) = docs.iter().position(|id| *id == current) {
++                    let next = if kind == MouseEventKind::ScrollUp { index.saturating_sub(1) }
++                        else { (index + 1).min(docs.len().saturating_sub(1)) };
++                    cxt.editor.switch(docs[next], helix_view::editor::Action::Replace);
++                }
++                return EventResult::Consumed(None);
++            }
+             if matches!(kind, MouseEventKind::Down(MouseButton::Left)) {
+                 if let Some(hit) = self
+                     .bufferline_hits
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 20eb8ca..abefb5b 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -2230,7 +2230,9 @@ pub fn devtui_open_pinned(
+     ) -> Result<DocumentId, DocumentOpenError> {
+         self.devtui_promote_modified_preview();
+         let id = self.devtui_open_preview(path)?;
+-        self.devtui.preview_document = None;
++        if self.devtui.preview_document == Some(id) {
++            self.devtui.preview_document = None;
++        }
+         Ok(id)
+     }
+ 

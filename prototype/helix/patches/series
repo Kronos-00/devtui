@@ -19,3 +19,4 @@
 0019-explorer-filesystem-safety.patch
 0020-save-as-safety.patch
 0021-ipc-request-safety.patch
+0022-navigation-parity.patch

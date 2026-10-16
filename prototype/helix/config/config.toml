@@ -24,7 +24,16 @@ git-exclude = false
 parents = false
 flatten-dirs = false
 
+[editor.file-picker]
+hidden = false
+ignore = false
+git-ignore = false
+git-global = false
+git-exclude = false
+parents = false
+
 [keys.normal]
+esc = "devtui_clear_selections"
 C-s = ":write"
 C-S-s = "devtui_save_as"
 C-z = "undo"
@@ -89,6 +98,27 @@ s = "dap_switch_stack_frame"
 t = "dap_terminate"
 
 [keys.insert]
+"C-a" = "select_all"
+"C-l" = "extend_line"
+"C-f" = "search"
+"C-p" = "file_picker"
+"C-S-f" = "global_search"
+"C-S-h" = "devtui_project_replace"
+"C-S-p" = "command_palette"
+"C-S-e" = "file_explorer"
+"C-S-o" = "lsp_or_syntax_symbol_picker"
+"C-d" = "devtui_add_next_occurrence"
+"C-S-l" = "devtui_add_all_occurrences"
+"C-F2" = "devtui_add_all_occurrences"
+"C-up" = "copy_selection_on_prev_line"
+"C-down" = "copy_selection_on_next_line"
+"C-/" = "toggle_comments"
+"C-_" = "toggle_comments"
+"F12" = "goto_definition"
+"S-F12" = "goto_reference"
+"F8" = "goto_next_diag"
+"S-F8" = "goto_prev_diag"
+"C-S-F5" = "dap_restart"
 C-s = ":write"
 C-S-s = "devtui_save_as"
 C-z = "undo"
@@ -115,6 +145,24 @@ F11 = "dap_step_in"
 S-F11 = "dap_step_out"
 S-F5 = "dap_terminate"
 [keys.select]
+"C-s" = ":write"
+"C-S-s" = "devtui_save_as"
+"C-z" = "undo"
+"C-y" = "redo"
+"C-S-z" = "redo"
+"C-a" = "select_all"
+"C-f" = "search"
+"C-p" = "file_picker"
+"C-S-f" = "global_search"
+"C-S-h" = "devtui_project_replace"
+"C-S-p" = "command_palette"
+"C-S-e" = "file_explorer"
+"C-S-o" = "lsp_or_syntax_symbol_picker"
+"F12" = "goto_definition"
+"S-F12" = "goto_reference"
+"F8" = "goto_next_diag"
+"S-F8" = "goto_prev_diag"
+"C-S-F5" = "dap_restart"
 C-c = "devtui_copy_to_clipboard"
 C-x = "devtui_cut_to_clipboard"
 C-l = "extend_line"
