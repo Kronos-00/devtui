@@ -584,7 +584,7 @@ index ea969f8..5f46c9a 100644
                          self.handle_show_message(params.typ, params.message);
                      }
 diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
-index bced450..d9aa207 100644
+index bced450..a8717f3 100644
 --- a/helix-term/src/commands.rs
 +++ b/helix-term/src/commands.rs
 @@ -429,6 +429,7 @@ pub fn doc(&self) -> &str {
@@ -618,7 +618,38 @@ index bced450..d9aa207 100644
          yank_to_clipboard, "Yank selections to clipboard",
          yank_to_primary_clipboard, "Yank selections to primary clipboard",
          yank_joined, "Join and yank selections",
-@@ -3995,6 +4005,34 @@ fn goto_line(cx: &mut Context) {
+@@ -749,19 +759,30 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
+
+ use helix_core::movement::{move_horizontally, move_vertically};
+
++fn devtui_prepare_plain_cursor_move(cx: &mut Context) {
++    if cx.editor.devtui.column_selection_active {
++        collapse_selection(cx);
++        cx.editor.devtui.column_selection_active = false;
++    }
++}
++
+ fn move_char_left(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_horizontally, Direction::Backward, Movement::Move)
+ }
+
+ fn move_char_right(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_horizontally, Direction::Forward, Movement::Move)
+ }
+
+ fn move_line_up(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_vertically, Direction::Backward, Movement::Move)
+ }
+
+ fn move_line_down(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
+ }
+
+@@ -3995,6 +4016,34 @@ fn goto_line(cx: &mut Context) {
      goto_line_impl(cx, Movement::Move);
  }
 
@@ -653,7 +684,7 @@ index bced450..d9aa207 100644
  fn goto_line_impl(cx: &mut Context, movement: Movement) {
      if cx.count.is_some() {
          let (view, doc) = current!(cx.editor);
-@@ -4829,6 +4867,176 @@ fn yank(cx: &mut Context) {
+@@ -4829,6 +4878,176 @@ fn yank(cx: &mut Context) {
      exit_select_mode(cx);
  }
 
@@ -830,7 +861,7 @@ index bced450..d9aa207 100644
  fn yank_to_clipboard(cx: &mut Context) {
      yank_impl(cx.editor, '+');
      exit_select_mode(cx);
-@@ -5021,6 +5229,20 @@ fn paste_impl(
+@@ -5021,6 +5240,20 @@ fn paste_impl(
      doc.append_changes_to_history(view);
  }
 
@@ -851,7 +882,7 @@ index bced450..d9aa207 100644
  pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
      let count = cx.count();
      let paste = match cx.editor.mode {
-@@ -5028,7 +5250,23 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+@@ -5028,7 +5261,23 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
          Mode::Normal => Paste::Before,
      };
      let (view, doc) = current!(cx.editor);
@@ -876,7 +907,7 @@ index bced450..d9aa207 100644
      exit_select_mode(cx);
  }
 
-@@ -7226,3 +7464,26 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
+@@ -7226,3 +7475,26 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
          syntax_workspace_symbol_picker(cx);
      }
  }
@@ -2736,7 +2767,7 @@ index 0000000..952d689
 +    }
 +}
 diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
-index 3bd66f9..b9497c5 100644
+index 3bd66f9..31e56d9 100644
 --- a/helix-term/src/ui/editor.rs
 +++ b/helix-term/src/ui/editor.rs
 @@ -29,12 +29,48 @@
@@ -3038,7 +3069,7 @@ index 3bd66f9..b9497c5 100644
      }
 
      pub fn render_gutter<'d>(
-@@ -1199,11 +1387,306 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
+@@ -1199,11 +1387,338 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
          self.pseudo_pending.clear();
      }
 
@@ -3101,6 +3132,38 @@ index 3bd66f9..b9497c5 100644
 +                .devtui
 +                .requests
 +                .push_back(helix_view::editor::DevTuiRequest::ExplorerDelete { paths });
++            return true;
++        }
++
++        if matches!(event.code, KeyCode::F(2)) {
++            if let Some(row) = self.explorer.selected().cloned() {
++                if row.path != self.explorer.root {
++                    editor
++                        .devtui
++                        .requests
++                        .push_back(helix_view::editor::DevTuiRequest::ExplorerRename {
++                            path: row.path,
++                        });
++                }
++            }
++            return true;
++        }
++
++        if matches!(event.code, KeyCode::F(10))
++            && event.modifiers.contains(KeyModifiers::SHIFT)
++        {
++            if let Some((row, selection)) = self.explorer.context_target(self.explorer.cursor) {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(helix_view::editor::DevTuiRequest::ExplorerContext {
++                        root: self.explorer.root.clone(),
++                        target: row.path.clone(),
++                        is_dir: row.is_dir,
++                        is_root: row.path == self.explorer.root,
++                        selection,
++                    });
++            }
 +            return true;
 +        }
 +
@@ -3345,7 +3408,7 @@ index 3bd66f9..b9497c5 100644
          if event.kind != MouseEventKind::Moved {
              self.handle_non_key_input(cxt)
          }
-@@ -1217,6 +1700,93 @@ fn handle_mouse_event(
+@@ -1217,6 +1732,93 @@ fn handle_mouse_event(
              ..
          } = *event;
 
@@ -3439,7 +3502,7 @@ index 3bd66f9..b9497c5 100644
          let pos_and_view = |editor: &Editor, row, column, ignore_virtual_text| {
              editor.tree.views().find_map(|(view, _focus)| {
                  view.pos_at_screen_coords(
-@@ -1237,6 +1807,63 @@ fn handle_mouse_event(
+@@ -1237,6 +1839,63 @@ fn handle_mouse_event(
          };
 
          match kind {
@@ -3503,7 +3566,7 @@ index 3bd66f9..b9497c5 100644
              MouseEventKind::Down(MouseButton::Left) => {
                  let editor = &mut cxt.editor;
 
-@@ -1390,37 +2017,13 @@ fn handle_mouse_event(
+@@ -1390,37 +2049,13 @@ fn handle_mouse_event(
              }
 
              MouseEventKind::Up(MouseButton::Middle) => {
@@ -3545,7 +3608,7 @@ index 3bd66f9..b9497c5 100644
              }
 
              _ => EventResult::Ignored(None),
-@@ -1452,6 +2055,17 @@ fn handle_event(
+@@ -1452,6 +2087,17 @@ fn handle_event(
          event: &Event,
          context: &mut crate::compositor::Context,
      ) -> EventResult {
@@ -3563,7 +3626,7 @@ index 3bd66f9..b9497c5 100644
          let mut cx = commands::Context {
              editor: context.editor,
              count: None,
-@@ -1616,8 +2230,28 @@ fn handle_event(
+@@ -1616,8 +2262,28 @@ fn handle_event(
      }
 
      fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
@@ -3592,7 +3655,7 @@ index 3bd66f9..b9497c5 100644
          let config = cx.editor.config();
 
          // check if bufferline should be rendered
-@@ -1629,7 +2263,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1629,7 +2295,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          };
 
          // -1 for commandline and -1 for bufferline
@@ -3601,7 +3664,7 @@ index 3bd66f9..b9497c5 100644
          if use_bufferline {
              editor_area = editor_area.clip_top(1);
          }
-@@ -1638,17 +2272,20 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1638,17 +2304,20 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          cx.editor.resize(editor_area);
 
          if use_bufferline {
@@ -3625,7 +3688,7 @@ index 3bd66f9..b9497c5 100644
                  cx.editor.autoinfo = Some(info)
              }
          }
-@@ -1667,14 +2304,18 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1667,14 +2336,18 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
              };
 
              surface.set_string(
@@ -3647,7 +3710,7 @@ index 3bd66f9..b9497c5 100644
              let mut disp = String::new();
              if let Some(count) = cx.editor.count {
                  disp.push_str(&count.to_string())
-@@ -1694,11 +2335,11 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1694,11 +2367,11 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
              let restricted = workspace_trust_indicator_visible(cx.editor);
              let trust_width = if restricted { 3 } else { 0 };
              surface.set_string(
@@ -3662,7 +3725,7 @@ index 3bd66f9..b9497c5 100644
                  disp.get(disp.len().saturating_sub(key_width as usize)..)
                      .unwrap_or(&disp),
                  style,
-@@ -1708,9 +2349,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1708,9 +2381,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
                      .fg(helix_view::graphics::Color::Yellow)
                      .add_modifier(Modifier::BOLD);
                  surface.set_string(
@@ -3676,7 +3739,7 @@ index 3bd66f9..b9497c5 100644
                      "[⚠]",
                      style,
                  );
-@@ -1721,8 +2363,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1721,8 +2395,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
                      .fg(helix_view::graphics::Color::Yellow)
                      .add_modifier(Modifier::BOLD);
                  surface.set_string(
@@ -3687,7 +3750,7 @@ index 3bd66f9..b9497c5 100644
                      &disp,
                      style,
                  );
-@@ -1730,7 +2372,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+@@ -1730,7 +2404,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          }
 
          if let Some(completion) = self.completion.as_mut() {

@@ -74,7 +74,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | Copy Path / Copy Relative Path to system clipboard | Done |
 | multi-selection batch Copy/Delete/path copy | Done |
 | same-directory duplicate naming (`name copy`, `name copy 2`, ...) | Done |
-| keyboard parity for every Explorer context action | Partial |
+| keyboard parity for every Explorer context action | Done |
 | drag/drop file moving | Pending |
 
 ## Mouse and multiple selections
@@ -94,7 +94,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | multi-cursor paste `spread` semantics | Done |
 | keyboard add-cursor above/below | Done |
 | keyboard add-next-match / add-all-occurrences | Done |
-| normal arrow collapse semantics matching VS Code | Pending |
+| normal arrow collapse semantics matching VS Code | Done |
 
 ## Editor mouse and context UI
 
