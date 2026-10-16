@@ -118,7 +118,7 @@ index d99014e..b95089f 100644
              lsp::notification::ShowMessage::METHOD => {
                  let params: lsp::ShowMessageParams = params.parse()?;
 diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
-index ea969f8..04cc543 100644
+index ea969f8..5090c4d 100644
 --- a/helix-term/src/application.rs
 +++ b/helix-term/src/application.rs
 @@ -10,12 +10,13 @@
@@ -273,7 +273,7 @@ index ea969f8..04cc543 100644
                  event = self.editor.wait_event() => {
                      let _idle_handled = self.handle_editor_event(event).await;
 
-@@ -654,6 +741,199 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+@@ -654,6 +741,226 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
              "'{}' written, {lines}L {size}",
              get_relative_path(&doc_save_event.path).to_string_lossy(),
          ));
@@ -446,6 +446,33 @@ index ea969f8..04cc543 100644
 +                    }
 +                    pushed = true;
 +                }
++                DevTuiRequest::CurrentReplaceInput { doc_id, query } => {
++                    let prompt = crate::ui::devtui::current_replace_replacement_prompt(
++                        &self.editor,
++                        doc_id,
++                        query,
++                    );
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++                DevTuiRequest::CurrentReplaceResults {
++                    doc_id,
++                    query,
++                    replacement,
++                } => {
++                    match crate::ui::devtui::current_replace_picker(
++                        &mut self.editor,
++                        doc_id,
++                        query,
++                        replacement,
++                    ) {
++                        Ok(picker) => {
++                            self.compositor.push(Box::new(crate::ui::overlay::overlaid(picker)));
++                            pushed = true;
++                        }
++                        Err(err) => self.editor.set_error(err.to_string()),
++                    }
++                }
 +                DevTuiRequest::ProjectReplaceInput { query } => {
 +                    let prompt = crate::ui::devtui::project_replace_replacement_prompt(
 +                        &self.editor,
@@ -473,7 +500,7 @@ index ea969f8..04cc543 100644
      }
 
      #[inline(always)]
-@@ -701,13 +981,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+@@ -701,13 +1008,16 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
          #[cfg(not(windows))]
          use termina::escape::csi;
 
@@ -497,7 +524,7 @@ index ea969f8..04cc543 100644
              #[cfg(not(windows))]
              termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
                  self.terminal
-@@ -767,9 +1050,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
+@@ -767,9 +1077,12 @@ pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEv
              #[cfg(not(windows))]
              event if event.is_escape() => false,
              event => self.compositor.handle_event(&event.into(), &mut cx),
@@ -511,7 +538,7 @@ index ea969f8..04cc543 100644
              self.render().await;
          }
      }
-@@ -850,6 +1136,46 @@ macro_rules! language_server {
+@@ -850,6 +1163,46 @@ macro_rules! language_server {
                              params.diagnostics,
                          );
                      }
@@ -559,7 +586,7 @@ index ea969f8..04cc543 100644
                          self.handle_show_message(params.typ, params.message);
                      }
 diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
-index bced450..921435c 100644
+index bced450..2019826 100644
 --- a/helix-term/src/commands.rs
 +++ b/helix-term/src/commands.rs
 @@ -429,6 +429,7 @@ pub fn doc(&self) -> &str {
@@ -578,18 +605,22 @@ index bced450..921435c 100644
          goto_last_line, "Goto last line",
          extend_to_last_line, "Extend to last line",
          goto_first_diag, "Goto first diagnostic",
-@@ -489,6 +491,10 @@ pub fn doc(&self) -> &str {
+@@ -489,6 +491,14 @@ pub fn doc(&self) -> &str {
          later, "Move forward in history",
          commit_undo_checkpoint, "Commit changes to new checkpoint",
          yank, "Yank selection",
 +        devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
 +        devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
 +        devtui_save_as, "Open Save As for the current buffer",
++        devtui_current_replace, "Open VS Code-style Replace in current file",
 +        devtui_project_replace, "Open VS Code-style Replace in Files",
++        devtui_add_next_occurrence, "Add the next VS Code-style matching occurrence",
++        devtui_add_all_occurrences, "Select all VS Code-style matching occurrences",
++        devtui_symbol_context_menu, "Open the devtui symbol actions menu",
          yank_to_clipboard, "Yank selections to clipboard",
          yank_to_primary_clipboard, "Yank selections to primary clipboard",
          yank_joined, "Join and yank selections",
-@@ -3995,6 +4001,34 @@ fn goto_line(cx: &mut Context) {
+@@ -3995,6 +4005,34 @@ fn goto_line(cx: &mut Context) {
      goto_line_impl(cx, Movement::Move);
  }
 
@@ -624,7 +655,7 @@ index bced450..921435c 100644
  fn goto_line_impl(cx: &mut Context, movement: Movement) {
      if cx.count.is_some() {
          let (view, doc) = current!(cx.editor);
-@@ -4829,6 +4863,64 @@ fn yank(cx: &mut Context) {
+@@ -4829,6 +4867,144 @@ fn yank(cx: &mut Context) {
      exit_select_mode(cx);
  }
 
@@ -682,14 +713,94 @@ index bced450..921435c 100644
 +    cx.editor.devtui_request_save_as(doc_id, false);
 +}
 +
++fn devtui_current_replace(cx: &mut Context) {
++    let doc_id = view!(cx.editor).doc;
++    if doc!(cx.editor, &doc_id).path().is_none() {
++        cx.editor
++            .set_error("Save this file before using current-file Replace");
++        return;
++    }
++    cx.push_layer(Box::new(ui::devtui::current_replace_search_prompt(doc_id)));
++}
++
 +fn devtui_project_replace(cx: &mut Context) {
 +    cx.push_layer(Box::new(ui::devtui::project_replace_search_prompt()));
++}
++
++fn devtui_prepare_occurrence_selection(editor: &mut Editor) {
++    if editor.mode != Mode::Normal {
++        return;
++    }
++
++    let (view, doc) = current!(editor);
++    let current = doc.selection(view.id).clone();
++    if current.len() != 1 || current.primary().len() > 1 {
++        return;
++    }
++
++    let text = doc.text().slice(..);
++    let word = textobject::textobject_word(
++        text,
++        current.primary(),
++        textobject::TextObject::Inside,
++        1,
++        false,
++    );
++    if !word.is_empty() {
++        doc.set_selection(view.id, Selection::new(SmallVec::from_vec(vec![word]), 0));
++    }
++}
++
++fn devtui_add_next_occurrence(cx: &mut Context) {
++    devtui_prepare_occurrence_selection(cx.editor);
++    search_selection_detect_word_boundaries(cx);
++    extend_search_next(cx);
++}
++
++fn devtui_add_all_occurrences(cx: &mut Context) {
++    devtui_prepare_occurrence_selection(cx.editor);
++    search_selection_detect_word_boundaries(cx);
++
++    let register = cx.register.unwrap_or('/');
++    let Some(pattern) = cx
++        .editor
++        .registers
++        .read(register, cx.editor)
++        .and_then(|mut values| values.next().map(|value| value.into_owned()))
++    else {
++        return;
++    };
++    let is_crlf = doc!(cx.editor).line_ending == LineEnding::Crlf;
++    let Ok(regex) = rope::RegexBuilder::new()
++        .syntax(
++            rope::Config::new()
++                .multi_line(true)
++                .crlf(is_crlf),
++        )
++        .build(&pattern)
++    else {
++        return;
++    };
++
++    let (view, doc) = current!(cx.editor);
++    let text = doc.text().slice(..);
++    let whole = Selection::single(0, text.len_chars());
++    if let Some(selection) = selection::select_on_matches(text, &whole, &regex) {
++        doc.set_selection(view.id, selection);
++    }
++}
++
++fn devtui_symbol_context_menu(cx: &mut Context) {
++    cx.editor
++        .devtui
++        .requests
++        .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
 +}
 +
  fn yank_to_clipboard(cx: &mut Context) {
      yank_impl(cx.editor, '+');
      exit_select_mode(cx);
-@@ -5028,7 +5120,29 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+@@ -5028,7 +5204,29 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
          Mode::Normal => Paste::Before,
      };
      let (view, doc) = current!(cx.editor);
@@ -1093,10 +1204,10 @@ index db2f0c2..05ff12e 100644
          signature: Signature {
 diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
 new file mode 100644
-index 0000000..b35fde2
+index 0000000..952d689
 --- /dev/null
 +++ b/helix-term/src/ui/devtui.rs
-@@ -0,0 +1,1290 @@
+@@ -0,0 +1,1455 @@
 +use std::{
 +    borrow::Cow,
 +    collections::HashSet,
@@ -1375,6 +1486,67 @@ index 0000000..b35fde2
 +    String::from_utf8_lossy(&out).into_owned()
 +}
 +
++fn current_replace_scan(
++    editor: &Editor,
++    doc_id: DocumentId,
++    query: &str,
++    replacement: &str,
++) -> anyhow::Result<Vec<ProjectReplaceItem>> {
++    let doc = editor
++        .document(doc_id)
++        .ok_or_else(|| anyhow::anyhow!("document disappeared"))?;
++    let path = doc
++        .path()
++        .ok_or_else(|| anyhow::anyhow!("Save this file before using current-file Replace"))?
++        .to_path_buf();
++    let text = doc.text().to_string();
++    let bytes = text.as_bytes();
++    let matcher = project_replace_matcher(editor, query)?;
++    let mut caps = matcher.new_captures()?;
++    let mut matches = Vec::new();
++    let mut ordinal = 0usize;
++
++    matcher.captures_iter(bytes, &mut caps, |caps| {
++        let Some(m) = caps.get(0) else { return true; };
++        let line = bytes[..m.start()].iter().filter(|&&b| b == b'\n').count();
++        let line_start = bytes[..m.start()]
++            .iter()
++            .rposition(|&b| b == b'\n')
++            .map_or(0, |idx| idx + 1);
++        let line_end = bytes[m.end()..]
++            .iter()
++            .position(|&b| b == b'\n')
++            .map_or(bytes.len(), |idx| m.end() + idx);
++        let before = String::from_utf8_lossy(&bytes[line_start..line_end]).into_owned();
++        let replacement_piece = replacement_text(&matcher, bytes, caps, replacement);
++        let mut after = Vec::new();
++        after.extend_from_slice(&bytes[line_start..m.start()]);
++        after.extend_from_slice(replacement_piece.as_bytes());
++        after.extend_from_slice(&bytes[m.end()..line_end]);
++        matches.push(ProjectReplaceItem::Match {
++            path: path.clone(),
++            line,
++            ordinal,
++            before,
++            after: String::from_utf8_lossy(&after).into_owned(),
++        });
++        ordinal += 1;
++        true
++    })?;
++
++    if matches.is_empty() {
++        return Ok(Vec::new());
++    }
++    let count = matches.len();
++    let mut items = Vec::with_capacity(count + 1);
++    items.push(ProjectReplaceItem::ReplaceFile {
++        path: path.clone(),
++        count,
++    });
++    items.extend(matches);
++    Ok(items)
++}
++
 +fn project_replace_apply(
 +    editor: &mut Editor,
 +    path: &Path,
@@ -1522,6 +1694,110 @@ index 0000000..b35fde2
 +    }
 +    items.extend(matches);
 +    Ok(items)
++}
++
++pub fn current_replace_search_prompt(doc_id: DocumentId) -> Prompt {
++    Prompt::new(
++        Cow::Borrowed("Search: "),
++        Some('/'),
++        ui::completers::none,
++        move |cx, input, event| {
++            if event == PromptEvent::Validate && !input.is_empty() {
++                cx.editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::CurrentReplaceInput {
++                        doc_id,
++                        query: input.to_string(),
++                    });
++            }
++        },
++    )
++}
++
++pub fn current_replace_replacement_prompt(
++    editor: &Editor,
++    doc_id: DocumentId,
++    query: String,
++) -> Prompt {
++    Prompt::new(
++        Cow::Borrowed("Replace: "),
++        None,
++        ui::completers::none,
++        move |cx, input, event| {
++            if event == PromptEvent::Validate {
++                cx.editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::CurrentReplaceResults {
++                        doc_id,
++                        query: query.clone(),
++                        replacement: input.to_string(),
++                    });
++            }
++        },
++    )
++    .with_line(String::new(), editor)
++}
++
++pub fn current_replace_picker(
++    editor: &mut Editor,
++    doc_id: DocumentId,
++    query: String,
++    replacement: String,
++) -> anyhow::Result<Picker<ProjectReplaceItem, ProjectReplaceData>> {
++    let items = current_replace_scan(editor, doc_id, &query, &replacement)?;
++    let data = ProjectReplaceData;
++    let columns = [PickerColumn::new(
++        "pending replacement",
++        |item: &ProjectReplaceItem, _data: &ProjectReplaceData| match item {
++            ProjectReplaceItem::ReplaceFile { count, .. } => {
++                format!("Replace All in File ({count} matches)").into()
++            }
++            ProjectReplaceItem::Match { line, before, after, .. } => {
++                format!(
++                    "{}:{}  {}  →  {}",
++                    "current",
++                    line + 1,
++                    before.trim_end(),
++                    after.trim_end(),
++                )
++                .into()
++            }
++            ProjectReplaceItem::ReplaceAll { count } => {
++                format!("Replace All ({count} matches)").into()
++            }
++        },
++    )];
++
++    let action_query = query.clone();
++    let action_replacement = replacement.clone();
++    Ok(Picker::new(columns, 0, items, data, move |cx, item, _action| {
++        let result = match item {
++            ProjectReplaceItem::ReplaceFile { path, .. } => project_replace_apply(
++                cx.editor,
++                path,
++                &action_query,
++                &action_replacement,
++                None,
++            ),
++            ProjectReplaceItem::Match { path, ordinal, .. } => project_replace_apply(
++                cx.editor,
++                path,
++                &action_query,
++                &action_replacement,
++                Some(*ordinal),
++            ),
++            ProjectReplaceItem::ReplaceAll { .. } => Ok(0),
++        };
++        match result {
++            Ok(count) => cx.editor.set_status(format!(
++                "Replaced {count} match{}",
++                if count == 1 { "" } else { "es" }
++            )),
++            Err(err) => cx.editor.set_error(err.to_string()),
++        }
++    }))
 +}
 +
 +pub fn project_replace_search_prompt() -> Prompt {
@@ -3552,10 +3828,10 @@ index 79ba871..cce42ab 100644
              document_highlight_controllers: HashMap::new(),
              code_action_controllers: HashMap::new(),
 diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
-index adced18..3dd29a8 100644
+index adced18..00b8d00 100644
 --- a/helix-view/src/editor.rs
 +++ b/helix-view/src/editor.rs
-@@ -1270,6 +1270,62 @@ pub struct Breakpoint {
+@@ -1270,6 +1270,71 @@ pub struct Breakpoint {
 
  type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
 
@@ -3592,6 +3868,15 @@ index adced18..3dd29a8 100644
 +        line: usize,
 +        column: usize,
 +    },
++    CurrentReplaceInput {
++        doc_id: DocumentId,
++        query: String,
++    },
++    CurrentReplaceResults {
++        doc_id: DocumentId,
++        query: String,
++        replacement: String,
++    },
 +    ProjectReplaceInput {
 +        query: String,
 +    },
@@ -3618,7 +3903,7 @@ index adced18..3dd29a8 100644
  pub struct Editor {
      /// Current editing mode.
      pub mode: Mode,
-@@ -1343,6 +1399,7 @@ pub struct Editor {
+@@ -1343,6 +1408,7 @@ pub struct Editor {
      pub mouse_down_range: Option<Range>,
      pub cursor_cache: CursorCache,
      pub workspace_trust: WorkspaceTrust,
@@ -3626,7 +3911,7 @@ index adced18..3dd29a8 100644
  }
 
  pub type Motion = Box<dyn Fn(&mut Editor)>;
-@@ -1468,6 +1525,7 @@ pub fn new(
+@@ -1468,6 +1534,7 @@ pub fn new(
              cursor_cache: CursorCache::default(),
              dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
              workspace_trust,
@@ -3634,7 +3919,7 @@ index adced18..3dd29a8 100644
          }
      }
 
-@@ -2098,6 +2156,84 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
+@@ -2098,6 +2165,84 @@ pub fn document_id_by_path(&self, path: &Path) -> Option<DocumentId> {
          self.document_by_path(path).map(|doc| doc.id)
      }
 
@@ -3719,7 +4004,7 @@ index adced18..3dd29a8 100644
      // ??? possible use for integration tests
      pub fn open(&mut self, path: &Path, action: Action) -> Result<DocumentId, DocumentOpenError> {
          let path = helix_stdx::path::canonicalize(path);
-@@ -2165,6 +2301,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
+@@ -2165,6 +2310,10 @@ pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(),
 
          // This will also disallow any follow-up writes
          self.saves.remove(&doc_id);

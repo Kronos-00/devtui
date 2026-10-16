@@ -104,8 +104,8 @@ VS Code interaction semantics are the reference behavior for features described 
 | right-click symbol context menu | Done |
 | Definition / Declaration / References / Implementation / Type Definition | Done |
 | Hover / Rename / Code Action from context menu | Done |
-| keyboard fallback for symbol context menu | Pending |
-| right-click multi-selection Copy/Cut/Delete | Pending |
+| keyboard fallback for symbol context menu | Done |
+| right-click multi-selection Copy/Cut/Delete | Done |
 
 ## VS Code-style shortcut layer
 
@@ -116,18 +116,18 @@ VS Code interaction semantics are the reference behavior for features described 
 | Copy selection; no selection copies current line | Done |
 | Cut selection; no selection cuts current line | Done |
 | host-terminal paste workflow | Partial |
-| current-file Replace toggle | Pending |
+| current-file Replace toggle | Done |
 | project Replace | Done |
 | select current line | Done |
 | go to line | Done |
 | go to symbol in file | Done |
 | Explorer focus | Done |
 | toggle line comment | Done |
-| add next occurrence / all occurrences | Pending |
-| Rename / Definition / References / Quick Fix | Partial |
+| add next occurrence / all occurrences | Done |
+| Rename / Definition / References / Quick Fix | Done |
 | next / previous diagnostic | Done |
-| insert line below / above | Pending |
-| delete current line(s) | Pending |
+| insert line below / above | Done |
+| delete current line(s) | Done |
 
 ## Search and navigation
 
@@ -137,7 +137,7 @@ VS Code interaction semantics are the reference behavior for features described 
 | workspace text search | Done |
 | command palette | Done |
 | current-file find | Done |
-| current-file replace UI | Pending |
+| current-file replace UI | Done |
 | project replace UI | Done |
 | go to line | Done |
 | document symbols | Done |
