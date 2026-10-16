@@ -1,0 +1,13 @@
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index c9bfb80..36c8b31 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -315,7 +315,7 @@ pub fn save_as_prompt(
+     Prompt::new(
+         Cow::Borrowed("Save As: "),
+         None,
+-        ui::completers::filename,
++        ui::completers::none,
+         move |cx, input, event| {
+             if event != PromptEvent::Validate || input.trim().is_empty() {
+                 return;

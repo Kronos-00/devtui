@@ -1,0 +1,417 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 5f46c9a..408f665 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -885,6 +885,36 @@ fn process_devtui_requests(&mut self) -> bool {
+                         }
+                     }
+                 }
++                DevTuiRequest::DebugAction(name) => {
++                    let command = match name {
++                        "start_or_continue" => {
++                            crate::commands::MappableCommand::devtui_debug_start_or_continue
++                        }
++                        "pause" => crate::commands::MappableCommand::dap_pause,
++                        "step_over" => crate::commands::MappableCommand::dap_next,
++                        "step_into" => crate::commands::MappableCommand::dap_step_in,
++                        "step_out" => crate::commands::MappableCommand::dap_step_out,
++                        "variables" => crate::commands::MappableCommand::dap_variables,
++                        "call_stack" => crate::commands::MappableCommand::dap_switch_stack_frame,
++                        "toggle_breakpoint" => crate::commands::MappableCommand::dap_toggle_breakpoint,
++                        "restart" => crate::commands::MappableCommand::dap_restart,
++                        "stop" => crate::commands::MappableCommand::dap_terminate,
++                        _ => {
++                            self.editor
++                                .set_error(format!("Unknown debug action: {name}"));
++                            continue;
++                        }
++                    };
++                    let mut cx = crate::commands::Context {
++                        register: None,
++                        count: None,
++                        editor: &mut self.editor,
++                        callback: Vec::new(),
++                        on_next_key_callback: None,
++                        jobs: &mut self.jobs,
++                    };
++                    command.execute(&mut cx);
++                }
+                 DevTuiRequest::OpenPath { path, line, column } => {
+                     self.editor.devtui.focus_editor_requested = true;
+                     match self.editor.devtui_open_preview(&path) {
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index a8717f3..1ee4dd3 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -593,6 +593,10 @@ pub fn doc(&self) -> &str {
+         goto_next_paragraph, "Goto next paragraph",
+         goto_prev_paragraph, "Goto previous paragraph",
+         dap_launch, "Launch debug target",
++        devtui_debug_start_or_continue, "Start debugging or continue the active debug session",
++        devtui_debug_menu, "Open the devtui Run and Debug action menu",
++        devtui_lsp_info, "Show language servers attached to the current buffer",
++        devtui_python_venv, "Select a Python virtual environment and restart language servers",
+         dap_restart, "Restart debugging session",
+         dap_toggle_breakpoint, "Toggle breakpoint",
+         dap_continue, "Continue program execution",
+@@ -4978,6 +4982,31 @@ fn devtui_project_replace(cx: &mut Context) {
+     cx.push_layer(Box::new(ui::devtui::project_replace_search_prompt()));
+ }
+ 
++fn devtui_debug_start_or_continue(cx: &mut Context) {
++    if cx.editor.debug_adapters.get_active_client().is_some() {
++        dap_continue(cx);
++    } else {
++        dap_launch(cx);
++    }
++}
++
++fn devtui_debug_menu(cx: &mut Context) {
++    cx.push_layer(Box::new(ui::devtui::debug_action_select()));
++}
++
++fn devtui_lsp_info(cx: &mut Context) {
++    if let Some(select) = ui::devtui::lsp_info_select(cx.editor) {
++        cx.push_layer(Box::new(select));
++    } else {
++        cx.editor.set_status("LSP: no language server attached");
++    }
++}
++
++fn devtui_python_venv(cx: &mut Context) {
++    let prompt = ui::devtui::python_venv_prompt(cx.editor);
++    cx.push_layer(Box::new(prompt));
++}
++
+ fn devtui_prepare_occurrence_selection(editor: &mut Editor) {
+     if editor.mode != Mode::Normal {
+         return;
+diff --git a/helix-term/src/commands/dap.rs b/helix-term/src/commands/dap.rs
+index f5b3c7f..eb31271 100644
+--- a/helix-term/src/commands/dap.rs
++++ b/helix-term/src/commands/dap.rs
+@@ -219,7 +219,14 @@ fn prepare_dap_params(template: &DebugTemplate, params: &[std::borrow::Cow<str>]
+ fn map_value(value: &Value, params: &[String]) -> Value {
+     match value {
+         Value::String(string) => {
+-            let mut string = string.clone();
++            let mut string = if string == "__DEVTUI_PYTHON__" {
++                std::env::var_os("VIRTUAL_ENV")
++                    .map(std::path::PathBuf::from)
++                    .map(|path| path.join("bin/python").to_string_lossy().into_owned())
++                    .unwrap_or_else(|| "python".to_string())
++            } else {
++                string.clone()
++            };
+             for (i, x) in params.iter().enumerate() {
+                 let pattern = format!("{{{}}}", i);
+                 string = string.replace(&pattern, x);
+diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
+index 05ff12e..a824589 100644
+--- a/helix-term/src/commands/typed.rs
++++ b/helix-term/src/commands/typed.rs
+@@ -1745,7 +1745,7 @@ fn lsp_workspace_command(
+     Ok(())
+ }
+ 
+-fn lsp_restart(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
++pub(crate) fn lsp_restart(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow::Result<()> {
+     if event != PromptEvent::Validate {
+         return Ok(());
+     }
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 952d689..c9bfb80 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -18,6 +18,29 @@
+ 
+ use crate::ui::{self, menu::Item, Picker, PickerColumn, Prompt, PromptEvent, Select};
+ 
++pub fn path_icon(path: &Path, is_dir: bool) -> &'static str {
++    if is_dir {
++        return "";
++    }
++    match path.extension().and_then(|ext| ext.to_str()).unwrap_or_default() {
++        "c" => "",
++        "cc" | "cpp" | "cxx" => "",
++        "h" | "hh" | "hpp" | "hxx" => "",
++        "py" | "pyi" => "",
++        "sh" | "bash" | "zsh" => "",
++        "cmake" => "",
++        "md" | "mdx" => "",
++        "json" => "",
++        "toml" => "",
++        "yaml" | "yml" => "",
++        "lua" => "",
++        "rs" => "",
++        "js" | "jsx" => "",
++        "ts" | "tsx" => "",
++        _ => "",
++    }
++}
++
+ #[derive(Clone, Copy, Debug, Default)]
+ pub enum CloseChoice {
+     #[default]
+@@ -114,6 +137,84 @@ fn command(self) -> &'static str {
+     }
+ }
+ 
++#[derive(Clone, Copy, Debug)]
++pub enum DebugAction {
++    StartOrContinue,
++    Pause,
++    StepOver,
++    StepInto,
++    StepOut,
++    Variables,
++    CallStack,
++    ToggleBreakpoint,
++    Restart,
++    Stop,
++}
++
++impl Item for DebugAction {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        match self {
++            Self::StartOrContinue => "Start / Continue",
++            Self::Pause => "Pause",
++            Self::StepOver => "Step Over",
++            Self::StepInto => "Step Into",
++            Self::StepOut => "Step Out",
++            Self::Variables => "Variables",
++            Self::CallStack => "Call Stack",
++            Self::ToggleBreakpoint => "Toggle Breakpoint",
++            Self::Restart => "Restart",
++            Self::Stop => "Stop",
++        }
++        .into()
++    }
++}
++
++impl DebugAction {
++    fn command(self) -> &'static str {
++        match self {
++            Self::StartOrContinue => "start_or_continue",
++            Self::Pause => "pause",
++            Self::StepOver => "step_over",
++            Self::StepInto => "step_into",
++            Self::StepOut => "step_out",
++            Self::Variables => "variables",
++            Self::CallStack => "call_stack",
++            Self::ToggleBreakpoint => "toggle_breakpoint",
++            Self::Restart => "restart",
++            Self::Stop => "stop",
++        }
++    }
++}
++
++pub fn debug_action_select() -> Select<DebugAction> {
++    Select::new(
++        "Run and Debug",
++        [
++            DebugAction::StartOrContinue,
++            DebugAction::Pause,
++            DebugAction::StepOver,
++            DebugAction::StepInto,
++            DebugAction::StepOut,
++            DebugAction::Variables,
++            DebugAction::CallStack,
++            DebugAction::ToggleBreakpoint,
++            DebugAction::Restart,
++            DebugAction::Stop,
++        ],
++        (),
++        |editor, action, event| {
++            if event == PromptEvent::Validate {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(DevTuiRequest::DebugAction(action.command()));
++            }
++        },
++    )
++}
++
+ pub fn selection_context_select() -> Select<SelectionContextAction> {
+     Select::new(
+         "Selection",
+@@ -1427,6 +1528,7 @@ pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
+             } else {
+                 "  "
+             };
++            let icon = path_icon(&row.path, row.is_dir);
+             let name = if row.depth == 0 {
+                 root_name.to_string()
+             } else {
+@@ -1446,10 +1548,129 @@ pub fn render(&mut self, area: Rect, surface: &mut Surface, editor: &Editor) {
+             surface.set_stringn(
+                 area.x,
+                 y,
+-                &format!("{indent}{marker}{name}"),
++                &format!("{indent}{marker}{icon} {name}"),
+                 area.width as usize,
+                 style,
+             );
+         }
+     }
+ }
++
++fn python_workspace_state_path() -> Option<PathBuf> {
++    let home = std::env::var_os("HOME").map(PathBuf::from)?;
++    let workspace = helix_stdx::path::canonicalize(&std::env::current_dir().ok()?);
++    let key = workspace
++        .as_os_str()
++        .to_string_lossy()
++        .as_bytes()
++        .iter()
++        .map(|byte| format!("{byte:02x}"))
++        .collect::<String>();
++    Some(
++        home.join(".local/state/devtui/helix-python-envs")
++            .join(key),
++    )
++}
++
++fn persist_python_environment(path: &Path) -> std::io::Result<()> {
++    let Some(state) = python_workspace_state_path() else {
++        return Ok(());
++    };
++    if let Some(parent) = state.parent() {
++        fs::create_dir_all(parent)?;
++    }
++    fs::write(state, path.to_string_lossy().as_bytes())
++}
++
++pub fn python_venv_prompt(editor: &Editor) -> Prompt {
++    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
++    let default = [".venv", "venv"]
++        .into_iter()
++        .map(|name| cwd.join(name))
++        .find(|path| path.join("bin/python").is_file())
++        .unwrap_or_else(|| cwd.join(".venv"))
++        .to_string_lossy()
++        .into_owned();
++
++    Prompt::new(
++        Cow::Borrowed("Python Environment: "),
++        None,
++        ui::completers::filename,
++        move |cx, input, event| {
++            if event != PromptEvent::Validate || input.trim().is_empty() {
++                return;
++            }
++
++            let path = helix_stdx::path::canonicalize(Path::new(input));
++            let python = path.join("bin/python");
++            if !python.is_file() {
++                cx.editor
++                    .set_error(format!("Not a Python virtual environment: {}", path.display()));
++                return;
++            }
++
++            let bin = path.join("bin");
++            let old_path = std::env::var_os("PATH").unwrap_or_default();
++            let mut entries: Vec<PathBuf> = std::env::split_paths(&old_path).collect();
++            entries.retain(|entry| entry != &bin);
++            entries.insert(0, bin);
++            match std::env::join_paths(entries) {
++                Ok(new_path) => {
++                    std::env::set_var("VIRTUAL_ENV", &path);
++                    std::env::set_var("PATH", new_path);
++                    if let Err(err) = persist_python_environment(&path) {
++                        cx.editor.set_error(err.to_string());
++                        return;
++                    }
++                    if let Err(err) = crate::commands::typed::lsp_restart(
++                        cx,
++                        helix_core::command_line::Args::default(),
++                        PromptEvent::Validate,
++                    ) {
++                        cx.editor.set_error(err.to_string());
++                    } else {
++                        cx.editor
++                            .set_status(format!("Python environment: {}", path.display()));
++                    }
++                }
++                Err(err) => cx.editor.set_error(err.to_string()),
++            }
++        },
++    )
++    .with_line(default, editor)
++}
++#[derive(Clone, Debug)]
++pub struct LspInfoItem {
++    pub name: String,
++    pub id: String,
++}
++
++impl Item for LspInfoItem {
++    type Data = ();
++
++    fn format(&self, _data: &Self::Data) -> Row<'_> {
++        format!("{}  [{}]", self.name, self.id).into()
++    }
++}
++
++pub fn lsp_info_select(editor: &Editor) -> Option<Select<LspInfoItem>> {
++    let doc = editor.document(editor.tree.get(editor.tree.focus).doc)?;
++    let items = doc
++        .language_servers()
++        .map(|server| LspInfoItem {
++            name: server.name().to_string(),
++            id: server.id().to_string(),
++        })
++        .collect::<Vec<_>>();
++
++    if items.is_empty() {
++        return None;
++    }
++
++    Some(Select::new(
++        "Language Servers",
++        items,
++        (),
++        |_editor, _item, _event| {},
++    ))
++}
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 31e56d9..96bc630 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -860,9 +860,8 @@ pub fn render_bufferline(
+         let current_doc = view!(editor).doc;
+ 
+         for doc in editor.documents() {
+-            let fname = doc
+-                .path()
+-                .unwrap_or(&scratch)
++            let display_path = doc.path().unwrap_or(&scratch);
++            let fname = display_path
+                 .file_name()
+                 .unwrap_or_default()
+                 .to_str()
+@@ -878,7 +877,8 @@ pub fn render_bufferline(
+             }
+ 
+             let dirty = if doc.is_modified() { " ●" } else { "" };
+-            let text = format!(" {fname}{dirty}  × ");
++            let icon = crate::ui::devtui::path_icon(display_path, false);
++            let text = format!(" {icon} {fname}{dirty}  × ");
+             let width = text.width() as u16;
+             if x.saturating_add(width) > viewport.right() {
+                 break;
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index fa34503..defc020 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1298,6 +1298,7 @@ pub enum DevTuiRequest {
+     SymbolAction(&'static str),
+     SelectionContext,
+     SelectionAction(&'static str),
++    DebugAction(&'static str),
+     OpenPath {
+         path: PathBuf,
+         line: usize,

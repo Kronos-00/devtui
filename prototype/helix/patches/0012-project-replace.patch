@@ -1,0 +1,406 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 7fad84f..04cc543 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -910,6 +910,27 @@ fn process_devtui_requests(&mut self) -> bool {
+                     }
+                     pushed = true;
+                 }
++                DevTuiRequest::ProjectReplaceInput { query } => {
++                    let prompt = crate::ui::devtui::project_replace_replacement_prompt(
++                        &self.editor,
++                        query,
++                    );
++                    self.compositor.push(Box::new(prompt));
++                    pushed = true;
++                }
++                DevTuiRequest::ProjectReplaceResults { query, replacement } => {
++                    match crate::ui::devtui::project_replace_picker(
++                        &mut self.editor,
++                        query,
++                        replacement,
++                    ) {
++                        Ok(picker) => {
++                            self.compositor.push(Box::new(crate::ui::overlay::overlaid(picker)));
++                            pushed = true;
++                        }
++                        Err(err) => self.editor.set_error(err.to_string()),
++                    }
++                }
+             }
+         }
+         pushed
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 5b66afa..921435c 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -494,6 +494,7 @@ pub fn doc(&self) -> &str {
+         devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
+         devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
+         devtui_save_as, "Open Save As for the current buffer",
++        devtui_project_replace, "Open VS Code-style Replace in Files",
+         yank_to_clipboard, "Yank selections to clipboard",
+         yank_to_primary_clipboard, "Yank selections to primary clipboard",
+         yank_joined, "Join and yank selections",
+@@ -4916,6 +4917,10 @@ fn devtui_save_as(cx: &mut Context) {
+     cx.editor.devtui_request_save_as(doc_id, false);
+ }
+ 
++fn devtui_project_replace(cx: &mut Context) {
++    cx.push_layer(Box::new(ui::devtui::project_replace_search_prompt()));
++}
++
+ fn yank_to_clipboard(cx: &mut Context) {
+     yank_impl(cx.editor, '+');
+     exit_select_mode(cx);
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 68f94dd..b35fde2 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -6,15 +6,17 @@
+     time::{Duration, Instant},
+ };
+ 
++use grep_matcher::{Captures, Matcher};
++use grep_regex::RegexMatcherBuilder;
+ use helix_view::{
+-    editor::DevTuiRequest,
++    editor::{Action, DevTuiRequest},
+     graphics::{Modifier, Rect},
+     DocumentId, Editor,
+ };
+ use ignore::WalkBuilder;
+ use tui::{buffer::Buffer as Surface, widgets::Row};
+ 
+-use crate::ui::{self, menu::Item, Prompt, PromptEvent, Select};
++use crate::ui::{self, menu::Item, Picker, PickerColumn, Prompt, PromptEvent, Select};
+ 
+ #[derive(Clone, Copy, Debug, Default)]
+ pub enum CloseChoice {
+@@ -233,6 +235,308 @@ pub fn save_as_prompt(
+     .with_line(default_path, editor)
+ }
+ 
++
++#[derive(Clone, Debug)]
++pub enum ProjectReplaceItem {
++    ReplaceAll { count: usize },
++    ReplaceFile { path: PathBuf, count: usize },
++    Match {
++        path: PathBuf,
++        line: usize,
++        ordinal: usize,
++        before: String,
++        after: String,
++    },
++}
++
++#[derive(Clone, Debug, Default)]
++pub struct ProjectReplaceData;
++
++fn project_replace_matcher(editor: &Editor, query: &str) -> anyhow::Result<grep_regex::RegexMatcher> {
++    RegexMatcherBuilder::new()
++        .case_smart(editor.config().search.smart_case)
++        .multi_line(true)
++        .build(query)
++        .map_err(Into::into)
++}
++
++fn replacement_text(
++    matcher: &grep_regex::RegexMatcher,
++    haystack: &[u8],
++    caps: &impl Captures,
++    replacement: &str,
++) -> String {
++    let mut out = Vec::new();
++    caps.interpolate(
++        |name| matcher.capture_index(name),
++        haystack,
++        replacement.as_bytes(),
++        &mut out,
++    );
++    String::from_utf8_lossy(&out).into_owned()
++}
++
++fn project_replace_apply(
++    editor: &mut Editor,
++    path: &Path,
++    query: &str,
++    replacement: &str,
++    target_ordinal: Option<usize>,
++) -> anyhow::Result<usize> {
++    let doc_id = editor.open(path, Action::Load)?;
++    let original = editor
++        .document(doc_id)
++        .map(|doc| doc.text().to_string())
++        .ok_or_else(|| anyhow::anyhow!("document disappeared"))?;
++    let matcher = project_replace_matcher(editor, query)?;
++    let mut caps = matcher.new_captures()?;
++    let mut replaced = Vec::with_capacity(original.len());
++    let mut ordinal = 0usize;
++    let mut applied = 0usize;
++    matcher.replace_with_captures(
++        original.as_bytes(),
++        &mut caps,
++        &mut replaced,
++        |caps, dst| {
++            let current = ordinal;
++            ordinal += 1;
++            if target_ordinal.is_none_or(|wanted| wanted == current) {
++                caps.interpolate(
++                    |name| matcher.capture_index(name),
++                    original.as_bytes(),
++                    replacement.as_bytes(),
++                    dst,
++                );
++                applied += 1;
++            } else if let Some(m) = caps.get(0) {
++                dst.extend_from_slice(&original.as_bytes()[m.start()..m.end()]);
++            }
++            target_ordinal.is_none() || applied == 0
++        },
++    )?;
++
++    if applied == 0 {
++        return Ok(0);
++    }
++    let replaced = String::from_utf8(replaced)?;
++    let view_id = editor
++        .tree
++        .views()
++        .find_map(|(view, _)| (view.doc == doc_id).then_some(view.id))
++        .unwrap_or_else(|| editor.tree.focus);
++    let doc = editor
++        .document_mut(doc_id)
++        .ok_or_else(|| anyhow::anyhow!("document disappeared"))?;
++    let end = doc.text().len_chars();
++    let tx = helix_core::Transaction::change(
++        doc.text(),
++        [(0, end, Some(replaced.into()))].into_iter(),
++    );
++    doc.ensure_view_init(view_id);
++    doc.apply(&tx, view_id);
++    editor.save(doc_id, None::<PathBuf>, false)?;
++    Ok(applied)
++}
++
++fn project_replace_scan(
++    editor: &Editor,
++    query: &str,
++    replacement: &str,
++) -> anyhow::Result<Vec<ProjectReplaceItem>> {
++    let matcher = project_replace_matcher(editor, query)?;
++    let root = helix_stdx::env::current_working_dir();
++    let config = editor.config().file_picker.clone();
++    let mut matches = Vec::new();
++    let mut files = Vec::new();
++
++    let mut builder = WalkBuilder::new(&root);
++    builder
++        .hidden(config.hidden)
++        .parents(config.parents)
++        .ignore(config.ignore)
++        .follow_links(config.follow_symlinks)
++        .git_ignore(config.git_ignore)
++        .git_global(config.git_global)
++        .git_exclude(config.git_exclude)
++        .max_depth(config.max_depth)
++        .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
++        .add_custom_ignore_filename(".helix/ignore");
++
++    for entry in builder.build().filter_map(Result::ok) {
++        let path = entry.path();
++        if !path.is_file() {
++            continue;
++        }
++        let text = if let Some(doc) = editor.document_by_path(path) {
++            doc.text().to_string()
++        } else {
++            match fs::read_to_string(path) {
++                Ok(text) => text,
++                Err(_) => continue,
++            }
++        };
++        let bytes = text.as_bytes();
++        let mut caps = matcher.new_captures()?;
++        let mut ordinal = 0usize;
++        let mut file_count = 0usize;
++        matcher.captures_iter(bytes, &mut caps, |caps| {
++            let Some(m) = caps.get(0) else { return true; };
++            let line = bytes[..m.start()].iter().filter(|&&b| b == b'\n').count();
++            let line_start = bytes[..m.start()]
++                .iter()
++                .rposition(|&b| b == b'\n')
++                .map_or(0, |idx| idx + 1);
++            let line_end = bytes[m.end()..]
++                .iter()
++                .position(|&b| b == b'\n')
++                .map_or(bytes.len(), |idx| m.end() + idx);
++            let before = String::from_utf8_lossy(&bytes[line_start..line_end]).into_owned();
++            let replacement_piece = replacement_text(&matcher, bytes, caps, replacement);
++            let mut after = Vec::new();
++            after.extend_from_slice(&bytes[line_start..m.start()]);
++            after.extend_from_slice(replacement_piece.as_bytes());
++            after.extend_from_slice(&bytes[m.end()..line_end]);
++            matches.push(ProjectReplaceItem::Match {
++                path: path.to_path_buf(),
++                line,
++                ordinal,
++                before,
++                after: String::from_utf8_lossy(&after).into_owned(),
++            });
++            ordinal += 1;
++            file_count += 1;
++            true
++        })?;
++        if file_count > 0 {
++            files.push((path.to_path_buf(), file_count));
++        }
++    }
++
++    if matches.is_empty() {
++        return Ok(Vec::new());
++    }
++    let total = matches.len();
++    let mut items = Vec::with_capacity(total + files.len() + 1);
++    items.push(ProjectReplaceItem::ReplaceAll { count: total });
++    for (path, count) in files {
++        items.push(ProjectReplaceItem::ReplaceFile { path, count });
++    }
++    items.extend(matches);
++    Ok(items)
++}
++
++pub fn project_replace_search_prompt() -> Prompt {
++    Prompt::new(
++        Cow::Borrowed("Search: "),
++        Some('/'),
++        ui::completers::none,
++        |cx, input, event| {
++            if event == PromptEvent::Validate && !input.is_empty() {
++                cx.editor.devtui.requests.push_back(DevTuiRequest::ProjectReplaceInput {
++                    query: input.to_string(),
++                });
++            }
++        },
++    )
++}
++
++pub fn project_replace_replacement_prompt(editor: &Editor, query: String) -> Prompt {
++    Prompt::new(
++        Cow::Borrowed("Replace: "),
++        None,
++        ui::completers::none,
++        move |cx, input, event| {
++            if event == PromptEvent::Validate {
++                cx.editor.devtui.requests.push_back(DevTuiRequest::ProjectReplaceResults {
++                    query: query.clone(),
++                    replacement: input.to_string(),
++                });
++            }
++        },
++    )
++    .with_line(String::new(), editor)
++}
++
++pub fn project_replace_picker(
++    editor: &mut Editor,
++    query: String,
++    replacement: String,
++) -> anyhow::Result<Picker<ProjectReplaceItem, ProjectReplaceData>> {
++    let items = project_replace_scan(editor, &query, &replacement)?;
++    let data = ProjectReplaceData;
++    let columns = [PickerColumn::new(
++        "pending replacement",
++        |item: &ProjectReplaceItem, _data: &ProjectReplaceData| match item {
++            ProjectReplaceItem::ReplaceAll { count } => format!("Replace All ({count} matches)").into(),
++            ProjectReplaceItem::ReplaceFile { path, count } => {
++                format!("Replace All in {} ({count})", helix_stdx::path::get_relative_path(path.clone()).display()).into()
++            }
++            ProjectReplaceItem::Match { path, line, before, after, .. } => {
++                format!(
++                    "{}:{}  {}  →  {}",
++                    helix_stdx::path::get_relative_path(path.clone()).display(),
++                    line + 1,
++                    before.trim_end(),
++                    after.trim_end(),
++                ).into()
++            }
++        },
++    )];
++
++    let action_query = query.clone();
++    let action_replacement = replacement.clone();
++    Ok(Picker::new(columns, 0, items, data, move |cx, item, _action| {
++        let result = match item {
++            ProjectReplaceItem::ReplaceAll { .. } => {
++                let paths = project_replace_scan(cx.editor, &action_query, &action_replacement)
++                    .map(|items| {
++                        items.into_iter().filter_map(|item| match item {
++                            ProjectReplaceItem::ReplaceFile { path, .. } => Some(path),
++                            _ => None,
++                        }).collect::<Vec<_>>()
++                    });
++                match paths {
++                    Ok(paths) => {
++                        let mut count = 0usize;
++                        for path in paths {
++                            match project_replace_apply(
++                                cx.editor,
++                                &path,
++                                &action_query,
++                                &action_replacement,
++                                None,
++                            ) {
++                                Ok(n) => count += n,
++                                Err(err) => return cx.editor.set_error(err.to_string()),
++                            }
++                        }
++                        Ok(count)
++                    }
++                    Err(err) => Err(err),
++                }
++            }
++            ProjectReplaceItem::ReplaceFile { path, .. } => project_replace_apply(
++                cx.editor,
++                path,
++                &action_query,
++                &action_replacement,
++                None,
++            ),
++            ProjectReplaceItem::Match { path, ordinal, .. } => project_replace_apply(
++                cx.editor,
++                path,
++                &action_query,
++                &action_replacement,
++                Some(*ordinal),
++            ),
++        };
++        match result {
++            Ok(count) => cx.editor.set_status(format!("Replaced {count} match{}", if count == 1 { "" } else { "es" })),
++            Err(err) => cx.editor.set_error(err.to_string()),
++        }
++    }))
++}
++
+ #[derive(Clone, Copy, Debug, Default)]
+ pub enum ExplorerAction {
+     #[default]
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index a7de41d..3dd29a8 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1303,6 +1303,13 @@ pub enum DevTuiRequest {
+         line: usize,
+         column: usize,
+     },
++    ProjectReplaceInput {
++        query: String,
++    },
++    ProjectReplaceResults {
++        query: String,
++        replacement: String,
++    },
+ }
+ 
+ #[derive(Debug, Default)]

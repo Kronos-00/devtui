@@ -1,0 +1,17 @@
+0001-mouse-foundation.patch
+0002-editor-lifecycle.patch
+0003-persistent-explorer.patch
+0004-explorer-file-actions.patch
+0005-preview-promotion.patch
+0006-editor-context-ipc.patch
+0007-ipc-editor-focus.patch
+0008-column-selection.patch
+0009-editor-scrollbar.patch
+0010-inactive-regions.patch
+0011-shortcut-actions.patch
+0012-project-replace.patch
+0013-editing-shortcuts.patch
+0014-column-clipboard.patch
+0015-explorer-keyboard.patch
+0016-language-debug-integration.patch
+0017-save-as-confirmation.patch

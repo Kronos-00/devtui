@@ -11,7 +11,7 @@ index c78c046..0126d3a 100644
 +    path::{Path, PathBuf},
 +    time::{Duration, Instant},
 +};
-
+ 
 -use helix_view::{editor::DevTuiRequest, DocumentId, Editor};
 -use tui::widgets::Row;
 +use helix_view::{
@@ -21,9 +21,9 @@ index c78c046..0126d3a 100644
 +};
 +use ignore::WalkBuilder;
 +use tui::{buffer::Buffer as Surface, widgets::Row};
-
+ 
  use crate::ui::{self, menu::Item, Prompt, PromptEvent, Select};
-
+ 
 @@ -100,3 +111,342 @@ pub fn save_as_prompt(
      )
      .with_line(default_path, editor)
@@ -392,7 +392,7 @@ index df4585a..c90ac83 100644
 @@ -1242,6 +1246,112 @@ fn handle_non_key_input(&mut self, cxt: &mut commands::Context) {
          self.pseudo_pending.clear();
      }
-
+ 
 +    fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool {
 +        let focus_explorer = event.modifiers.contains(KeyModifiers::CONTROL)
 +            && match event.code {
@@ -516,7 +516,7 @@ index df4585a..c90ac83 100644
 @@ -1583,6 +1697,12 @@ fn handle_event(
      ) -> EventResult {
          context.editor.devtui_promote_modified_preview();
-
+ 
 +        if let Event::Key(key) = event {
 +            if self.handle_explorer_key(*key, context.editor) {
 +                return EventResult::Consumed(None);
@@ -527,11 +527,11 @@ index df4585a..c90ac83 100644
              editor: context.editor,
              count: None,
 @@ -1748,9 +1868,24 @@ fn handle_event(
-
+ 
      fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          cx.editor.devtui_promote_modified_preview();
 +        self.layout_area = area;
-
+ 
          // clear with background color
          surface.set_style(area, cx.editor.theme.get("ui.background"));
 +
@@ -549,11 +549,11 @@ index df4585a..c90ac83 100644
 +        }
 +
          let config = cx.editor.config();
-
+ 
          // check if bufferline should be rendered
 @@ -1762,7 +1897,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          };
-
+ 
          // -1 for commandline and -1 for bufferline
 -        let mut editor_area = area.clip_bottom(1);
 +        let mut editor_area = editor_outer.clip_bottom(1);
@@ -562,7 +562,7 @@ index df4585a..c90ac83 100644
          }
 @@ -1771,20 +1906,20 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          cx.editor.resize(editor_area);
-
+ 
          if use_bufferline {
 -            self.render_bufferline(cx.editor, area.with_height(1), surface);
 +            self.render_bufferline(cx.editor, editor_outer.with_height(1), surface);
@@ -571,13 +571,13 @@ index df4585a..c90ac83 100644
 -            self.bufferline_used_width = area.x;
 +            self.bufferline_used_width = editor_outer.x;
          }
-
+ 
          for (view, is_focused) in cx.editor.tree.views() {
              let doc = cx.editor.document(view.doc).unwrap();
 -            self.render_view(cx.editor, doc, view, area, surface, is_focused);
 +            self.render_view(cx.editor, doc, view, editor_outer, surface, is_focused);
          }
-
+ 
          if config.auto_info {
              if let Some(mut info) = cx.editor.autoinfo.take() {
 -                info.render(area, surface, cx);
@@ -587,7 +587,7 @@ index df4585a..c90ac83 100644
          }
 @@ -1803,14 +1938,18 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
              };
-
+ 
              surface.set_string(
 -                area.x,
 -                area.y + area.height.saturating_sub(1),
@@ -597,7 +597,7 @@ index df4585a..c90ac83 100644
                  style,
              );
          }
-
+ 
 -        if area.width.saturating_sub(status_msg_width as u16) > key_width {
 +        if editor_outer
 +            .width
@@ -649,10 +649,10 @@ index df4585a..c90ac83 100644
                  );
 @@ -1866,7 +2006,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
          }
-
+ 
          if let Some(completion) = self.completion.as_mut() {
 -            completion.render(area, surface, cx);
 +            completion.render(editor_outer, surface, cx);
          }
      }
-
+ 

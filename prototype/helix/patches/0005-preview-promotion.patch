@@ -1,0 +1,17 @@
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 065879c..036a828 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -2185,10 +2185,8 @@ pub fn devtui_open_pinned(
+         path: &Path,
+     ) -> Result<DocumentId, DocumentOpenError> {
+         self.devtui_promote_modified_preview();
+-        let id = self.open(path, Action::Replace)?;
+-        if self.devtui.preview_document == Some(id) {
+-            self.devtui.preview_document = None;
+-        }
++        let id = self.devtui_open_preview(path)?;
++        self.devtui.preview_document = None;
+         Ok(id)
+     }
+ 

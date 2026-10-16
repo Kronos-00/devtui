@@ -602,7 +602,7 @@ index c90ac83..235cb4d 100644
                  }
                  MouseEventKind::ScrollUp => self.explorer.scroll_by(-3, visible_rows),
 diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
-index b056066..036a828 100644
+index b056066..065879c 100644
 --- a/helix-view/src/editor.rs
 +++ b/helix-view/src/editor.rs
 @@ -1277,6 +1277,23 @@ pub enum DevTuiRequest {
@@ -638,16 +638,3 @@ index b056066..036a828 100644
      /// UI requests produced by editor/command code and consumed by helix-term.
      pub requests: VecDeque<DevTuiRequest>,
  }
-@@ -2166,10 +2185,8 @@ pub fn devtui_open_pinned(
-         path: &Path,
-     ) -> Result<DocumentId, DocumentOpenError> {
-         self.devtui_promote_modified_preview();
--        let id = self.open(path, Action::Replace)?;
--        if self.devtui.preview_document == Some(id) {
--            self.devtui.preview_document = None;
--        }
-+        let id = self.devtui_open_preview(path)?;
-+        self.devtui.preview_document = None;
-         Ok(id)
-     }
- 

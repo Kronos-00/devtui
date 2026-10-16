@@ -1,0 +1,49 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 894ada2..50b30c3 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -853,6 +853,7 @@ fn process_devtui_requests(&mut self) -> bool {
+                     command.execute(&mut cx);
+                 }
+                 DevTuiRequest::OpenPath { path, line, column } => {
++                    self.editor.devtui.focus_editor_requested = true;
+                     match self.editor.devtui_open_preview(&path) {
+                         Ok(doc_id) => {
+                             let view_id = self.editor.tree.focus;
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index e06cfb7..b49f0e1 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1785,6 +1785,9 @@ fn handle_event(
+         event: &Event,
+         context: &mut crate::compositor::Context,
+     ) -> EventResult {
++        if std::mem::take(&mut context.editor.devtui.focus_editor_requested) {
++            self.explorer.focused = false;
++        }
+         context.editor.devtui_promote_modified_preview();
+ 
+         if let Event::Key(key) = event {
+@@ -1957,6 +1960,9 @@ fn handle_event(
+     }
+ 
+     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
++        if cx.editor.devtui.focus_editor_requested {
++            self.explorer.focused = false;
++        }
+         cx.editor.devtui_promote_modified_preview();
+         self.layout_area = area;
+ 
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 8fe1953..baaa58b 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1311,6 +1311,8 @@ pub struct DevTuiState {
+     pub close_after_save: HashSet<DocumentId>,
+     /// Explorer Copy/Paste uses a file clipboard, independent from text registers.
+     pub explorer_clipboard: Vec<PathBuf>,
++    /// External navigation can request focus for the actual editor while keeping Explorer visible.
++    pub focus_editor_requested: bool,
+     /// UI requests produced by editor/command code and consumed by helix-term.
+     pub requests: VecDeque<DevTuiRequest>,
+ }

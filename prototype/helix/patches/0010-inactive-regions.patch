@@ -4,7 +4,7 @@ index afba1f2..035ccc3 100644
 +++ b/helix-lsp-types/src/lib.rs
 @@ -1461,6 +1461,13 @@ fn deserialize_compat<'de, S>(serializer: S) -> Result<Option<TagSupport<T>>, S:
  }
-
+ 
  /// Text document specific client capabilities.
 +#[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 +#[serde(rename_all = "camelCase")]
@@ -19,7 +19,7 @@ index afba1f2..035ccc3 100644
 @@ -1592,6 +1599,10 @@ pub struct TextDocumentClientCapabilities {
      #[serde(skip_serializing_if = "Option::is_none")]
      pub inlay_hint: Option<InlayHintClientCapabilities>,
-
+ 
 +    /// Optional support for server-pushed inactive source regions.
 +    #[serde(skip_serializing_if = "Option::is_none")]
 +    pub inactive_regions_capabilities: Option<InactiveRegionsClientCapabilities>,
@@ -50,7 +50,7 @@ index d99014e..b95089f 100644
 @@ -532,6 +532,14 @@ pub fn parse(method: &str, params: jsonrpc::Params) -> Result<MethodCall> {
      }
  }
-
+ 
 +#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 +#[serde(rename_all = "camelCase")]
 +pub struct InactiveRegionsParams {
@@ -78,7 +78,7 @@ index d99014e..b95089f 100644
 +                let params: InactiveRegionsParams = params.parse()?;
 +                Self::InactiveRegions(params)
 +            }
-
+ 
              lsp::notification::ShowMessage::METHOD => {
                  let params: lsp::ShowMessageParams = params.parse()?;
 diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
@@ -139,7 +139,7 @@ index 2dd4292..361b357 100644
 @@ -303,6 +303,15 @@ pub fn render_view(
              overlays.push(overlay);
          }
-
+ 
 +        if !doc.inactive_regions.is_empty() {
 +            if let Some(highlight) = theme.find_highlight_exact("comment") {
 +                overlays.push(OverlayHighlights::Homogeneous {
@@ -150,7 +150,7 @@ index 2dd4292..361b357 100644
 +        }
 +
          Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
-
+ 
          if is_focused {
 diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
 index 79ba871..cce42ab 100644

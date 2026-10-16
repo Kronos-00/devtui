@@ -1,0 +1,170 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 5090c4d..5f46c9a 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -868,13 +868,11 @@ fn process_devtui_requests(&mut self) -> bool {
+                     };
+                     match name {
+                         "copy" => {
+-                            crate::commands::MappableCommand::yank_joined_to_clipboard
++                            crate::commands::MappableCommand::devtui_copy_to_clipboard
+                                 .execute(&mut cx);
+                         }
+                         "cut" => {
+-                            crate::commands::MappableCommand::yank_joined_to_clipboard
+-                                .execute(&mut cx);
+-                            crate::commands::MappableCommand::delete_selection_noyank
++                            crate::commands::MappableCommand::devtui_cut_to_clipboard
+                                 .execute(&mut cx);
+                         }
+                         "delete" => {
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 2019826..d9aa207 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -4888,6 +4888,38 @@ fn devtui_line_selection_if_empty(editor: &Editor) -> Option<Selection> {
+     Some(Selection::new(ranges, current.primary_index()))
+ }
+ 
++fn devtui_yank_filtered_to_clipboard(editor: &mut Editor) {
++    let (view, doc) = current!(editor);
++    let text = doc.text().slice(..);
++    let mut values: Vec<String> = doc
++        .selection(view.id)
++        .fragments(text)
++        .map(Cow::into_owned)
++        .collect();
++
++    // VS Code sparse column selections omit rows that do not participate in
++    // the rectangle. Helix can retain zero-width ranges for those rows, so
++    // keep ordinary single-cursor semantics but drop empty fragments whenever
++    // at least one real range exists in a multi-selection.
++    if editor.devtui.column_selection_active
++        && values.len() > 1
++        && values
++            .iter()
++            .any(|value| !value.trim_matches(['\r', '\n']).is_empty())
++    {
++        values.retain(|value| !value.trim_matches(['\r', '\n']).is_empty());
++    }
++
++    let selections = values.len();
++    match editor.registers.write('+', values) {
++        Ok(_) => editor.set_status(format!(
++            "copied {selections} selection{}",
++            if selections == 1 { "" } else { "s" }
++        )),
++        Err(err) => editor.set_error(err.to_string()),
++    }
++}
++
+ fn devtui_copy_to_clipboard(cx: &mut Context) {
+     let line_selection = devtui_line_selection_if_empty(cx.editor);
+     let original = if let Some(selection) = line_selection {
+@@ -4899,7 +4931,7 @@ fn devtui_copy_to_clipboard(cx: &mut Context) {
+         None
+     };
+ 
+-    yank_impl(cx.editor, '+');
++    devtui_yank_filtered_to_clipboard(cx.editor);
+ 
+     if let Some(original) = original {
+         let (view, doc) = current!(cx.editor);
+@@ -4912,7 +4944,7 @@ fn devtui_cut_to_clipboard(cx: &mut Context) {
+         let (view, doc) = current!(cx.editor);
+         doc.set_selection(view.id, selection);
+     }
+-    yank_impl(cx.editor, '+');
++    devtui_yank_filtered_to_clipboard(cx.editor);
+     delete_selection_impl(cx, Operation::Delete, YankAction::NoYank);
+ }
+ 
+@@ -5197,6 +5229,20 @@ fn paste_impl(
+     doc.append_changes_to_history(view);
+ }
+ 
++fn devtui_spread_paste_values(contents: &str, selection_count: usize) -> Option<Vec<String>> {
++    if selection_count <= 1 {
++        return None;
++    }
++
++    let normalized = LINE_ENDING_REGEX.replace_all(contents, "\n");
++    let values: Vec<String> = normalized
++        .split_terminator('\n')
++        .map(ToOwned::to_owned)
++        .collect();
++
++    (values.len() == selection_count).then_some(values)
++}
++
+ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+     let count = cx.count();
+     let paste = match cx.editor.mode {
+@@ -5209,13 +5255,7 @@ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
+     // match the number of selections, distribute one row to each selection in
+     // document order. Otherwise every selection receives the full pasted block.
+     let selection_count = doc.selection(view.id).len();
+-    let normalized = LINE_ENDING_REGEX.replace_all(&contents, "\n");
+-    let spread_values: Vec<String> = normalized
+-        .split_terminator('\n')
+-        .map(ToOwned::to_owned)
+-        .collect();
+-
+-    if selection_count > 1 && spread_values.len() == selection_count {
++    if let Some(spread_values) = devtui_spread_paste_values(&contents, selection_count) {
+         paste_impl(
+             &spread_values,
+             doc,
+@@ -7424,3 +7464,26 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
+         syntax_workspace_symbol_picker(cx);
+     }
+ }
++
++#[cfg(test)]
++mod devtui_tests {
++    use super::devtui_spread_paste_values;
++
++    #[test]
++    fn spread_paste_distributes_matching_rows() {
++        assert_eq!(
++            devtui_spread_paste_values("A\nB\nC", 3),
++            Some(vec!["A".into(), "B".into(), "C".into()])
++        );
++        assert_eq!(
++            devtui_spread_paste_values("A\r\nB\r\nC\r\n", 3),
++            Some(vec!["A".into(), "B".into(), "C".into()])
++        );
++    }
++
++    #[test]
++    fn spread_paste_falls_back_when_counts_differ() {
++        assert_eq!(devtui_spread_paste_values("A\nB", 3), None);
++        assert_eq!(devtui_spread_paste_values("A\nB\nC", 1), None);
++    }
++}
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 361b357..b9497c5 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1673,6 +1673,7 @@ fn update_middle_drag_selection(
+             view_id,
+             Selection::new(ranges.into_iter().collect(), primary_index),
+         );
++        editor.devtui.column_selection_active = true;
+         editor.ensure_cursor_in_view(view_id);
+         true
+     }
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 00b8d00..fa34503 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1331,6 +1331,9 @@ pub struct DevTuiState {
+     pub explorer_clipboard: Vec<PathBuf>,
+     /// External navigation can request focus for the actual editor while keeping Explorer visible.
+     pub focus_editor_requested: bool,
++    /// The current multi-selection was created by devtui's middle-drag column gesture.
++    /// Clipboard operations use this to omit sparse rows exactly like VS Code.
++    pub column_selection_active: bool,
+     /// UI requests produced by editor/command code and consumed by helix-term.
+     pub requests: VecDeque<DevTuiRequest>,
+ }

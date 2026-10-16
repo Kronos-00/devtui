@@ -78,7 +78,7 @@ index bced450..a2ab234 100644
 +    }
      exit_select_mode(cx);
  }
-
+ 
 diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
 index a0f01ae..68f94dd 100644
 --- a/helix-term/src/ui/devtui.rs
@@ -86,7 +86,7 @@ index a0f01ae..68f94dd 100644
 @@ -82,6 +82,56 @@ fn command(self) -> &'static str {
      }
  }
-
+ 
 +#[derive(Clone, Copy, Debug)]
 +pub enum SelectionContextAction {
 +    Copy,
@@ -147,7 +147,7 @@ index b49f0e1..92241a6 100644
 @@ -1421,43 +1421,113 @@ fn handle_explorer_mouse(
              return Some(EventResult::Consumed(None));
          }
-
+ 
 -        if matches!(event.kind, MouseEventKind::Down(MouseButton::Left)) {
 +        if matches!(
 +            event.kind,
@@ -159,7 +159,7 @@ index b49f0e1..92241a6 100644
          }
          None
      }
-
+ 
 -    fn update_middle_drag_selection(&mut self, editor: &mut Editor, row: u16) -> bool {
 +    fn update_middle_drag_selection(
 +        &mut self,
@@ -170,7 +170,7 @@ index b49f0e1..92241a6 100644
          let Some((anchor_row, anchor_column)) = self.middle_drag_anchor else {
              return false;
          };
-
+ 
          let first_row = anchor_row.min(row);
          let last_row = anchor_row.max(row);
 +        let left_column = anchor_column.min(column);
@@ -190,7 +190,7 @@ index b49f0e1..92241a6 100644
 +        let mut primary_index = 0usize;
 +        let mut primary_row = None;
 +        let mut last_fallback = None;
-
+ 
          for screen_row in first_row..=last_row {
 -            let Some(pos) = view.pos_at_screen_coords(doc, screen_row, anchor_column, true) else {
 +            let Some(left_pos) =
@@ -254,7 +254,7 @@ index b49f0e1..92241a6 100644
 -            ranges.push(Range::point(pos));
 -            last_pos = Some(pos);
          }
-
+ 
          if ranges.is_empty() {
              return false;
          }
@@ -268,7 +268,7 @@ index b49f0e1..92241a6 100644
              Selection::new(ranges.into_iter().collect(), primary_index),
 @@ -1572,7 +1642,7 @@ fn handle_mouse_event(
              }
-
+ 
              MouseEventKind::Drag(MouseButton::Middle) => {
 -                if self.update_middle_drag_selection(cxt.editor, row) {
 +                if self.update_middle_drag_selection(cxt.editor, row, column) {
@@ -313,7 +313,7 @@ index b49f0e1..92241a6 100644
 @@ -1751,7 +1839,7 @@ fn handle_mouse_event(
                      return EventResult::Ignored(None);
                  }
-
+ 
 -                let _ = self.update_middle_drag_selection(cxt.editor, row);
 +                let _ = self.update_middle_drag_selection(cxt.editor, row, column);
                  self.middle_drag_anchor = None;

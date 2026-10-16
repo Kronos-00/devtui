@@ -14,7 +14,7 @@ index 92241a6..2dd4292 100644
 @@ -50,6 +50,27 @@ struct DevTuiTabHit {
      close_start: u16,
  }
-
+ 
 +#[derive(Clone, Copy, Debug)]
 +struct DevTuiScrollbarGeometry {
 +    view_id: ViewId,
@@ -58,7 +58,7 @@ index 92241a6..2dd4292 100644
 @@ -104,6 +127,113 @@ pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
          &mut self.spinners
      }
-
+ 
 +    fn scrollbar_geometry(editor: &Editor, view_id: ViewId) -> Option<DevTuiScrollbarGeometry> {
 +        let view = editor.tree.try_get(view_id)?;
 +        let doc = editor.document(view.doc)?;
@@ -172,7 +172,7 @@ index 92241a6..2dd4292 100644
 @@ -247,6 +377,8 @@ pub fn render_view(
              decorations,
          );
-
+ 
 +        Self::render_scrollbar(editor, doc, view, surface);
 +
          // if we're not at the edge of the screen, draw a right border
@@ -181,7 +181,7 @@ index 92241a6..2dd4292 100644
 @@ -1558,6 +1690,46 @@ fn handle_mouse_event(
              ..
          } = *event;
-
+ 
 +        if let Some(drag) = self.scrollbar_drag {
 +            match kind {
 +                MouseEventKind::Drag(MouseButton::Left) => {

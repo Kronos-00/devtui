@@ -1,0 +1,209 @@
+diff --git a/helix-lsp-types/src/request.rs b/helix-lsp-types/src/request.rs
+index 7502546..509b307 100644
+--- a/helix-lsp-types/src/request.rs
++++ b/helix-lsp-types/src/request.rs
+@@ -345,6 +345,17 @@ impl Request for GotoDefinition {
+     const METHOD: &'static str = "textDocument/definition";
+ }
+ 
++/// Optional source/header switching request used by language servers that
++/// expose a paired translation-unit navigation extension.
++#[derive(Debug)]
++pub enum SwitchSourceHeader {}
++
++impl Request for SwitchSourceHeader {
++    type Params = TextDocumentIdentifier;
++    type Result = Option<Url>;
++    const METHOD: &'static str = "textDocument/switchSourceHeader";
++}
++
+ /// The references request is sent from the client to the server to resolve project-wide references for the
+ /// symbol denoted by the given text document position.
+ #[derive(Debug)]
+diff --git a/helix-lsp/src/client.rs b/helix-lsp/src/client.rs
+index c7947cc..cf69058 100644
+--- a/helix-lsp/src/client.rs
++++ b/helix-lsp/src/client.rs
+@@ -1498,6 +1498,13 @@ pub fn goto_definition(
+         ))
+     }
+ 
++    pub fn switch_source_header(
++        &self,
++        text_document: lsp::TextDocumentIdentifier,
++    ) -> impl Future<Output = Result<Option<lsp::Url>>> {
++        self.call::<lsp::request::SwitchSourceHeader>(text_document)
++    }
++
+     pub fn goto_declaration(
+         &self,
+         text_document: lsp::TextDocumentIdentifier,
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index a2ab234..5b66afa 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -429,6 +429,7 @@ pub fn doc(&self) -> &str {
+         exit_select_mode, "Exit selection mode",
+         goto_definition, "Goto definition",
+         goto_declaration, "Goto declaration",
++        switch_source_header, "Switch between paired source and header files through the language server",
+         add_newline_above, "Add newline above",
+         add_newline_below, "Add newline below",
+         goto_type_definition, "Goto type definition",
+@@ -448,6 +449,7 @@ pub fn doc(&self) -> &str {
+         goto_last_modified_file, "Goto last modified file",
+         goto_last_modification, "Goto last modification",
+         goto_line, "Goto line",
++        devtui_goto_line_prompt, "Open VS Code-style Go to Line prompt",
+         goto_last_line, "Goto last line",
+         extend_to_last_line, "Extend to last line",
+         goto_first_diag, "Goto first diagnostic",
+@@ -489,6 +491,9 @@ pub fn doc(&self) -> &str {
+         later, "Move forward in history",
+         commit_undo_checkpoint, "Commit changes to new checkpoint",
+         yank, "Yank selection",
++        devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
++        devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
++        devtui_save_as, "Open Save As for the current buffer",
+         yank_to_clipboard, "Yank selections to clipboard",
+         yank_to_primary_clipboard, "Yank selections to primary clipboard",
+         yank_joined, "Join and yank selections",
+@@ -3995,6 +4000,34 @@ fn goto_line(cx: &mut Context) {
+     goto_line_impl(cx, Movement::Move);
+ }
+ 
++fn devtui_goto_line_prompt(cx: &mut Context) {
++    ui::prompt(
++        cx,
++        "Go to Line: ".into(),
++        None,
++        ui::completers::none,
++        |cx, input, event| {
++            if event != PromptEvent::Validate {
++                return;
++            }
++            let Ok(line) = input.trim().parse::<usize>() else {
++                cx.editor.set_error("Line number must be a positive integer");
++                return;
++            };
++            let Some(line) = NonZeroUsize::new(line) else {
++                cx.editor.set_error("Line number must be greater than zero");
++                return;
++            };
++
++            {
++                let (view, doc) = current!(cx.editor);
++                push_jump(view, doc);
++            }
++            goto_line_without_jumplist(cx.editor, Some(line), Movement::Move);
++        },
++    );
++}
++
+ fn goto_line_impl(cx: &mut Context, movement: Movement) {
+     if cx.count.is_some() {
+         let (view, doc) = current!(cx.editor);
+@@ -4829,6 +4862,60 @@ fn yank(cx: &mut Context) {
+     exit_select_mode(cx);
+ }
+ 
++fn devtui_line_selection_if_empty(editor: &Editor) -> Option<Selection> {
++    let (view, doc) = current_ref!(editor);
++    let current = doc.selection(view.id);
++    if current.ranges().iter().any(|range| !range.is_empty()) {
++        return None;
++    }
++
++    let text = doc.text().slice(..);
++    let mut ranges = SmallVec::with_capacity(current.len());
++    for range in current.ranges() {
++        let pos = range.cursor(text);
++        let line = doc.text().char_to_line(pos.min(doc.text().len_chars()));
++        let start = doc.text().line_to_char(line);
++        let end = doc
++            .text()
++            .line_to_char((line + 1).min(doc.text().len_lines()));
++        ranges.push(Range::new(start, end));
++    }
++    Some(Selection::new(ranges, current.primary_index()))
++}
++
++fn devtui_copy_to_clipboard(cx: &mut Context) {
++    let line_selection = devtui_line_selection_if_empty(cx.editor);
++    let original = if let Some(selection) = line_selection {
++        let (view, doc) = current!(cx.editor);
++        let original = doc.selection(view.id).clone();
++        doc.set_selection(view.id, selection);
++        Some(original)
++    } else {
++        None
++    };
++
++    yank_impl(cx.editor, '+');
++
++    if let Some(original) = original {
++        let (view, doc) = current!(cx.editor);
++        doc.set_selection(view.id, original);
++    }
++}
++
++fn devtui_cut_to_clipboard(cx: &mut Context) {
++    if let Some(selection) = devtui_line_selection_if_empty(cx.editor) {
++        let (view, doc) = current!(cx.editor);
++        doc.set_selection(view.id, selection);
++    }
++    yank_impl(cx.editor, '+');
++    delete_selection_impl(cx, Operation::Delete, YankAction::NoYank);
++}
++
++fn devtui_save_as(cx: &mut Context) {
++    let doc_id = view!(cx.editor).doc;
++    cx.editor.devtui_request_save_as(doc_id, false);
++}
++
+ fn yank_to_clipboard(cx: &mut Context) {
+     yank_impl(cx.editor, '+');
+     exit_select_mode(cx);
+diff --git a/helix-term/src/commands/lsp.rs b/helix-term/src/commands/lsp.rs
+index d7fd8f7..a7eab40 100644
+--- a/helix-term/src/commands/lsp.rs
++++ b/helix-term/src/commands/lsp.rs
+@@ -1025,6 +1025,38 @@ pub fn goto_definition(cx: &mut Context) {
+     );
+ }
+ 
++pub fn switch_source_header(cx: &mut Context) {
++    let (_, doc) = current_ref!(cx.editor);
++    let Some(language_server) = doc.language_servers().next() else {
++        cx.editor
++            .set_error("No language server is attached to the current document");
++        return;
++    };
++    let request = language_server.switch_source_header(doc.identifier());
++
++    cx.jobs.callback(async move {
++        let target = request.await?;
++        let call = move |editor: &mut Editor, _compositor: &mut Compositor| {
++            let Some(target) = target else {
++                editor.set_error("No paired source/header file found");
++                return;
++            };
++            let Ok(uri) = Uri::try_from(target) else {
++                editor.set_error("Language server returned an unsupported URI");
++                return;
++            };
++            let Some(path) = uri.as_path() else {
++                editor.set_error("Language server returned a non-file URI");
++                return;
++            };
++            if let Err(err) = editor.open(path, Action::Replace) {
++                editor.set_error(format!("failed to open paired file: {err}"));
++            }
++        };
++        Ok(Callback::EditorCompositor(Box::new(call)))
++    });
++}
++
+ pub fn goto_type_definition(cx: &mut Context) {
+     goto_single_impl(
+         cx,

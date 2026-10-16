@@ -1,0 +1,2 @@
+# Unified-diff context markers contain a mandatory leading space on blank lines.
+*.patch -whitespace

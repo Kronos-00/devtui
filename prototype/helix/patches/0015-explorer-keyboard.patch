@@ -1,0 +1,78 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index d9aa207..a8717f3 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -759,19 +759,30 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
+ 
+ use helix_core::movement::{move_horizontally, move_vertically};
+ 
++fn devtui_prepare_plain_cursor_move(cx: &mut Context) {
++    if cx.editor.devtui.column_selection_active {
++        collapse_selection(cx);
++        cx.editor.devtui.column_selection_active = false;
++    }
++}
++
+ fn move_char_left(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_horizontally, Direction::Backward, Movement::Move)
+ }
+ 
+ fn move_char_right(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_horizontally, Direction::Forward, Movement::Move)
+ }
+ 
+ fn move_line_up(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_vertically, Direction::Backward, Movement::Move)
+ }
+ 
+ fn move_line_down(cx: &mut Context) {
++    devtui_prepare_plain_cursor_move(cx);
+     move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
+ }
+ 
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index b9497c5..31e56d9 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1449,6 +1449,38 @@ fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool
+             return true;
+         }
+ 
++        if matches!(event.code, KeyCode::F(2)) {
++            if let Some(row) = self.explorer.selected().cloned() {
++                if row.path != self.explorer.root {
++                    editor
++                        .devtui
++                        .requests
++                        .push_back(helix_view::editor::DevTuiRequest::ExplorerRename {
++                            path: row.path,
++                        });
++                }
++            }
++            return true;
++        }
++
++        if matches!(event.code, KeyCode::F(10))
++            && event.modifiers.contains(KeyModifiers::SHIFT)
++        {
++            if let Some((row, selection)) = self.explorer.context_target(self.explorer.cursor) {
++                editor
++                    .devtui
++                    .requests
++                    .push_back(helix_view::editor::DevTuiRequest::ExplorerContext {
++                        root: self.explorer.root.clone(),
++                        target: row.path.clone(),
++                        is_dir: row.is_dir,
++                        is_root: row.path == self.explorer.root,
++                        selection,
++                    });
++            }
++            return true;
++        }
++
+         match event.code {
+             KeyCode::Esc => {}
+             KeyCode::Char('q') if event.modifiers.is_empty() => {}
