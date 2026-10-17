@@ -33,3 +33,4 @@
 0033-unicode-column-selection.patch
 0034-grapheme-sequence-widths.patch
 0035-provider-aware-permanent-delete.patch
+0036-single-line-status-rendering.patch

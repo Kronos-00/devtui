@@ -1,0 +1,58 @@
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 4fb57da..ef57c49 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -33,6 +33,7 @@
+     Document, DocumentId, Editor, Theme, View, ViewId,
+ };
+ use std::{
++    borrow::Cow,
+     mem::take,
+     num::NonZeroUsize,
+     ops,
+@@ -43,6 +44,21 @@
+ 
+ use tui::{buffer::Buffer as Surface, text::Span};
+ 
++/// Status messages occupy one terminal row. Raw command/LSP output must not
++/// send control characters to the terminal and invalidate the rendered geometry.
++fn single_line_status(message: &str) -> Cow<'_, str> {
++    let unsafe_char = |ch: char| ch.is_control() || matches!(ch, '\u{2028}' | '\u{2029}');
++    if !message.chars().any(unsafe_char) {
++        return Cow::Borrowed(message);
++    }
++    Cow::Owned(
++        message
++            .chars()
++            .map(|ch| if unsafe_char(ch) { ' ' } else { ch })
++            .collect(),
++    )
++}
++
+ #[derive(Clone, Copy, Debug)]
+ struct DevTuiTabHit {
+     doc_id: DocumentId,
+@@ -2466,7 +2482,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+ 
+         // render status msg
+         if let Some((status_msg, severity)) = &cx.editor.status_msg {
+-            status_msg_width = status_msg.width();
++            let status_msg = single_line_status(status_msg);
++            status_msg_width = status_msg.width().min(editor_outer.width as usize);
+             use helix_view::editor::Severity;
+             let style = if *severity == Severity::Error {
+                 cx.editor.theme.get("error")
+@@ -2474,10 +2491,11 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                 cx.editor.theme.get("ui.text")
+             };
+ 
+-            surface.set_string(
++            surface.set_stringn(
+                 editor_outer.x,
+                 editor_outer.y + editor_outer.height.saturating_sub(1),
+-                status_msg,
++                &status_msg,
++                editor_outer.width as usize,
+                 style,
+             );
+         }
