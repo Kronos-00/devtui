@@ -1,0 +1,1022 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index cb5f9e6..90347aa 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1624,6 +1624,7 @@ dependencies = [
+  "parking_lot",
+  "serde",
+  "serde_json",
++ "shlex",
+  "slotmap",
+  "sonic-rs",
+  "thiserror",
+diff --git a/helix-lsp/Cargo.toml b/helix-lsp/Cargo.toml
+index d13ddca..511dd3d 100644
+--- a/helix-lsp/Cargo.toml
++++ b/helix-lsp/Cargo.toml
+@@ -25,6 +25,7 @@ globset.workspace = true
+ log = "0.4"
+ serde = { version = "1.0", features = ["derive"] }
+ serde_json = "1.0"
++shlex = "2.0.1"
+ tokio = { version = "1.50", features = ["rt", "rt-multi-thread", "io-util", "io-std", "time", "process", "macros", "fs", "parking_lot", "sync"] }
+ tokio-stream.workspace = true
+ parking_lot.workspace = true
+diff --git a/helix-lsp/src/cpp_properties.rs b/helix-lsp/src/cpp_properties.rs
+new file mode 100644
+index 0000000..548902d
+--- /dev/null
++++ b/helix-lsp/src/cpp_properties.rs
+@@ -0,0 +1,982 @@
++//! Translate a workspace C/C++ properties file into clangd's in-memory database.
++//! Configuration is read once per server start. No project files are generated.
++use anyhow::{anyhow, bail, Context, Result};
++use serde_json::{json, Map, Value};
++use std::{
++    collections::{BTreeSet, HashMap, HashSet},
++    fs,
++    io::Read,
++    path::{Path, PathBuf},
++};
++
++const CONFIG: &str = ".vscode/c_cpp_properties.json";
++const MAX_CONFIG: u64 = 4 * 1024 * 1024;
++const MAX_DATABASE: u64 = 64 * 1024 * 1024;
++const MAX_DIRECTORIES: usize = 4096;
++
++#[derive(Clone, Debug)]
++pub(crate) struct CompileCommand {
++    pub directory: PathBuf,
++    pub arguments: Vec<String>,
++}
++impl CompileCommand {
++    fn value(&self) -> Value {
++        json!({"workingDirectory": self.directory, "compilationCommand": self.arguments})
++    }
++}
++
++#[derive(Debug)]
++pub(crate) struct CppProperties {
++    pub source: PathBuf,
++    pub root: PathBuf,
++    name: String,
++    compiler: Option<String>,
++    compiler_args: Vec<String>,
++    includes: Vec<PathBuf>,
++    defines: Vec<String>,
++    forced_includes: Vec<PathBuf>,
++    frameworks: Vec<PathBuf>,
++    c_standard: Option<String>,
++    cpp_standard: Option<String>,
++    mode: Option<String>,
++    commands: HashMap<PathBuf, CompileCommand>,
++    database_directory: Option<PathBuf>,
++    pub warnings: Vec<String>,
++    valid: bool,
++}
++
++pub(crate) fn is_clangd(name: &str, command: &str) -> bool {
++    name == "clangd"
++        || Path::new(command).file_stem().is_some_and(|name| {
++            let name = name.to_string_lossy();
++            name == "clangd" || name.starts_with("clangd-")
++        })
++}
++
++pub(crate) fn discover(document: Option<&Path>, workspace: &Path) -> Option<PathBuf> {
++    let workspace = normalize(workspace);
++    let primary = workspace.join(CONFIG);
++    if primary.is_file()
++        && document.is_none_or(|document| normalize(document).starts_with(&workspace))
++    {
++        return Some(primary);
++    }
++    let start = document.and_then(Path::parent).unwrap_or(&workspace);
++    // An explicitly opened workspace configuration governs its whole subtree.
++    // Otherwise discover the nearest owner, including files outside the workspace.
++    for root in start.ancestors() {
++        let source = root.join(CONFIG);
++        if source.is_file() {
++            return Some(normalize(root).join(CONFIG));
++        }
++    }
++    None
++}
++
++fn normalize(path: &Path) -> PathBuf {
++    let absolute = if path.is_absolute() {
++        path.to_owned()
++    } else {
++        helix_stdx::env::current_working_dir().join(path)
++    };
++    fs::canonicalize(&absolute).unwrap_or_else(|_| helix_stdx::path::normalize(absolute))
++}
++
++fn read_limited(path: &Path, limit: u64) -> Result<String> {
++    let mut text = String::new();
++    fs::File::open(path)?
++        .take(limit + 1)
++        .read_to_string(&mut text)?;
++    if text.len() as u64 > limit {
++        bail!("configuration file exceeds size limit");
++    }
++    Ok(text)
++}
++
++/// JSONC allows comments and trailing commas, but not unquoted keys or strings.
++fn jsonc(text: &str) -> Result<Value> {
++    let mut data = text
++        .strip_prefix('\u{feff}')
++        .unwrap_or(text)
++        .as_bytes()
++        .to_vec();
++    let mut i = 0;
++    let mut string = false;
++    let mut escaped = false;
++    while i < data.len() {
++        let byte = data[i];
++        if string {
++            if escaped {
++                escaped = false;
++            } else if byte == b'\\' {
++                escaped = true;
++            } else if byte == b'"' {
++                string = false;
++            }
++            i += 1;
++            continue;
++        }
++        if byte == b'"' {
++            string = true;
++            i += 1;
++            continue;
++        }
++        if byte == b'/' && data.get(i + 1) == Some(&b'/') {
++            while i < data.len() && data[i] != b'\n' {
++                data[i] = b' ';
++                i += 1;
++            }
++        } else if byte == b'/' && data.get(i + 1) == Some(&b'*') {
++            data[i] = b' ';
++            data[i + 1] = b' ';
++            i += 2;
++            loop {
++                if i + 1 >= data.len() {
++                    bail!("unterminated JSON comment");
++                }
++                if data[i] == b'*' && data[i + 1] == b'/' {
++                    data[i] = b' ';
++                    data[i + 1] = b' ';
++                    i += 2;
++                    break;
++                }
++                if !matches!(data[i], b'\n' | b'\r') {
++                    data[i] = b' ';
++                }
++                i += 1;
++            }
++        } else {
++            i += 1;
++        }
++    }
++    string = false;
++    escaped = false;
++    for i in 0..data.len() {
++        let byte = data[i];
++        if string {
++            if escaped {
++                escaped = false;
++            } else if byte == b'\\' {
++                escaped = true;
++            } else if byte == b'"' {
++                string = false;
++            }
++        } else if byte == b'"' {
++            string = true;
++        } else if byte == b','
++            && data[i + 1..]
++                .iter()
++                .find(|byte| !byte.is_ascii_whitespace())
++                .is_some_and(|byte| matches!(byte, b'}' | b']'))
++        {
++            data[i] = b' ';
++        }
++    }
++    Ok(serde_json::from_slice(&data)?)
++}
++
++struct Expander<'a> {
++    root: &'a Path,
++    vars: &'a Map<String, Value>,
++}
++impl Expander<'_> {
++    fn expand(&self, text: &str, stack: &mut Vec<String>) -> Result<Vec<String>> {
++        let Some(start) = text.find("${") else {
++            return Ok(vec![text.to_owned()]);
++        };
++        let end = text[start + 2..]
++            .find('}')
++            .map(|end| start + 2 + end)
++            .ok_or_else(|| anyhow!("unterminated variable"))?;
++        let name = &text[start + 2..end];
++        if stack.len() >= 32 || stack.iter().any(|item| item == name) {
++            bail!("cyclic variable {name}");
++        }
++        let values = match name {
++            "workspaceFolder" | "workspaceRoot" => vec![self.root.to_string_lossy().into_owned()],
++            "workspaceFolderBasename" => vec![self
++                .root
++                .file_name()
++                .unwrap_or_default()
++                .to_string_lossy()
++                .into_owned()],
++            _ if name.starts_with("workspaceFolder:")
++                && self
++                    .root
++                    .file_name()
++                    .is_some_and(|base| base.to_string_lossy() == name[16..]) =>
++            {
++                vec![self.root.to_string_lossy().into_owned()]
++            }
++            _ => {
++                if let Some(value) = self.vars.get(name) {
++                    strings(value)?
++                } else {
++                    let key = name.strip_prefix("env:").unwrap_or(name);
++                    vec![std::env::var(key)
++                        .with_context(|| format!("unresolved variable {name}"))?]
++                }
++            }
++        };
++        stack.push(name.to_owned());
++        let mut resolved = Vec::new();
++        for value in values {
++            resolved.extend(self.expand(&value, stack)?);
++        }
++        stack.pop();
++        let mut result = Vec::new();
++        for value in resolved {
++            result.extend(self.expand(
++                &format!("{}{}{}", &text[..start], value, &text[end + 1..]),
++                stack,
++            )?);
++            if result.len() > MAX_DIRECTORIES {
++                bail!("variable expansion is too large");
++            }
++        }
++        Ok(result)
++    }
++}
++
++fn strings(value: &Value) -> Result<Vec<String>> {
++    match value {
++        Value::String(value) => Ok(vec![value.clone()]),
++        Value::Array(values) => values
++            .iter()
++            .map(|value| {
++                value
++                    .as_str()
++                    .map(str::to_owned)
++                    .ok_or_else(|| anyhow!("expected a string"))
++            })
++            .collect(),
++        _ => bail!("expected string or string array"),
++    }
++}
++
++impl CppProperties {
++    pub fn read(source: PathBuf, selected: Option<&str>) -> Self {
++        let root = source.parent().and_then(Path::parent).unwrap().to_owned();
++        let mut properties = Self {
++            source,
++            root,
++            name: "unavailable".into(),
++            compiler: None,
++            compiler_args: Vec::new(),
++            includes: Vec::new(),
++            defines: Vec::new(),
++            forced_includes: Vec::new(),
++            frameworks: Vec::new(),
++            c_standard: None,
++            cpp_standard: None,
++            mode: None,
++            commands: HashMap::new(),
++            database_directory: None,
++            warnings: Vec::new(),
++            valid: false,
++        };
++        if let Err(error) = properties.load(selected) {
++            properties
++                .warnings
++                .push(format!("C/C++ configuration: {error}"));
++        }
++        properties
++    }
++
++    fn field(
++        &mut self,
++        config: &Map<String, Value>,
++        expander: &Expander<'_>,
++        key: &str,
++    ) -> Vec<String> {
++        let Some(value) = config.get(key) else {
++            return Vec::new();
++        };
++        let result = strings(value).and_then(|values| {
++            let mut result = Vec::new();
++            for value in values {
++                result.extend(expander.expand(&value, &mut Vec::new())?);
++            }
++            Ok(result)
++        });
++        match result {
++            Ok(result) => result,
++            Err(error) => {
++                self.warnings.push(format!("{key}: {error}"));
++                Vec::new()
++            }
++        }
++    }
++
++    fn path(&self, value: &str) -> PathBuf {
++        let path = if let Some(rest) = value.strip_prefix("~/") {
++            std::env::var_os("HOME")
++                .map(PathBuf::from)
++                .unwrap_or_default()
++                .join(rest)
++        } else {
++            PathBuf::from(value)
++        };
++        normalize(&if path.is_absolute() {
++            path
++        } else {
++            self.root.join(path)
++        })
++    }
++
++    fn load(&mut self, selected: Option<&str>) -> Result<()> {
++        let data = jsonc(&read_limited(&self.source, MAX_CONFIG)?)?;
++        let configurations = data
++            .get("configurations")
++            .and_then(Value::as_array)
++            .filter(|values| !values.is_empty())
++            .ok_or_else(|| anyhow!("no configurations"))?;
++        let platform = if cfg!(target_os = "macos") {
++            "Mac"
++        } else if cfg!(windows) {
++            "Win32"
++        } else {
++            "Linux"
++        };
++        let config = if let Some(selected) = selected {
++            configurations
++                .iter()
++                .find(|value| value.get("name").and_then(Value::as_str) == Some(selected))
++                .ok_or_else(|| anyhow!("unknown configuration {selected}"))?
++        } else {
++            configurations
++                .iter()
++                .find(|value| value.get("name").and_then(Value::as_str) == Some(platform))
++                .unwrap_or_else(|| configurations.last().unwrap())
++        }
++        .as_object()
++        .ok_or_else(|| anyhow!("configuration is not an object"))?;
++        self.name = config
++            .get("name")
++            .and_then(Value::as_str)
++            .unwrap_or("unnamed")
++            .to_owned();
++        let empty = Map::new();
++        let vars = data.get("env").and_then(Value::as_object).unwrap_or(&empty);
++        let root = self.root.clone();
++        let expander = Expander { root: &root, vars };
++        self.compiler = self
++            .field(config, &expander, "compilerPath")
++            .into_iter()
++            .next()
++            .filter(|value| !value.is_empty())
++            .map(|value| {
++                let value = value.trim_matches('"');
++                if Path::new(value).components().count() > 1 {
++                    let path = Path::new(value);
++                    helix_stdx::path::normalize(if path.is_absolute() {
++                        path.to_owned()
++                    } else {
++                        self.root.join(path)
++                    })
++                    .to_string_lossy()
++                    .into_owned()
++                } else {
++                    helix_stdx::env::which(value)
++                        .map(|path| path.to_string_lossy().into_owned())
++                        .unwrap_or_else(|_| value.to_owned())
++                }
++            });
++        if let Some(compiler) = &self.compiler {
++            if helix_stdx::env::which(compiler).is_err() {
++                self.warnings
++                    .push(format!("compilerPath not found: {compiler}"));
++            }
++        }
++        self.compiler_args = self.field(config, &expander, "compilerArgs");
++        self.defines = self.field(config, &expander, "defines");
++        self.c_standard = self
++            .field(config, &expander, "cStandard")
++            .into_iter()
++            .next();
++        self.cpp_standard = self
++            .field(config, &expander, "cppStandard")
++            .into_iter()
++            .next();
++        self.mode = self
++            .field(config, &expander, "intelliSenseMode")
++            .into_iter()
++            .next();
++        for value in self.field(config, &expander, "includePath") {
++            if let Some(base) = value.strip_suffix("/**") {
++                self.recursive_includes(self.path(base));
++            } else {
++                self.includes.push(self.path(&value));
++            }
++        }
++        let mut seen = HashSet::new();
++        self.includes.retain(|path| seen.insert(path.clone()));
++        self.forced_includes = self
++            .field(config, &expander, "forcedInclude")
++            .iter()
++            .map(|value| self.path(value))
++            .collect();
++        self.frameworks = self
++            .field(config, &expander, "macFrameworkPath")
++            .iter()
++            .map(|value| self.path(value))
++            .collect();
++        for database in self.field(config, &expander, "compileCommands") {
++            let database = self.path(&database);
++            if let Err(error) = self.load_database(&database) {
++                self.warnings
++                    .push(format!("compileCommands {}: {error}", database.display()));
++            }
++        }
++        if config
++            .get("configurationProvider")
++            .and_then(Value::as_str)
++            .is_some_and(|value| !value.is_empty())
++        {
++            self.warnings.push("VS Code configurationProvider extensions cannot run in clangd; using compileCommands/manual fields".into());
++        }
++        self.valid = true;
++        Ok(())
++    }
++
++    fn recursive_includes(&mut self, root: PathBuf) {
++        let mut pending = vec![root];
++        let mut visited = HashSet::new();
++        while let Some(directory) = pending.pop() {
++            if !visited.insert(directory.clone()) {
++                continue;
++            }
++            if visited.len() > MAX_DIRECTORIES {
++                self.warnings
++                    .push("recursive includePath exceeded directory limit".into());
++                break;
++            }
++            self.includes.push(directory.clone());
++            if let Ok(entries) = fs::read_dir(directory) {
++                let mut children: Vec<_> = entries
++                    .flatten()
++                    .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
++                    .map(|entry| entry.path())
++                    .collect();
++                children.sort();
++                pending.extend(children.into_iter().rev());
++            }
++        }
++    }
++
++    fn load_database(&mut self, path: &Path) -> Result<()> {
++        let data: Value = serde_json::from_str(&read_limited(path, MAX_DATABASE)?)?;
++        let entries = data
++            .as_array()
++            .ok_or_else(|| anyhow!("database is not an array"))?;
++        let base = path.parent().unwrap_or(&self.root);
++        for entry in entries {
++            let result = (|| -> Result<(PathBuf, CompileCommand)> {
++                let directory = Path::new(
++                    entry
++                        .get("directory")
++                        .and_then(Value::as_str)
++                        .ok_or_else(|| anyhow!("entry has no directory"))?,
++                );
++                let directory = normalize(&if directory.is_absolute() {
++                    directory.to_owned()
++                } else {
++                    base.join(directory)
++                });
++                let file = Path::new(
++                    entry
++                        .get("file")
++                        .and_then(Value::as_str)
++                        .ok_or_else(|| anyhow!("entry has no file"))?,
++                );
++                let file = normalize(&if file.is_absolute() {
++                    file.to_owned()
++                } else {
++                    directory.join(file)
++                });
++                let mut arguments = if let Some(arguments) = entry.get("arguments") {
++                    strings(arguments)?
++                } else {
++                    shlex::split(
++                        entry
++                            .get("command")
++                            .and_then(Value::as_str)
++                            .ok_or_else(|| anyhow!("entry has no command"))?,
++                    )
++                    .ok_or_else(|| anyhow!("invalid command quoting"))?
++                };
++                if arguments.is_empty() {
++                    bail!("empty command");
++                }
++                // Resolve only the executable path; preserve every database flag.
++                let compiler = Path::new(&arguments[0]);
++                if compiler.components().count() > 1 && !compiler.is_absolute() {
++                    arguments[0] = helix_stdx::path::normalize(directory.join(compiler))
++                        .to_string_lossy()
++                        .into_owned();
++                }
++                Ok((
++                    file,
++                    CompileCommand {
++                        directory,
++                        arguments,
++                    },
++                ))
++            })();
++            match result {
++                Ok((file, command)) => {
++                    self.commands.entry(file).or_insert(command);
++                }
++                Err(error) => self
++                    .warnings
++                    .push(format!("compileCommands entry: {error}")),
++            }
++        }
++        if self.database_directory.is_none()
++            && path
++                .file_name()
++                .is_some_and(|name| name == "compile_commands.json")
++        {
++            self.database_directory = Some(base.to_owned());
++        }
++        Ok(())
++    }
++
++    pub fn command(&self, file: &Path, language: &str) -> Option<(CompileCommand, bool)> {
++        if !self.valid {
++            return None;
++        }
++        let file = normalize(file);
++        if let Some(command) = self.commands.get(&file) {
++            return Some((command.clone(), true));
++        }
++        let c = language == "c";
++        let compiler = self
++            .compiler
++            .clone()
++            .unwrap_or_else(|| if c { "clang" } else { "clang++" }.into());
++        let mut arguments = vec![compiler];
++        arguments.extend(self.compiler_args.clone());
++        arguments.extend([
++            "-x".into(),
++            if c {
++                "c"
++            } else if language.starts_with("cuda")
++                || file
++                    .extension()
++                    .is_some_and(|extension| extension == "cu" || extension == "cuh")
++            {
++                "cuda"
++            } else {
++                "c++"
++            }
++            .into(),
++        ]);
++        if let Some(standard) = if c {
++            &self.c_standard
++        } else {
++            &self.cpp_standard
++        } {
++            arguments.push(format!("-std={standard}"));
++        }
++        if let Some(mode) = &self.mode {
++            if mode.ends_with("-x64") {
++                arguments.push("-m64".into());
++            } else if mode.ends_with("-x86") {
++                arguments.push("-m32".into());
++            }
++        }
++        for include in &self.includes {
++            arguments.push(format!("-I{}", include.display()));
++        }
++        for define in &self.defines {
++            arguments.push(format!("-D{define}"));
++        }
++        for include in &self.forced_includes {
++            arguments.extend(["-include".into(), include.to_string_lossy().into_owned()]);
++        }
++        for framework in &self.frameworks {
++            arguments.push(format!("-F{}", framework.display()));
++        }
++        arguments.push(file.to_string_lossy().into_owned());
++        Some((
++            CompileCommand {
++                directory: self.root.clone(),
++                arguments,
++            },
++            false,
++        ))
++    }
++
++    pub fn change(&self, file: &Path, language: &str) -> Option<Value> {
++        let (command, _) = self.command(file, language)?;
++        let mut changes = Map::new();
++        changes.insert(
++            normalize(file).to_string_lossy().into_owned(),
++            command.value(),
++        );
++        Some(json!({"compilationDatabaseChanges": changes}))
++    }
++
++    pub fn initialize_options(&self, mut options: Option<Value>) -> Option<Value> {
++        if !self.valid {
++            return options;
++        }
++        let options = options.get_or_insert_with(|| json!({}));
++        if let Some(options) = options.as_object_mut() {
++            if let Some(directory) = &self.database_directory {
++                options.insert("compilationDatabasePath".into(), json!(directory));
++            }
++        }
++        Some(options.clone())
++    }
++
++    pub fn query_drivers(&self) -> Vec<String> {
++        let mut drivers = BTreeSet::new();
++        let mut add = |value: &str| {
++            let path = Path::new(value);
++            let path = if path.is_absolute() {
++                path.to_owned()
++            } else {
++                let Ok(path) = helix_stdx::env::which(value) else {
++                    return;
++                };
++                path
++            };
++            let value = path.to_string_lossy();
++            // Never turn an unusual filename into a broad driver glob.
++            if !value.contains(['*', '?', '[', ']', '{', '}', ',']) {
++                drivers.insert(value.into_owned());
++            }
++        };
++        if let Some(compiler) = &self.compiler {
++            add(compiler);
++        }
++        for command in self.commands.values() {
++            let compiler = &command.arguments[0];
++            let name = Path::new(compiler)
++                .file_stem()
++                .unwrap_or_default()
++                .to_string_lossy();
++            if ["clang", "clang++", "gcc", "g++", "cc", "c++", "clang-cl"]
++                .iter()
++                .any(|known| name == *known || name.ends_with(&format!("-{known}")))
++            {
++                add(compiler);
++            }
++        }
++        drivers.into_iter().collect()
++    }
++
++    pub fn info(&self, document: Option<&Path>, language: &str) -> Vec<(String, String)> {
++        let mut rows = vec![
++            ("C/C++ configuration".into(), self.name.clone()),
++            (
++                "Configuration file".into(),
++                self.source.to_string_lossy().into_owned(),
++            ),
++            (
++                "Compile database entries".into(),
++                self.commands.len().to_string(),
++            ),
++        ];
++        if let Some(file) = document {
++            if let Some((command, database)) = self.command(file, language) {
++                rows.push((
++                    "Current command source".into(),
++                    if database {
++                        "compileCommands"
++                    } else {
++                        "manual configuration"
++                    }
++                    .into(),
++                ));
++                rows.push(("Compiler".into(), command.arguments[0].clone()));
++            }
++        }
++        rows.extend(
++            self.warnings
++                .iter()
++                .map(|warning| ("Configuration warning".into(), warning.clone())),
++        );
++        rows
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::sync::atomic::{AtomicU64, Ordering};
++    static NEXT: AtomicU64 = AtomicU64::new(0);
++    struct Fixture(PathBuf);
++    impl Fixture {
++        fn new() -> Self {
++            let nonce = std::time::SystemTime::now()
++                .duration_since(std::time::UNIX_EPOCH)
++                .unwrap()
++                .as_nanos();
++            let path = std::env::temp_dir().join(format!(
++                "devtui-cpp-test-{}-{nonce}-{}",
++                std::process::id(),
++                NEXT.fetch_add(1, Ordering::Relaxed)
++            ));
++            fs::create_dir_all(&path).unwrap();
++            Self(path)
++        }
++        fn write(&self, file: &str, text: &str) -> PathBuf {
++            let path = self.0.join(file);
++            fs::create_dir_all(path.parent().unwrap()).unwrap();
++            fs::write(&path, text).unwrap();
++            path
++        }
++        fn properties(&self, value: Value) -> CppProperties {
++            let path = self.write(CONFIG, &value.to_string());
++            CppProperties::read(path, None)
++        }
++    }
++    impl Drop for Fixture {
++        fn drop(&mut self) {
++            let _ = fs::remove_dir_all(&self.0);
++        }
++    }
++
++    #[test]
++    fn jsonc_preserves_strings_and_unicode() {
++        let value =
++            jsonc("{ // line\n\"value\": \"路径//a,}\\\"\", /* block */ \"array\": [1, 2,], }")
++                .unwrap();
++        assert_eq!(value["value"], "路径//a,}\"");
++        assert_eq!(value["array"], json!([1, 2]));
++        assert_eq!(jsonc("\u{feff}{\"ok\":true}").unwrap()["ok"], true);
++        assert!(jsonc("{/* broken").is_err());
++    }
++
++    #[test]
++    fn manual_flags_preserve_include_order_and_language_standards() {
++        let fixture = Fixture::new();
++        let properties = fixture.properties(
++            json!({"configurations":[{"name":"Linux","compilerPath":"/tool chain/clang++",
++            "compilerArgs":["--target=x86_64-unknown-linux-gnu"],"includePath":["z","a","z"],
++            "defines":["FEATURE=7","TEXT=\"two words\""],"forcedInclude":["prelude.h"],
++            "cStandard":"c11","cppStandard":"c++20","intelliSenseMode":"linux-clang-x64"}]}),
++        );
++        let (cpp, database) = properties
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .unwrap();
++        assert!(!database);
++        assert_eq!(cpp.arguments[0], "/tool chain/clang++");
++        let z = cpp
++            .arguments
++            .iter()
++            .position(|arg| arg.ends_with("/z"))
++            .unwrap();
++        let a = cpp
++            .arguments
++            .iter()
++            .position(|arg| arg.ends_with("/a"))
++            .unwrap();
++        assert!(z < a);
++        assert!(cpp.arguments.contains(&"-DFEATURE=7".into()));
++        assert!(cpp.arguments.contains(&"-DTEXT=\"two words\"".into()));
++        assert!(cpp.arguments.contains(&"-std=c++20".into()));
++        assert!(cpp.arguments.contains(&"-m64".into()));
++        assert!(cpp.arguments.contains(&"-include".into()));
++        let (c, _) = properties.command(&fixture.0.join("case.c"), "c").unwrap();
++        assert!(c.arguments.contains(&"-std=c11".into()));
++        let (cuda, _) = properties
++            .command(&fixture.0.join("case.cu"), "cuda-cpp")
++            .unwrap();
++        let language = cuda.arguments.iter().position(|arg| arg == "-x").unwrap();
++        assert_eq!(cuda.arguments[language + 1], "cuda");
++    }
++
++    #[test]
++    fn environment_arrays_and_nested_variables_expand_without_shell_evaluation() {
++        let fixture = Fixture::new();
++        let properties = fixture.properties(json!({"env":{"base":"${workspaceFolder}/include space","roots":["${base}/one","${base}/two"],"value":"$(do-not-run)"},
++            "configurations":[{"name":"Linux","includePath":["${roots}"],"defines":["VALUE=${value}","DIR=${workspaceFolder}/${workspaceFolderBasename}"]}]}));
++        let (command, _) = properties
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .unwrap();
++        assert!(command
++            .arguments
++            .iter()
++            .any(|arg| arg.ends_with("include space/one")));
++        assert!(command
++            .arguments
++            .iter()
++            .any(|arg| arg.ends_with("include space/two")));
++        assert!(command.arguments.contains(&"-DVALUE=$(do-not-run)".into()));
++    }
++
++    #[test]
++    fn cyclic_variables_are_reported_and_do_not_disable_other_fields() {
++        let fixture = Fixture::new();
++        let properties = fixture.properties(json!({"env":{"a":"${b}","b":"${a}"},"configurations":[{"name":"Linux","includePath":["${a}"],"defines":["OK=1"]}]}));
++        assert!(properties
++            .warnings
++            .iter()
++            .any(|warning| warning.contains("cyclic")));
++        assert!(properties
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .unwrap()
++            .0
++            .arguments
++            .contains(&"-DOK=1".into()));
++    }
++
++    #[test]
++    fn platform_configuration_or_last_configuration_matches_extension_default() {
++        let fixture = Fixture::new();
++        let source = fixture.write(
++            CONFIG,
++            &json!({"configurations":[{"name":"first"},{"name":"last"}]}).to_string(),
++        );
++        assert_eq!(CppProperties::read(source.clone(), None).name, "last");
++        assert_eq!(
++            CppProperties::read(source.clone(), Some("first")).name,
++            "first"
++        );
++        assert!(!CppProperties::read(source, Some("missing")).valid);
++        let platform = if cfg!(target_os = "macos") {
++            "Mac"
++        } else if cfg!(windows) {
++            "Win32"
++        } else {
++            "Linux"
++        };
++        let properties =
++            fixture.properties(json!({"configurations":[{"name":platform},{"name":"last"}]}));
++        assert_eq!(properties.name, platform);
++    }
++
++    #[test]
++    fn database_commands_override_manual_fields_only_for_matching_files() {
++        let fixture = Fixture::new();
++        fixture.write("build/compile_commands.json", &json!([
++            {"directory":fixture.0,"file":"selected.cpp","arguments":["clang++","-DFROM_DATABASE=1","-std=c++17","selected.cpp"]},
++            {"directory":fixture.0,"file":"quoted.cpp","command":"clang++ '-DTEXT=two words' -c quoted.cpp"}
++        ]).to_string());
++        let properties = fixture.properties(json!({"configurations":[{"name":"Linux","compileCommands":"${workspaceFolder}/build/compile_commands.json","defines":["FROM_MANUAL=1"],"cppStandard":"c++20"}]}));
++        let (selected, database) = properties
++            .command(&fixture.0.join("selected.cpp"), "cpp")
++            .unwrap();
++        assert!(database);
++        assert!(selected.arguments.contains(&"-DFROM_DATABASE=1".into()));
++        assert!(!selected.arguments.contains(&"-DFROM_MANUAL=1".into()));
++        let (fallback, database) = properties
++            .command(&fixture.0.join("other.cpp"), "cpp")
++            .unwrap();
++        assert!(!database);
++        assert!(fallback.arguments.contains(&"-DFROM_MANUAL=1".into()));
++        assert!(fallback.arguments.contains(&"-std=c++20".into()));
++        assert!(properties
++            .command(&fixture.0.join("quoted.cpp"), "cpp")
++            .unwrap()
++            .0
++            .arguments
++            .contains(&"-DTEXT=two words".into()));
++    }
++
++    #[test]
++    fn database_arrays_use_first_matching_entry_and_resolve_relative_paths() {
++        let fixture = Fixture::new();
++        for (name, flag) in [("one", "-DONE"), ("two", "-DTWO")] {
++            fixture.write(&format!("{name}.json"), &json!([{"directory":".","file":"case.cpp","arguments":["clang++",flag,"case.cpp"]}]).to_string());
++        }
++        let properties = fixture.properties(
++            json!({"configurations":[{"name":"Linux","compileCommands":["one.json","two.json"]}]}),
++        );
++        let (command, _) = properties
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .unwrap();
++        assert!(command.arguments.contains(&"-DONE".into()));
++        assert!(!command.arguments.contains(&"-DTWO".into()));
++    }
++
++    #[test]
++    fn invalid_database_and_invalid_json_fail_open_with_visible_warnings() {
++        let fixture = Fixture::new();
++        fixture.write("broken.json", "broken");
++        let properties = fixture.properties(json!({"configurations":[{"name":"Linux","compileCommands":"broken.json","defines":["WORKS"]}]}));
++        assert!(properties.valid);
++        assert!(!properties.warnings.is_empty());
++        assert!(properties
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .is_some());
++        let source = fixture.write(CONFIG, "{broken");
++        let invalid = CppProperties::read(source, None);
++        assert!(!invalid.valid);
++        assert!(invalid
++            .command(&fixture.0.join("case.cpp"), "cpp")
++            .is_none());
++    }
++
++    #[test]
++    fn recursive_includes_and_nearest_configuration_keep_workspace_boundaries() {
++        let fixture = Fixture::new();
++        fixture.write("includes/nested/a.h", "");
++        fixture.write("nested/.vscode/c_cpp_properties.json", "{}");
++        let properties=fixture.properties(json!({"configurations":[{"name":"Linux","includePath":["${workspaceFolder}/includes/**"]}]}));
++        assert_eq!(properties.includes.len(), 2);
++        let outer = discover(Some(&fixture.0.join("nested/src/case.cpp")), &fixture.0).unwrap();
++        assert_eq!(outer, fixture.0.join(CONFIG));
++        let found = discover(
++            Some(&fixture.0.join("nested/src/case.cpp")),
++            &fixture.0.join("nested"),
++        )
++        .unwrap();
++        assert_eq!(
++            found,
++            fixture.0.join("nested/.vscode/c_cpp_properties.json")
++        );
++    }
++
++    #[test]
++    fn initialization_merges_settings_and_per_file_change_is_typed() {
++        let fixture = Fixture::new();
++        fixture.write("build/compile_commands.json", "[]");
++        let properties=fixture.properties(json!({"configurations":[{"name":"Linux","compileCommands":"build/compile_commands.json"}]}));
++        let options = properties
++            .initialize_options(Some(json!({"clangdFileStatus":true})))
++            .unwrap();
++        assert_eq!(options["clangdFileStatus"], true);
++        assert_eq!(
++            options["compilationDatabasePath"],
++            json!(fixture.0.join("build"))
++        );
++        let change = properties
++            .change(&fixture.0.join("case.cpp"), "cpp")
++            .unwrap();
++        let command =
++            &change["compilationDatabaseChanges"][fixture.0.join("case.cpp").to_str().unwrap()];
++        assert_eq!(command["workingDirectory"], json!(fixture.0));
++        assert!(command["compilationCommand"].is_array());
++    }
++
++    #[test]
++    fn query_driver_allowlist_never_interprets_path_metacharacters_as_globs() {
++        let fixture = Fixture::new();
++        let properties=fixture.properties(json!({"configurations":[{"name":"Linux","compilerPath":fixture.0.join("compiler[1]")}]}));
++        assert!(properties.query_drivers().is_empty());
++    }
++
++    #[cfg(unix)]
++    #[test]
++    fn symlinked_config_files_do_not_merge_project_identity() {
++        let fixture = Fixture::new();
++        let shared = fixture.write("shared.json", "{\"configurations\":[{\"name\":\"Linux\"}]}");
++        for name in ["one", "two"] {
++            let directory = fixture.0.join(name).join(".vscode");
++            fs::create_dir_all(&directory).unwrap();
++            std::os::unix::fs::symlink(&shared, directory.join("c_cpp_properties.json")).unwrap();
++        }
++        let one = discover(Some(&fixture.0.join("one/case.cpp")), &fixture.0).unwrap();
++        let two = discover(Some(&fixture.0.join("two/case.cpp")), &fixture.0).unwrap();
++        assert_ne!(one, two);
++        assert_ne!(
++            CppProperties::read(one, None).root,
++            CppProperties::read(two, None).root
++        );
++    }
++}
+diff --git a/helix-lsp/src/lib.rs b/helix-lsp/src/lib.rs
+index b95089f..d339180 100644
+--- a/helix-lsp/src/lib.rs
++++ b/helix-lsp/src/lib.rs
+@@ -1,4 +1,5 @@
+ mod client;
++mod cpp_properties;
+ pub mod file_event;
+ mod file_operations;
+ pub mod jsonrpc;
