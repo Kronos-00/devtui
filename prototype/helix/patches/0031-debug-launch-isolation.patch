@@ -1,0 +1,167 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index fbd4557..8868036 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1556,6 +1556,7 @@ dependencies = [
+  "helix-core",
+  "helix-dap-types",
+  "helix-stdx",
++ "libc",
+  "log",
+  "serde",
+  "serde_json",
+diff --git a/helix-dap/Cargo.toml b/helix-dap/Cargo.toml
+index f800029..d9982d4 100644
+--- a/helix-dap/Cargo.toml
++++ b/helix-dap/Cargo.toml
+@@ -28,3 +28,6 @@ futures-executor.workspace = true
+ futures-util.workspace = true
+ tokio-stream.workspace = true
+ sonic-rs.workspace = true
++
++[target.'cfg(unix)'.dependencies]
++libc = "0.2"
+diff --git a/helix-dap/src/client.rs b/helix-dap/src/client.rs
+index c461d00..6f235f2 100644
+--- a/helix-dap/src/client.rs
++++ b/helix-dap/src/client.rs
+@@ -26,6 +26,25 @@
+     time,
+ };
+ 
++// Adapter/debuggee processes use pipes or their own terminal. Inheriting the
++// editor's controlling terminal lets debugpy's launcher tcsetpgrp() move the
++// editor into the background and break terminal reads with EIO.
++fn isolate_adapter_terminal(command: &mut Command) {
++    #[cfg(unix)]
++    unsafe {
++        // setsid is async-signal-safe and performs no allocation in pre_exec.
++        command.pre_exec(|| {
++            if libc::setsid() == -1 {
++                Err(std::io::Error::last_os_error())
++            } else {
++                Ok(())
++            }
++        });
++    }
++    #[cfg(not(unix))]
++    let _ = command;
++}
++
+ #[derive(Debug)]
+ pub struct Client {
+     id: DebugAdapterId,
+@@ -119,14 +138,16 @@ pub fn stdio(
+         // Resolve path to the binary
+         let cmd = helix_stdx::env::which(cmd)?;
+ 
+-        let process = Command::new(cmd)
++        let mut command = Command::new(cmd);
++        command
+             .args(args)
+             .stdin(Stdio::piped())
+             .stdout(Stdio::piped())
+             .stderr(Stdio::piped())
+             // make sure the process is reaped on drop
+-            .kill_on_drop(true)
+-            .spawn();
++            .kill_on_drop(true);
++        isolate_adapter_terminal(&mut command);
++        let process = command.spawn();
+ 
+         let mut process = process?;
+ 
+@@ -170,15 +191,17 @@ pub async fn tcp_process(
+     ) -> Result<(Self, UnboundedReceiver<(DebugAdapterId, Payload)>)> {
+         let port = Self::get_port().await.unwrap();
+ 
+-        let process = Command::new(cmd)
++        let mut command = Command::new(cmd);
++        command
+             .args(args)
+             .args(port_format.replace("{}", &port.to_string()).split(' '))
+             // silence messages
+             .stdin(Stdio::null())
+             .stdout(Stdio::null())
+-            .stderr(Stdio::null())
+-            // Do not kill debug adapter when leaving, it should exit automatically
+-            .spawn()?;
++            .stderr(Stdio::null());
++        isolate_adapter_terminal(&mut command);
++        // Do not kill debug adapter when leaving, it should exit automatically.
++        let process = command.spawn()?;
+ 
+         // Wait for adapter to become ready for connection
+         time::sleep(time::Duration::from_millis(500)).await;
+diff --git a/helix-dap/src/transport.rs b/helix-dap/src/transport.rs
+index d9fe7ae..61a4e43 100644
+--- a/helix-dap/src/transport.rs
++++ b/helix-dap/src/transport.rs
+@@ -196,7 +196,14 @@ fn process_response(&self, res: Response) -> Result<Response> {
+                 self.id, res.message, res.body, res.request_seq, res.command
+             );
+ 
+-            Err(Error::Other(anyhow::format_err!("{:?}", res.body)))
++            // Many adapters send only `message`, not a structured error body.
++            // Reporting the absent body as "None" hides the actual launch error.
++            let message = res
++                .message
++                .filter(|text| !text.trim().is_empty())
++                .or_else(|| res.body.map(|body| body.to_string()))
++                .unwrap_or_else(|| "debug adapter request failed".to_string());
++            Err(Error::Other(anyhow::format_err!("{}: {}", res.command, message)))
+         }
+     }
+ 
+diff --git a/helix-term/src/commands/dap.rs b/helix-term/src/commands/dap.rs
+index eb31271..fd83834 100644
+--- a/helix-term/src/commands/dap.rs
++++ b/helix-term/src/commands/dap.rs
+@@ -149,20 +149,16 @@ pub fn dap_start_impl(
+     }
+     .ok_or_else(|| anyhow!("No debug config with given name"))?;
+ 
+-    let mut args: HashMap<&str, Value> = if let Some(params) = params.as_ref() {
+-        let preprocessed_params = prepare_dap_params(template, params);
+-        template
+-            .args
+-            .iter()
+-            .map(|(k, v)| (k.as_str(), map_value(v, &preprocessed_params)))
+-            .collect()
+-    } else {
+-        template
+-            .args
+-            .iter()
+-            .map(|(k, v)| (k.as_str(), v.clone()))
+-            .collect()
+-    };
++    // Resolve runtime placeholders even for templates without prompted arguments.
++    let preprocessed_params = params
++        .as_deref()
++        .map(|params| prepare_dap_params(template, params))
++        .unwrap_or_default();
++    let mut args: HashMap<&str, Value> = template
++        .args
++        .iter()
++        .map(|(key, value)| (key.as_str(), map_value(value, &preprocessed_params)))
++        .collect();
+ 
+     args.insert("cwd", to_value(helix_stdx::env::current_working_dir())?);
+ 
+@@ -222,8 +218,14 @@ fn map_value(value: &Value, params: &[String]) -> Value {
+             let mut string = if string == "__DEVTUI_PYTHON__" {
+                 std::env::var_os("VIRTUAL_ENV")
+                     .map(std::path::PathBuf::from)
+-                    .map(|path| path.join("bin/python").to_string_lossy().into_owned())
+-                    .unwrap_or_else(|| "python".to_string())
++                    .map(|path| path.join("bin/python"))
++                    .filter(|path| helix_stdx::env::binary_exists(path))
++                    .or_else(|| helix_stdx::env::which("python3").ok())
++                    .or_else(|| helix_stdx::env::which("python").ok())
++                    .map(|path| path.to_string_lossy().into_owned())
++                    // Deployment requires Python 3; preserve a useful executable
++                    // name in the adapter's error when neither is available.
++                    .unwrap_or_else(|| "python3".to_string())
+             } else {
+                 string.clone()
+             };
