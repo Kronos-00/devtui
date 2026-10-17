@@ -31,11 +31,23 @@ link_tool() {
 link_tool "$NODE_PREFIX/node_modules/.bin/bash-language-server" bash-language-server
 link_tool "$NODE_PREFIX/node_modules/.bin/pyright-langserver" pyright-langserver
 link_tool "$NODE_PREFIX/node_modules/.bin/pyright" pyright
-for name in cmake-language-server cmake-format cmakelint debugpy debugpy-adapter ruff; do
-  if [ -x "$PYTHON_PREFIX/bin/$name" ]; then
-    link_tool "$PYTHON_PREFIX/bin/$name" "$name"
-  fi
-done
+# Service dependencies are private. Ignore Python startup injection for the
+# service interpreter without changing the environment seen by the user shell.
+python3 -I - "$PYTHON_PREFIX" "$BIN" <<'PYWRAP'
+from pathlib import Path
+import os, shlex, sys
+prefix, bindir = map(Path, sys.argv[1:])
+for name in ('cmake-language-server','cmake-format','cmakelint','debugpy','debugpy-adapter'):
+    target = prefix / 'bin' / name
+    if not target.exists():
+        continue
+    output = bindir / name
+    temporary = output.with_name(output.name + '.new')
+    temporary.write_text('#!/bin/sh\nexec ' + shlex.quote(str(prefix/'bin/python')) + ' -I ' + shlex.quote(str(target)) + ' "$@"\n')
+    temporary.chmod(0o755)
+    os.replace(temporary, output)
+PYWRAP
+link_tool "$PYTHON_PREFIX/bin/ruff" ruff
 
 echo "Installed portable Helix language/debug tools under $PREFIX"
 
