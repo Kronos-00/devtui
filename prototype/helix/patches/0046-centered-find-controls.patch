@@ -1,0 +1,120 @@
+diff --git a/helix-term/src/ui/find.rs b/helix-term/src/ui/find.rs
+index 269c2d5..41440c4 100644
+--- a/helix-term/src/ui/find.rs
++++ b/helix-term/src/ui/find.rs
+@@ -815,7 +815,25 @@ fn button(
+         if self.focus == Some(control) || self.hover == Some(control) {
+             style = style.add_modifier(Modifier::BOLD);
+         }
+-        surface.set_stringn(rect.x, rect.y, label, rect.width as usize, style);
++        // Center the visible glyphs inside the exact rectangle used for hit
++        // testing. ASCII two-cell labels get four cells; one-cell icons get
++        // three, leaving one clickable cell on either side in both cases.
++        let label = label.trim();
++        let padding = rect.width.saturating_sub(label.width() as u16) / 2;
++        surface.set_stringn(
++            rect.x,
++            rect.y,
++            &" ".repeat(rect.width as usize),
++            rect.width as usize,
++            style,
++        );
++        surface.set_stringn(
++            rect.x + padding,
++            rect.y,
++            label,
++            rect.width.saturating_sub(padding) as usize,
++            style,
++        );
+     }
+ }
+ impl Component for FindWidget {
+@@ -1110,8 +1128,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             edge,
+         );
+         let y = top + 1;
++        let compact = width < MIN_WIDTH;
++        let toggle_width = if compact { 1 } else { 3 };
+         self.button(
+-            Rect::new(left + 1, y, 2, 1),
++            Rect::new(left + 1, y, toggle_width, 1),
+             Control::Expand,
+             if self.expanded { "v" } else { ">" },
+             false,
+@@ -1121,13 +1141,12 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         );
+         // At very small terminal widths use one-cell action icons; keep all
+         // controls inside the editor and preserve at least one editable cell.
+-        let compact = width < MIN_WIDTH;
+         let step = if compact { 1 } else { 3 };
+         let outside = 4 * step;
+-        let inside = if compact { 3 } else { 9 };
+-        let field_left = left + 3;
++        let inside = if compact { 3 } else { 11 };
++        let field_left = left + 1 + toggle_width;
+         let field_right = right.saturating_sub(outside + 1).max(field_left + 1);
+-        let text_right = field_right.saturating_sub(inside + 1).max(field_left + 1);
++        let text_right = field_right.saturating_sub(inside).max(field_left + 1);
+         surface.set_string(field_left, y, "[", edge);
+         surface.set_string(field_right, y, "]", edge);
+         self.find.render(
+@@ -1144,23 +1163,21 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         let flags = [
+             (
+                 Control::Case,
+-                if compact { "A" } else { "Aa " },
++                if compact { "A" } else { "Aa" },
+                 editor.devtui.find_match_case,
+             ),
+-            (
+-                Control::Word,
+-                if compact { "W" } else { "W  " },
+-                editor.devtui.find_whole_word,
+-            ),
++            (Control::Word, "W", editor.devtui.find_whole_word),
+             (
+                 Control::Regex,
+-                if compact { "*" } else { ".* " },
++                if compact { "*" } else { ".*" },
+                 editor.devtui.find_regex,
+             ),
+         ];
+-        for (i, (control, label, active)) in flags.into_iter().enumerate() {
++        let mut flag_x = text_right;
++        for (control, label, active) in flags {
++            let button_width = label.width() as u16 + if compact { 0 } else { 2 };
+             self.button(
+-                Rect::new(text_right + i as u16 * step, y, step, 1),
++                Rect::new(flag_x, y, button_width, 1),
+                 control,
+                 label,
+                 active,
+@@ -1168,6 +1185,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+                 surface,
+                 editor,
+             );
++            flag_x += button_width;
+         }
+         let has_hits = !doc.devtui_find_hits.is_empty();
+         let scope = doc.devtui_find_scopes.is_some();
+@@ -1197,9 +1215,9 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             let ry = y + find_height;
+             surface.set_string(field_left, ry, "[", edge);
+             surface.set_string(field_right, ry, "]", edge);
+-            let preserve_width = if compact { 1 } else { 3 };
++            let preserve_width = if compact { 1 } else { 4 };
+             let text_right = field_right
+-                .saturating_sub(preserve_width + 1)
++                .saturating_sub(preserve_width)
+                 .max(field_left + 1);
+             self.replace.render(
+                 Rect::new(
+@@ -1215,7 +1233,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             self.button(
+                 Rect::new(text_right, ry, preserve_width, 1),
+                 Control::Preserve,
+-                if compact { "P" } else { "AB " },
++                if compact { "P" } else { "AB" },
+                 editor.devtui.find_preserve_case,
+                 true,
+                 surface,
