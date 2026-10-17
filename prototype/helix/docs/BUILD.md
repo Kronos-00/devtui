@@ -7,8 +7,9 @@ its component patches: that applies the same implementation twice.
 Each patch has one responsibility (mouse, lifecycle, tree, file actions, IPC,
 column editing, scrollbar, LSP, shortcuts, replace, language/debug services).
 `apply-patches.sh` requires the pinned revision and a clean source tree, applies
-the manifest with `git apply --index`, then prints the resulting Git tree ID.
-The tree ID can be compared directly with the development source checkout.
+the manifest with `git apply --index`, then verifies the resulting Git tree ID against `HELIX_TREE`. A mismatch
+aborts the build before installation. Update `HELIX_TREE` together with an
+intentional patch-series change, never to hide an unexplained mismatch.
 
 `build-helix.sh` uses Cargo's lockfile, retains interrupted source checkouts,
 installs the executable by atomic rename and writes `build-info.json` with the

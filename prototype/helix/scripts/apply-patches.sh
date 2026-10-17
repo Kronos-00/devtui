@@ -16,4 +16,10 @@ while IFS= read -r name; do
   git -C "$SOURCE" apply --index "$ROOT/prototype/helix/patches/$name"
   printf 'Applied %s\n' "$name"
 done < "$ROOT/prototype/helix/patches/series"
-git -C "$SOURCE" write-tree
+ACTUAL_TREE="$(git -C "$SOURCE" write-tree)"
+EXPECTED_TREE="$(cat "$ROOT/prototype/helix/HELIX_TREE")"
+[ "$ACTUAL_TREE" = "$EXPECTED_TREE" ] || {
+  printf 'Patched source tree mismatch: expected %s, received %s\n' "$EXPECTED_TREE" "$ACTUAL_TREE" >&2
+  exit 1
+}
+printf '%s\n' "$ACTUAL_TREE"
