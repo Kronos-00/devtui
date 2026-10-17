@@ -1,0 +1,92 @@
+{
+  "date_utc": "2026-10-17T15:09:54.166327+00:00",
+  "helix_upstream": "ba40e547426b0f9896c8bdc699a4ab11f2b37dbc",
+  "patched_tree": "560450dc487baf516c7a97d78a85a85d670c3566",
+  "helix_binary_sha256": "c34e986f48f9cb44c9eb5b6a43e1cfcbda1ba1e08b8b577557fc409591911517",
+  "shortcuts_plugin_sha256": "ffb752e0cd2400dacd1c1c75928813df3ad9978d439da979d7a99d852e413cc3",
+  "ordered_patches": 45,
+  "new_widget_pty_tests": 23,
+  "application_pty_tests": 149,
+  "deployment_tests": 6,
+  "shortcut_window_pty_tests": 16,
+  "rust_find_unit_tests": 6,
+  "rust_shortcuts_unit_tests": 5,
+  "upstream_replacement_oracle": {
+    "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+    "cases": 66,
+    "verified": true
+  },
+  "clean_patch_replay": true,
+  "editor_suites": [
+    {
+      "suite": "column_selection_regression",
+      "tests": 8,
+      "success": true
+    },
+    {
+      "suite": "context_menu_regression",
+      "tests": 8,
+      "success": true
+    },
+    {
+      "suite": "cpp_properties_regression",
+      "tests": 14,
+      "success": true
+    },
+    {
+      "suite": "delete_regression",
+      "tests": 9,
+      "success": true
+    },
+    {
+      "suite": "deployment_regression",
+      "tests": 6,
+      "success": true
+    },
+    {
+      "suite": "editor_context_regression",
+      "tests": 18,
+      "success": true
+    },
+    {
+      "suite": "find_widget_regression",
+      "tests": 23,
+      "success": true
+    },
+    {
+      "suite": "strict_parity",
+      "tests": 38,
+      "success": true
+    },
+    {
+      "suite": "terminal_regression",
+      "tests": 31,
+      "success": true
+    }
+  ],
+  "workspace_checks": {
+    "explorer_visible": true,
+    "editor_endpoint": true,
+    "shortcut_banner_removed": true,
+    "shortcut_hint_visible": true,
+    "git_pane": true,
+    "editor_pane_recorded": true,
+    "external_open_in_existing_pane": true,
+    "shortcut_window_visible": true,
+    "shortcut_window_closed": true,
+    "editor_save_after_help": true,
+    "find_overlay_visible": true,
+    "find_scope_shortcut": true,
+    "preserve_case_and_replace_all_shortcuts": true
+  },
+  "audit": {
+    "baseline_files": 45,
+    "feature_checkpoints": 166,
+    "source_references": 51,
+    "ordered_patches": 45,
+    "implementation_paths": 33,
+    "applied_source_tree_verified": true,
+    "result": "PASS"
+  },
+  "result": "PASS"
+}

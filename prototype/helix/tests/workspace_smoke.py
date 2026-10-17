@@ -92,6 +92,27 @@ def main() -> None:
             os.write(fd,b'iW\x1b');drain(.2);os.write(fd,b'\x13');drain(.4)
             result['editor_save_after_help']=(work/'sample.txt').read_text()=='smWoke fixture\n'
             assert result['editor_save_after_help'],(work/'sample.txt').read_text()
+            # Exercise the actual installed editor through the workspace input
+            # path: Alt+L / Alt+P used to be intercepted by default bindings.
+            (work/'search.txt').write_text('FOO foo\n')
+            subprocess.run([str(home/'.local/bin/devtui-helix-open'),str(work/'search.txt'),'1','1'],env=env,check=True,timeout=5)
+            drain(.35)
+            def editor_dump():
+                return subprocess.run([args.zellij,'-s',session,'action','dump-screen','--pane-id',pane],env=env,text=True,capture_output=True,check=True,timeout=5).stdout
+            os.write(fd,b'\x06foo');drain(.3)
+            text=editor_dump();result['find_overlay_visible']='┌─ Find' in text and '2 matches' in text
+            assert result['find_overlay_visible'],text
+            os.write(fd,b'\x1bl');drain(.25)
+            text=editor_dump();result['find_scope_shortcut']='1 matches' in text
+            assert result['find_scope_shortcut'],text
+            os.write(fd,b'\x08bar');drain(.25)
+            text=editor_dump();assert 'Find / Replace' in text and 'bar' in text,text
+            os.write(fd,b'\x1bp');drain(.2)
+            os.write(fd,b'\x1b[13;7u');drain(.3)
+            text=editor_dump();assert '0 matches' in text,text
+            os.write(fd,b'\x1b');drain(.2);os.write(fd,b'\x13');drain(.4)
+            result['preserve_case_and_replace_all_shortcuts']=(work/'search.txt').read_text()=='BAR foo\n'
+            assert result['preserve_case_and_replace_all_shortcuts'],(work/'search.txt').read_text()+editor_dump()
             print(json.dumps(result,indent=2))
         finally:
             subprocess.run([args.zellij,'kill-session',session],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5)

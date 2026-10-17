@@ -23,7 +23,7 @@ files. Ordinary floating panes retain their native frame behavior.
 
 ## Contents and layout
 
-The shipped catalogue has **137 entries** in ten categories. It covers every
+The shipped catalogue has **146 entries** in ten categories. It covers every
 explicit editor binding in the shipped configuration across normal, insert and
 selection modes, plus mouse and Explorer operations, workspace controls,
 formatting, language configuration inspection, debugging and common Helix
@@ -100,3 +100,5 @@ patch application matched the build inputs, and the feature audit passed.
 
 Workspace binary SHA-256: `82198f75504150dfb4169aa74d44f8e210ac6e236a94223cdb87b722183f6625`.
 Shortcut plugin SHA-256: `0086f1f673d05561a054c858c8a7f383414b671d7f535c5c66c28aaecee800c7`.
+
+Find/Replace 的新操作与组合键转发验证见 [FIND_REPLACE_WIDGET.md](FIND_REPLACE_WIDGET.md)。

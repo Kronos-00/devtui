@@ -315,3 +315,7 @@ Helix 实现：`prototype/helix/install-prototype.sh`、`prototype/helix/scripts
 ## 恢复后独立复核：副本命名边界
 
 新增三个 PTY 回归入口，验证数字零、没有分隔空格的名称、多空格字面后缀、空前缀、大整数、已有副本、点文件和多重扩展名。旧版在 `a copy 4294967295.txt` 自身重复粘贴时可能因计数饱和而陷入循环；新实现按 VS Code `incrementFileName` 与 `MAX_SAFE_SMALL_INTEGER` 规则生成下一个名称，不重复检查同一个候选。
+
+## Find / Replace overlay validation
+
+The editor now uses one non-modal top-right widget with a draggable left sash, scoped search, inline option/action buttons, Preserve Case and VS Code replacement-string semantics. See [FIND_REPLACE_WIDGET.md](FIND_REPLACE_WIDGET.md) and [find-widget-results.json](find-widget-results.json). The audit now tracks 166 checkpoints, 51 pinned source references and 45 ordered Helix patches; the immutable main baseline remains 45 files.

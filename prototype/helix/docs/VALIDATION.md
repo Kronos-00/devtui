@@ -67,3 +67,9 @@ Persistent editor/Explorer regions, modal `i`/`Esc`, Ctrl-Q session exit, altern
 ## Repeat the verification
 
 Follow [tests/README.md](../tests/README.md). Check `devtui-helix --version` for the canonical source tree and local binary hash. A config-only install does not update the compiled editor. Restart an existing Helix session after updating; installation does not terminate unsaved editor sessions. Neovim main remains the unchanged parallel fallback.
+
+## Editor Find / Replace overlay
+
+Latest results: [find-widget-results.json](find-widget-results.json); behavior and examples: [FIND_REPLACE_WIDGET.md](FIND_REPLACE_WIDGET.md). The installed build passes 149 editor PTY tests (including 23 widget cases), 6 deployment tests, 16 shortcut-window PTY tests, 6 find-engine unit tests, 5 shortcut-plugin unit tests and all 13 installed-workspace smoke checks. All 45 Helix patches replay to the canonical source tree. The pinned upstream TypeScript oracle independently verifies 66 replacement cases, including numeric fallback, escaping, Unicode case operations and static Preserve Case semantics.
+
+Normal workspace mode releases Alt+L / Alt+P to the editor and explicitly forwards Ctrl+Alt+Enter. Ctrl+H is also exercised through the ordinary terminal byte sequence. The regex matcher remains Helix's Rust regex engine; JavaScript lookaround and pattern backreferences are outside its supported syntax.

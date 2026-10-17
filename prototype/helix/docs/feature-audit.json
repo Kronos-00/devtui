@@ -2886,7 +2886,7 @@
         {
           "id": "07-01",
           "feature": "Ctrl-F 查找",
-          "reference_logic": "默认字面量、不区分大小写；可切换大小写/全词/正则",
+          "reference_logic": "编辑区右上角单实例浮层；默认字面量、不区分大小写；可切换大小写/全词/正则",
           "main_assessment": "主分支映射 Vim /，默认语义不同；已纠正",
           "baseline_sources": [
             "config/nvim/lua/config/keymaps.lua",
@@ -2896,17 +2896,28 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
@@ -2923,24 +2934,35 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
         {
           "id": "07-03",
           "feature": "Ctrl-H 当前文件替换",
-          "reference_logic": "可预览并逐项/全部应用，结果仍 dirty",
+          "reference_logic": "同一面板展开替换行；替换当前匹配并前进或一次全部替换；结果保持未保存",
           "main_assessment": "主分支已有；迁移保留并核对行为",
           "baseline_sources": [
             "config/nvim/lua/config/keymaps.lua",
@@ -2950,17 +2972,28 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
@@ -2977,17 +3010,28 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
@@ -3058,17 +3102,28 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
@@ -3085,17 +3140,28 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "find_widget_regression.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         },
@@ -3351,6 +3417,186 @@
             "editor_context_regression.py",
             "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
             "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-17",
+          "feature": "查找浮层左边缘调整宽度",
+          "reference_logic": "拖动左边缘调宽，右侧贴齐正文，双击最大化/还原；尺寸变化后限制在当前视图",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_left_sash_drag_and_width_retention",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-18",
+          "feature": "查找与替换图标按钮",
+          "reference_logic": "框内和框外按钮保持独立命中区域，窄视图紧凑显示；Tab 可聚焦按钮",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_narrow_editor_all_actions_remain_clickable",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-19",
+          "feature": "在选定内容中查找",
+          "reference_logic": "保留普通/多个选区范围；范围随替换移动并在换文件后清除",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_find_in_selection_and_scopes_follow_replacement_edits",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-20",
+          "feature": "保留大小写与捕获替换",
+          "reference_logic": "静态替换保留大小写及对应分段；编号组、美元符号、转义和显式大小写操作按上游解析",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_regex_groups_dollars_and_case_operations",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-21",
+          "feature": "多行、CRLF 和 Unicode 输入",
+          "reference_logic": "输入与光标按字素/显示格处理；CRLF 搜索模型与原文偏移分开映射",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_multiline_find_normalizes_crlf_and_captures",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-22",
+          "feature": "非模态查找与工作区按键",
+          "reference_logic": "点击正文可继续编辑；Alt+L/Alt+P 与 Ctrl+Alt+Enter 能穿过工作区到达编辑器",
+          "main_assessment": "按 VS Code 文档与固定源码补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findWidget",
+            "findController",
+            "findModel",
+            "replacePattern",
+            "preserveCase",
+            "textModelSearch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/find.rs",
+            "helix-view/src/devtui_find.rs",
+            "helix-view/src/document.rs",
+            "prototype/helix/zellij/zellij.kdl.in"
+          ],
+          "verification": [
+            "find_widget_regression.py:test_editing_outside_widget_keeps_it_visible_and_updates_count",
+            "workspace_smoke.py",
+            "vscode_find_replace_oracle.mjs"
           ],
           "status": "implemented"
         }

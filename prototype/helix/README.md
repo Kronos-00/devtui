@@ -32,7 +32,7 @@ Single-click a tree file to reuse Preview while retaining tree focus. Double-cli
 
 Dirty close offers Save / Don't Save / Cancel. `[No Name]` uses Save As. `q`, `q!`, `wq`, and `x` operate on the document while preserving the editor/sidebar structure. Ctrl-Q exits the whole Zellij session. Double-click the empty tab strip to create another Untitled editor.
 
-Use Ctrl-F for literal, case-insensitive Find by default. Its case/word/regex controls can be clicked or toggled with Alt-C/W/R. Ctrl-H replaces in the current document without automatically saving. Ctrl-Shift-H applies explicit workspace replacements. Terminal paste replaces selections as one undoable transaction; rows spread when their count matches the cursor count.
+Ctrl-F / Ctrl-H open a single Find/Replace overlay in the editor’s top-right corner. Drag its left edge to resize. Click the case/word/regex, previous/next, selection-scope, preserve-case and replace buttons; regex replacement supports `$1`/`$2`, `$$`, escapes and case operators. In-file edits remain unsaved until you save. See [Find/Replace details and examples](docs/FIND_REPLACE_WIDGET.md). Ctrl-Shift-H keeps the workspace replacement preview flow. Terminal paste replaces selections as one undoable transaction; rows spread when their count matches the cursor count.
 
 The shell pane inherits the caller's exported environment and does not re-run shell startup files. Project-selected Python settings apply only to editor services. Toolchain compilers and compilation databases remain the project's responsibility.
 
