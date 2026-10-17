@@ -1,0 +1,165 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 7252d64..0e55070 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -546,6 +546,9 @@ pub fn doc(&self) -> &str {
+         jump_forward, "Jump forward on jumplist",
+         jump_backward, "Jump backward on jumplist",
+         save_selection, "Save current selection to jumplist",
++        devtui_set_mark, "Set a named navigation mark (next letter)",
++        devtui_goto_mark, "Go to a named navigation mark (next letter)",
++        devtui_delete_mark, "Remove a named navigation mark (next letter)",
+         jump_view_right, "Jump to right split",
+         jump_view_left, "Jump to left split",
+         jump_view_up, "Jump to split above",
+@@ -6252,6 +6255,37 @@ fn jump_backward(cx: &mut Context) {
+     cx.editor.jump_backward(cx.editor.tree.focus, cx.count());
+ }
+ 
++fn devtui_set_mark(cx: &mut Context) {
++    cx.editor.set_status("Set mark: enter a letter");
++    cx.on_next_key(|cx, key| {
++        if let Some(name) = key.char().filter(char::is_ascii_alphabetic) {
++            let (view, doc) = current!(cx.editor);
++            let pos = doc.selection(view.id).primary().cursor(doc.text().slice(..));
++            doc.devtui_marks.insert(name, pos);
++        }
++    });
++}
++
++fn devtui_goto_mark(cx: &mut Context) {
++    cx.editor.set_status("Go to mark: enter a letter");
++    cx.on_next_key(|cx, key| {
++        if let Some(name) = key.char() {
++            let (view, doc) = current!(cx.editor);
++            if let Some(&pos) = doc.devtui_marks.get(&name) {
++                doc.set_selection(view.id, Selection::point(pos.min(doc.text().len_chars())));
++                cx.editor.devtui.explicit_selection = false;
++            } else { cx.editor.set_status("Mark is not set in this document"); }
++        }
++    });
++}
++
++fn devtui_delete_mark(cx: &mut Context) {
++    cx.editor.set_status("Delete mark: enter a letter");
++    cx.on_next_key(|cx, key| {
++        if let Some(name) = key.char() { doc_mut!(cx.editor).devtui_marks.remove(&name); }
++    });
++}
++
+ fn save_selection(cx: &mut Context) {
+     let (view, doc) = current!(cx.editor);
+     push_jump(view, doc);
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index f27e7d7..7a5e3f4 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -447,7 +447,12 @@ pub fn find_prompt(editor: &Editor) -> DevTuiSearchPrompt {
+     let mut previous_query = String::new();
+     let mut current = start;
+     let prompt = Prompt::new(Cow::Borrowed("Find: "), None, ui::completers::none, move |cx, input, event| {
+-        if event == PromptEvent::Abort || input.is_empty() { return; }
++        if event == PromptEvent::Abort { return; }
++        if input.is_empty() {
++            if let Some(doc) = cx.editor.document_mut(doc_id) { doc.devtui_find_hits.clear(); doc.devtui_find_pattern = None; }
++            cx.editor.devtui.find_result_count = Some(0);
++            return;
++        }
+         let Some(doc) = cx.editor.document(doc_id) else { return; };
+         let matcher = match project_replace_matcher(cx.editor, input) {
+             Ok(matcher) => matcher, Err(err) => { cx.editor.set_error(err.to_string()); return; }
+@@ -462,6 +467,14 @@ pub fn find_prompt(editor: &Editor) -> DevTuiSearchPrompt {
+         let chosen = matches.iter().copied().find(|(a, _)| if event == PromptEvent::Validate { *a > offset } else { *a >= offset }).or_else(|| matches.first().copied());
+         previous_query = input.to_string();
+         cx.editor.devtui.find_result_count = Some(matches.len());
++        let expression = if cx.editor.devtui.find_regex { input.to_string() } else { helix_core::regex::escape(input) };
++        let expression = if cx.editor.devtui.find_whole_word { format!(r"\b(?:{expression})\b") } else { expression };
++        let pattern = helix_core::regex::RegexBuilder::new(&expression)
++            .case_insensitive(!cx.editor.devtui.find_match_case).multi_line(true).build().ok();
++        if let Some(doc) = cx.editor.document_mut(doc_id) {
++            doc.devtui_find_hits = matches.iter().map(|(a,b)| doc.text().byte_to_char(*a)..doc.text().byte_to_char(*b)).collect();
++            doc.devtui_find_pattern = pattern;
++        }
+         if let Some((a,b)) = chosen {
+             let doc = cx.editor.document_mut(doc_id).unwrap();
+             let from = doc.text().byte_to_char(a); let to = doc.text().byte_to_char(b);
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index e8813d9..c633058 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -246,7 +246,34 @@ fn render_scrollbar(editor: &Editor, doc: &Document, view: &View, surface: &mut
+             }
+         }
+ 
+-        let _ = doc;
++        // An adjacent overview lane preserves the draggable thumb. VS Code's
++        // overview ruler likewise projects decorations by document position.
++        let marker_x = geometry.x.saturating_sub(1);
++        let row_for = |pos: usize| {
++            let line = doc.text().char_to_line(pos.min(doc.text().len_chars()));
++            geometry.track_top + ((line * geometry.track_height.saturating_sub(1) as usize)
++                / doc.text().len_lines().saturating_sub(1).max(1)) as u16
++        };
++        for (&name, &pos) in &doc.devtui_marks {
++            if let Some(cell) = surface.get_mut(marker_x, row_for(pos)) {
++                cell.set_symbol(&name.to_string()).set_style(editor.theme.get("ui.text.info"));
++            }
++        }
++        for hit in &doc.devtui_find_hits {
++            if let Some(cell) = surface.get_mut(marker_x, row_for(hit.start)) {
++                cell.set_symbol("s").set_style(editor.theme.get("ui.selection"));
++            }
++        }
++        for diagnostic in doc.diagnostics().iter().rev() {
++            let (symbol, scope) = match diagnostic.severity {
++                Some(helix_core::diagnostic::Severity::Error) => ("!", "error"),
++                Some(helix_core::diagnostic::Severity::Warning) => ("!", "warning"),
++                _ => ("i", "info"),
++            };
++            if let Some(cell) = surface.get_mut(marker_x, row_for(diagnostic.range.start)) {
++                cell.set_symbol(symbol).set_style(editor.theme.get(scope));
++            }
++        }
+     }
+ 
+     pub fn render_view(
+diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
+index cce42ab..eabf969 100644
+--- a/helix-view/src/document.rs
++++ b/helix-view/src/document.rs
+@@ -222,6 +222,10 @@ pub struct Document {
+     pub document_links: Vec<DocumentLink>,
+     /// Server-pushed inactive source regions, stored as character ranges.
+     pub inactive_regions: Vec<std::ops::Range<usize>>,
++    /// Document-local navigation marks and current Find hits for the overview ruler.
++    pub devtui_marks: std::collections::BTreeMap<char, usize>,
++    pub devtui_find_hits: Vec<std::ops::Range<usize>>,
++    pub devtui_find_pattern: Option<helix_core::regex::Regex>,
+     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
+     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
+     pub color_swatch_controller: TaskController,
+@@ -772,6 +776,9 @@ pub fn from(
+             color_swatches: None,
+             document_links: Vec::new(),
+             inactive_regions: Vec::new(),
++            devtui_marks: std::collections::BTreeMap::new(),
++            devtui_find_hits: Vec::new(),
++            devtui_find_pattern: None,
+             color_swatch_controller: TaskController::new(),
+             document_highlight_controllers: HashMap::new(),
+             code_action_controllers: HashMap::new(),
+@@ -1622,6 +1629,14 @@ fn apply_impl(
+             highlights.ranges = updated;
+         }
+ 
++        changes.update_positions(self.devtui_marks.values_mut().map(|pos| (pos, Assoc::After)));
++        if let Some(pattern) = &self.devtui_find_pattern {
++            let content = self.text.to_string();
++            self.devtui_find_hits = pattern.find_iter(&content)
++                .map(|hit| self.text.byte_to_char(hit.start())..self.text.byte_to_char(hit.end()))
++                .collect();
++        }
++
+         helix_event::dispatch(DocumentDidChange {
+             doc: self,
+             view: view_id,

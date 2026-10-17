@@ -193,3 +193,8 @@ S-F5 = "dap_terminate"
 [keys.normal.Z]
 Z = ":exit"
 Q = ":quit!"
+
+[keys.normal.space.m]
+s = "devtui_set_mark"
+g = "devtui_goto_mark"
+d = "devtui_delete_mark"
