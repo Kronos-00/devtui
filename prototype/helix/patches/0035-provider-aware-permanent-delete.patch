@@ -1,0 +1,185 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 9d7e7a1..ee98073 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -864,16 +864,10 @@ fn process_devtui_requests(&mut self) -> bool {
+                     if paths.is_empty() {
+                         continue;
+                     }
+-                    let select = crate::ui::devtui::explorer_delete_select(&self.editor, paths, false);
++                    let select = crate::ui::devtui::explorer_delete_select(&self.editor, paths);
+                     self.compositor.push(Box::new(select));
+                     pushed = true;
+                 }
+-                DevTuiRequest::ExplorerDeletePermanent { paths } => {
+-                    if !paths.is_empty() {
+-                        self.compositor.push(Box::new(crate::ui::devtui::explorer_delete_select(&self.editor, paths, true)));
+-                        pushed = true;
+-                    }
+-                }
+                 DevTuiRequest::ExplorerRename { path } => {
+                     let prompt =
+                         crate::ui::devtui::explorer_rename_prompt(&self.editor, path);
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 929dbce..ec5f932 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1008,7 +1008,6 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+ #[derive(Clone, Copy, Debug, Default)]
+ pub enum DeleteChoice {
+     #[default]
+-    Trash,
+     Delete,
+     Cancel,
+ }
+@@ -1018,7 +1017,6 @@ impl Item for DeleteChoice {
+ 
+     fn format(&self, _data: &Self::Data) -> Row<'_> {
+         match self {
+-            Self::Trash => "Move to Trash",
+             Self::Delete => "Delete Permanently",
+             Self::Cancel => "Cancel",
+         }
+@@ -1337,33 +1335,75 @@ pub fn explorer_rename_prompt(editor: &Editor, path: PathBuf) -> Prompt {
+     .with_line(current_name, editor)
+ }
+ 
+-pub fn explorer_delete_select(editor: &Editor, paths: Vec<PathBuf>, permanent: bool) -> Select<DeleteChoice> {
+-    let dirty = editor.documents().filter(|doc| doc.is_modified() && doc.path().is_some_and(|name| paths.iter().any(|p| name == p || (p.is_dir() && name.starts_with(p))))).count();
++pub fn explorer_delete_select(editor: &Editor, paths: Vec<PathBuf>) -> Select<DeleteChoice> {
++    let is_directory = |path: &Path| fs::symlink_metadata(path).is_ok_and(|meta| meta.is_dir());
++    let dirty = editor
++        .documents()
++        .filter(|doc| {
++            doc.is_modified()
++                && doc.path().is_some_and(|name| {
++                    paths
++                        .iter()
++                        .any(|p| name == p || (is_directory(p) && name.starts_with(p)))
++                })
++        })
++        .count();
+     let description = if paths.len() == 1 {
+-        paths[0].file_name().unwrap_or_default().to_string_lossy().into_owned()
+-    } else { format!("{} selected items", paths.len()) };
+-    let warning = if dirty > 0 { format!(" ({dirty} file(s) have unsaved changes which will be lost)") } else { String::new() };
+-    let title = if permanent {
+-        format!("Trash unavailable. Permanently delete {description}?{warning}")
+-    } else { format!("Move {description} to Trash?{warning}") };
+-    Select::new(title,
+-        [if permanent { DeleteChoice::Delete } else { DeleteChoice::Trash }, DeleteChoice::Cancel],
+-        (), move |editor, choice, event| {
+-            if event != PromptEvent::Validate || matches!(choice, DeleteChoice::Cancel) { return; }
+-            for (index, path) in paths.iter().enumerate() {
+-                let affected: Vec<_> = editor.documents().filter(|doc| doc.path().is_some_and(|name| name == path || (path.is_dir() && name.starts_with(path)))).map(|doc| doc.id()).collect();
+-                if let Err(err) = editor.devtui_delete_path(path, true, !permanent) {
+-                    editor.set_error(format!("Delete failed: {err}"));
+-                    if !permanent {
+-                        editor.devtui.requests.push_back(DevTuiRequest::ExplorerDeletePermanent { paths: paths[index..].to_vec() });
++        paths[0]
++            .file_name()
++            .unwrap_or_default()
++            .to_string_lossy()
++            .into_owned()
++    } else {
++        format!("{} selected items", paths.len())
++    };
++    let warning = if dirty > 0 {
++        format!(" ({dirty} file(s) have unsaved changes which will be lost)")
++    } else {
++        String::new()
++    };
++    // This terminal file provider has no native trash capability, matching
++    // VS Code's remote provider. Delete is explicitly permanent from the first
++    // confirmation; the presence of a `gio` executable does not add a capability.
++    let title = format!("Permanently delete {description}?{warning}");
++    Select::new(
++        title,
++        [DeleteChoice::Delete, DeleteChoice::Cancel],
++        (),
++        move |editor, choice, event| {
++            if event != PromptEvent::Validate || matches!(choice, DeleteChoice::Cancel) {
++                return;
++            }
++            for path in &paths {
++                let is_dir = is_directory(path);
++                let affected: Vec<_> = editor
++                    .documents()
++                    .filter(|doc| {
++                        doc.path()
++                            .is_some_and(|name| name == path || (is_dir && name.starts_with(path)))
++                    })
++                    .map(|doc| doc.id())
++                    .collect();
++                if let Err(err) = editor.delete_path(path, true) {
++                    // The item can disappear between confirmation and execution.
++                    // VS Code's confirmed retry also treats an absent item as done.
++                    if err.kind() != std::io::ErrorKind::NotFound {
++                        editor.set_error(format!("Delete failed: {}: {err}", path.display()));
++                        return;
+                     }
+-                    break;
+                 }
+-                // Close only documents belonging to a successfully deleted entry.
+-                for id in affected { let _ = editor.close_document(id, true); }
+-                editor.devtui.explorer_clipboard.retain(|entry| entry != path && !entry.starts_with(path));
++                // Close buffers and clear copied paths only after successful deletion.
++                for id in affected {
++                    let _ = editor.close_document(id, true);
++                }
++                editor
++                    .devtui
++                    .explorer_clipboard
++                    .retain(|entry| entry != path && !(is_dir && entry.starts_with(path)));
+             }
+-        })
++            editor.set_status(format!("Deleted {} item(s)", paths.len()));
++        },
++    )
+ }
+ 
+ #[derive(Clone, Debug)]
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 0b01dd2..fca6259 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1302,7 +1302,6 @@ pub enum DevTuiRequest {
+     ExplorerDelete {
+         paths: Vec<PathBuf>,
+     },
+-    ExplorerDeletePermanent { paths: Vec<PathBuf> },
+     ExplorerRename {
+         path: PathBuf,
+     },
+@@ -1831,12 +1830,10 @@ pub fn create_path(&mut self, path: &Path, is_dir: bool) -> io::Result<()> {
+     }
+ 
+     pub fn delete_path(&mut self, path: &Path, recursive: bool) -> io::Result<()> {
+-        self.devtui_delete_path(path, recursive, false)
+-    }
+-
+-    pub fn devtui_delete_path(&mut self, path: &Path, recursive: bool, use_trash: bool) -> io::Result<()> {
+         let path = canonicalize(path);
+-        let is_dir = path.is_dir();
++        // Delete the selected directory entry. A symlink is not the directory
++        // it points to and must never recursively remove its target.
++        let is_dir = fs::symlink_metadata(&path)?.is_dir();
+         let language_servers: Vec<_> = self
+             .language_servers
+             .iter_clients()
+@@ -1859,14 +1856,7 @@ pub fn devtui_delete_path(&mut self, path: &Path, recursive: bool, use_trash: bo
+             }
+         }
+ 
+-        if use_trash {
+-            // GIO implements platform trash semantics without a shell or SDK setup.
+-            // Never silently fall back to permanent deletion.
+-            let result = std::process::Command::new("gio").arg("trash").arg("--").arg(&path).output()?;
+-            if !result.status.success() {
+-                return Err(io::Error::other(String::from_utf8_lossy(&result.stderr).into_owned()));
+-            }
+-        } else if is_dir {
++        if is_dir {
+             if recursive {
+                 fs::remove_dir_all(&path)?;
+             } else {

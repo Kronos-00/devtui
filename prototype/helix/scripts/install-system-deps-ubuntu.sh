@@ -5,4 +5,4 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   build-essential clangd clang-format lldb-18 cmake ninja-build \
   python3 python3-venv python3-pip nodejs npm shellcheck shfmt \
-  git curl ca-certificates pkg-config protobuf-compiler libglib2.0-bin
+  git curl ca-certificates pkg-config protobuf-compiler
