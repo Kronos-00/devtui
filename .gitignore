@@ -4,3 +4,10 @@
 *.swo
 /build/
 /dist/
+
+# Local acceptance artifacts
+__pycache__/
+*.pyc
+.venv/
+
+.venv-tests/
