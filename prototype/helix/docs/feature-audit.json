@@ -3192,11 +3192,16 @@
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-lsp/src/cpp_properties.rs",
+            "helix-lsp/src/client.rs",
+            "prototype/helix/docs/CPP_PROPERTIES.md"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
+            "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
           ],
           "status": "implemented"
         },
@@ -3219,11 +3224,16 @@
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-lsp/src/cpp_properties.rs",
+            "helix-lsp/src/client.rs",
+            "prototype/helix/docs/CPP_PROPERTIES.md"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
+            "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
           ],
           "status": "implemented"
         },
@@ -3246,11 +3256,16 @@
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-lsp/src/cpp_properties.rs",
+            "helix-lsp/src/client.rs",
+            "prototype/helix/docs/CPP_PROPERTIES.md"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
+            "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
           ],
           "status": "implemented"
         },
@@ -3273,11 +3288,16 @@
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-lsp/src/cpp_properties.rs",
+            "helix-lsp/src/client.rs",
+            "prototype/helix/docs/CPP_PROPERTIES.md"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
+            "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
           ],
           "status": "implemented"
         },
@@ -3312,13 +3332,18 @@
             "helix-term/src/application.rs",
             "helix-view/src/editor.rs",
             "helix-term/src/ui/editor.rs",
-            "helix-view/src/document.rs"
+            "helix-view/src/document.rs",
+            "helix-lsp/src/cpp_properties.rs",
+            "helix-lsp/src/client.rs",
+            "prototype/helix/docs/CPP_PROPERTIES.md"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
             "context_menu_regression.py",
-            "editor_context_regression.py"
+            "editor_context_regression.py",
+            "cpp_properties_regression.py:test_real_clangd_macros_includes_and_database_precedence_change_definition",
+            "cpp_properties_regression.py:test_first_open_receives_jsonc_variables_and_compiler_before_parse"
           ],
           "status": "implemented"
         }

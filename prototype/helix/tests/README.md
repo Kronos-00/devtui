@@ -27,6 +27,7 @@ $PY -I prototype/helix/tests/strict_parity.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/delete_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/context_menu_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/editor_context_regression.py --binary "$HX" --runtime "$RT"
+$PY -I prototype/helix/tests/cpp_properties_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/column_selection_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/deployment_regression.py
 $PY -I prototype/helix/tests/service_smoke.py --tools "$TOOLS"
@@ -157,3 +158,16 @@ test configuration and directories. They do not modify the caller's settings.
 The default terminal clipboard provider cannot read external clipboard text;
 menu Paste can reuse editor-copied text, and terminal bracketed Paste remains
 the external-text path for that provider.
+
+## Workspace C/C++ properties
+
+`cpp_properties_regression.py` has 14 methods. A recording server verifies exact
+compile commands, initialization settings and command-before-didOpen ordering.
+A proxy to real clangd verifies diagnostics and definition navigation under
+different macro, header and database configurations. Workspace priority,
+external-project isolation, JSONC variables, configuration selection, fallback,
+warnings, C/C++ standards and `:lsp-restart` reload are covered. The fixtures
+use disposable projects and configuration; they do not edit user projects.
+The matching translator unit tests are selected with
+`cargo test -p helix-lsp cpp_properties` in an applied source checkout.
+See [CPP_PROPERTIES.md](../docs/CPP_PROPERTIES.md) for supported fields and limits.

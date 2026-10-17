@@ -33,7 +33,7 @@ class Screen(pyte.Screen):
         pass
 
 class Terminal:
-    def __init__(self, files: dict[str, str], initial: str | None = None, width: int = 120, *, config: str | None = None, languages: str | None = None):
+    def __init__(self, files: dict[str, str], initial: str | None = None, width: int = 120, *, config: str | None = None, languages: str | None = None, environment: dict[str, str] | None = None, directory: str | None = None):
         self.tmp = tempfile.TemporaryDirectory(prefix='devtui-regression-')
         self.base = Path(self.tmp.name)
         self.work = self.base / 'workspace'
@@ -63,10 +63,11 @@ class Terminal:
                    XDG_CACHE_HOME=str(self.home / '.cache'),
                    HELIX_RUNTIME=str(RUNTIME), DEVTUI_HELIX_SOCKET=str(self.sock),
                    TERM='xterm-256color', LANG='C.UTF-8')
+        env.update(environment or {})
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             fcntl.ioctl(1, termios.TIOCSWINSZ, struct.pack('HHHH', 30, width, 0, 0))
-            os.chdir(self.work)
+            os.chdir(self.work / directory if directory else self.work)
             os.execve(str(BINARY), [str(BINARY)] + ([initial] if initial else []), env)
         self.alive = True
         try:

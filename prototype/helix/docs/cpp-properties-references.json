@@ -1,0 +1,50 @@
+[
+  {
+    "key": "clangd-protocol.h",
+    "repository": "llvm/llvm-project",
+    "revision": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "path": "clang-tools-extra/clangd/Protocol.h",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/Protocol.h",
+    "sha256": "6d28170605cb8e5a0bf2f6870d84bb9c2ed23d4301db80f9f916422a62475522"
+  },
+  {
+    "key": "clangd-protocol.cpp",
+    "repository": "llvm/llvm-project",
+    "revision": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "path": "clang-tools-extra/clangd/Protocol.cpp",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/Protocol.cpp",
+    "sha256": "ecf0572662c4f41213eaa83d37aff49598bb4ce56041c4ac0b8a77d667ff62fd"
+  },
+  {
+    "key": "clangd-lsp.cpp",
+    "repository": "llvm/llvm-project",
+    "revision": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "path": "clang-tools-extra/clangd/ClangdLSPServer.cpp",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/ClangdLSPServer.cpp",
+    "sha256": "166463c6638e6c9002784f9cd6aff3d6c7782a610f7b890f99917818ded1f0c0"
+  },
+  {
+    "key": "clangd-global-db.cpp",
+    "repository": "llvm/llvm-project",
+    "revision": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "path": "clang-tools-extra/clangd/GlobalCompilationDatabase.cpp",
+    "url": "https://raw.githubusercontent.com/llvm/llvm-project/ea7d852a70e8bdfaf601d6626a760f9771b2c4b4/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp",
+    "sha256": "9152a4fac2a53c49bf106ab66f5ea9a36cf67eeb64a532dc2ae55c9a861176ef"
+  },
+  {
+    "key": "cpp-configurations.ts",
+    "repository": "microsoft/vscode-cpptools",
+    "revision": "035c1147a774c959de7c5c13276e1809d4ed11e0",
+    "path": "Extension/src/LanguageServer/configurations.ts",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode-cpptools/035c1147a774c959de7c5c13276e1809d4ed11e0/Extension/src/LanguageServer/configurations.ts",
+    "sha256": "870c80f4368ad923559f63a1788a1200d442e55cdc2eb1ec1574fcfc1ae2839e"
+  },
+  {
+    "key": "cpp-properties-schema.json",
+    "repository": "microsoft/vscode-cpptools",
+    "revision": "035c1147a774c959de7c5c13276e1809d4ed11e0",
+    "path": "Extension/c_cpp_properties.schema.json",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode-cpptools/035c1147a774c959de7c5c13276e1809d4ed11e0/Extension/c_cpp_properties.schema.json",
+    "sha256": "5ecef09f6aec682068f80ef42813b8da561d1e6733f15f9bb7810b4ed7ed51ec"
+  }
+]

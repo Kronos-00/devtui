@@ -1,5 +1,7 @@
 # Final migration acceptance
 
+Latest C/C++ configuration validation: [CPP_PROPERTIES.md](CPP_PROPERTIES.md).
+
 Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).
 
 The pointer-anchored context-menu update is recorded in [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md).

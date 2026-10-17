@@ -1,5 +1,7 @@
 # main 额外功能 → VS Code 语义 → Helix 迁移审计
 
+Latest C/C++ configuration validation: [CPP_PROPERTIES.md](CPP_PROPERTIES.md).
+
 Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).
 
 右键菜单跟随鼠标及边缘定位的后续改进见 [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md)。
