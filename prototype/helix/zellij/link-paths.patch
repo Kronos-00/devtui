@@ -1,0 +1,76 @@
+--- a/default-plugins/link/src/main.rs
++++ b/default-plugins/link/src/main.rs
+@@ -2,7 +2,7 @@
+ use std::path::{Path, PathBuf};
+ use zellij_tile::prelude::*;
+ 
+-const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?:(?::\d+(?::\d+)?)|(?:\(\d+(?:[,:]\d+)?\)))?)(?::|\s|$)"#;
++const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:"[^"\r\n]+"|'[^'\r\n]+'|[^\s:"'<>()]*[/.][^\s:"'<>()]+)(?:(?::\d+(?::\d+)?)|(?:\(\d+(?:[,:]\d+)?\)))?|[^\s:"'<>()]+(?:(?::\d+(?::\d+)?)|(?:\(\d+(?:[,:]\d+)?\))))(?::|\s|$)"#;
+ 
+ const CWD_CONTEXT_KEY: &str = "cwd";
+ 
+@@ -376,7 +376,20 @@
+     result
+ }
+ 
++fn unquote_path(text: &str) -> &str {
++    let text = text.trim();
++    if (text.starts_with('"') && text.ends_with('"')) || (text.starts_with('\'') && text.ends_with('\'')) {
++        if text.len() >= 2 { return &text[1..text.len()-1]; }
++    }
++    text
++}
++
+ fn parse_path_line_column(matched_string: &str) -> (&str, Option<usize>, Option<usize>) {
++    let (path, line, column) = parse_path_line_column_inner(unquote_path(matched_string));
++    (unquote_path(path), line, column)
++}
++
++fn parse_path_line_column_inner(matched_string: &str) -> (&str, Option<usize>, Option<usize>) {
+     let text = matched_string.trim();
+ 
+     if text.ends_with(')') {
+@@ -435,6 +448,24 @@
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn relative_and_unicode_locations_are_highlighted() {
++        let regex = regex::Regex::new(FILE_PATH_REGEX).unwrap();
++        for token in ["src/main.cpp:42:7", "main.cpp(3,2)", "./src/main.cpp:2", "/tmp/sample.cpp:3:1", "src/示例.cpp:7:2", "CMakeLists.txt:4"] {
++            let input = format!("error {token} message");
++            assert_eq!(regex.captures(&input).unwrap().get(1).unwrap().as_str(), token);
++        }
++    }
++
++    #[test]
++    fn quoted_path_locations_preserve_spaces() {
++        let regex = regex::Regex::new(FILE_PATH_REGEX).unwrap();
++        let input = r#"error "src/my sample.cpp":12:3 message"#;
++        let token = regex.captures(input).unwrap().get(1).unwrap().as_str();
++        assert_eq!(parse_path_line_column(token), ("src/my sample.cpp", Some(12), Some(3)));
++        assert_eq!(parse_path_line_column("'src/示例.cpp'(9,2)"), ("src/示例.cpp", Some(9), Some(2)));
++    }
++
+     use super::*;
+ 
+     // --- parse_path_line_column tests ---
+--- a/default-plugins/link/Cargo.toml
++++ b/default-plugins/link/Cargo.toml
+@@ -7,3 +7,6 @@
+ 
+ [dependencies]
+ zellij-tile = { path = "../../zellij-tile" }
++
++[dev-dependencies]
++regex = { workspace = true }
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2125,6 +2125,7 @@
+ name = "link"
+ version = "0.1.0"
+ dependencies = [
++ "regex",
+  "zellij-tile",
+ ]
+ 
