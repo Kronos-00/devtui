@@ -1,0 +1,135 @@
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index eccc172..5fd16b2 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -102,6 +102,8 @@ pub struct EditorView {
+     bufferline_hits: Vec<DevTuiTabHit>,
+     bufferline_used_width: u16,
+     last_bufferline_click: Option<(Instant, u16)>,
++    last_text_click: Option<(Instant, DocumentId, ViewId, u16, u16)>,
++    word_drag_anchor: Option<Range>,
+     scrollbar_drag: Option<DevTuiScrollbarDrag>,
+     explorer: crate::ui::devtui::DevTuiExplorer,
+     layout_area: Rect,
+@@ -120,6 +122,29 @@ pub enum InsertEvent {
+     RequestCompletion,
+ }
+ 
++// VS Code's default word-separator classes. Underscores and non-ASCII
++// identifier characters stay in the same word; whitespace and punctuation form
++// their own runs. At a boundary, a touching regular word wins on the left.
++fn devtui_word_range(text: helix_core::RopeSlice<'_>, pos: usize) -> Range {
++    const SEPARATORS: &str = "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?";
++    let line = text.char_to_line(pos.min(text.len_chars()));
++    let start = text.line_to_char(line);
++    let end = helix_core::line_ending::line_end_char_index(&text, line);
++    let chars: Vec<char> = text.slice(start..end).chars().collect();
++    let offset = pos.saturating_sub(start).min(chars.len());
++    let class = |ch: char| if ch == ' ' || ch == '\t' { 0 } else if SEPARATORS.contains(ch) { 1 } else { 2 };
++    let pivot = if offset > 0 && class(chars[offset - 1]) == 2 { offset - 1 }
++        else if offset < chars.len() { offset }
++        else if offset > 0 && class(chars[offset - 1]) == 0 { offset - 1 }
++        else { return Range::point(pos.min(end)); };
++    let kind = class(chars[pivot]);
++    let mut left = pivot;
++    let mut right = pivot + 1;
++    while left > 0 && class(chars[left - 1]) == kind { left -= 1; }
++    while right < chars.len() && class(chars[right]) == kind { right += 1; }
++    Range::new(start + left, start + right)
++}
++
+ impl EditorView {
+     pub fn new(keymaps: Keymaps) -> Self {
+         Self {
+@@ -133,6 +158,8 @@ pub fn new(keymaps: Keymaps) -> Self {
+             bufferline_hits: Vec::new(),
+             bufferline_used_width: 0,
+             last_bufferline_click: None,
++            last_text_click: None,
++            word_drag_anchor: None,
+             scrollbar_drag: None,
+             explorer: crate::ui::devtui::DevTuiExplorer::default(),
+             layout_area: Rect::default(),
+@@ -1852,6 +1879,12 @@ fn handle_mouse_event(
+         event: &MouseEvent,
+         cxt: &mut commands::Context,
+     ) -> EventResult {
++        let previous_text_click = if event.kind == MouseEventKind::Down(MouseButton::Left) {
++            self.last_text_click.take()
++        } else { None };
++        if !matches!(event.kind, MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left) | MouseEventKind::Moved) {
++            self.last_text_click = None;
++        }
+         if let Some(result) = self.handle_explorer_mouse(event, cxt) {
+             return result;
+         }
+@@ -2040,6 +2073,8 @@ fn handle_mouse_event(
+             }
+ 
+             MouseEventKind::Down(MouseButton::Left) => {
++                self.word_drag_anchor = None;
++                if !modifiers.is_empty() { self.last_text_click = None; }
+                 let editor = &mut cxt.editor;
+ 
+                 if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
+@@ -2061,10 +2096,20 @@ fn handle_mouse_event(
+                         editor.mouse_down_range = Some(primary);
+                         doc.set_selection(view_id, Selection::single(primary.anchor, primary.head));
+                     } else {
+-                        doc.set_selection(view_id, Selection::point(pos));
+-                        editor.mouse_down_range = Some(Range::point(pos));
+-                        editor.devtui.explicit_selection = false;
++                        let now = Instant::now();
++                        let double_click = modifiers.is_empty() && previous_text_click.is_some_and(|(at, doc_id, previous_view, previous_row, previous_col)| {
++                            now.duration_since(at) <= Duration::from_millis(400)
++                                && doc_id == doc.id() && previous_view == view_id
++                                && previous_row == row && previous_col == column
++                        });
++                        self.last_text_click = if double_click { None } else { Some((now, doc.id(), view_id, row, column)) };
++                        let range = if double_click { devtui_word_range(doc.text().slice(..), pos) } else { Range::point(pos) };
++                        doc.set_selection(view_id, Selection::single(range.anchor, range.head));
++                        editor.mouse_down_range = Some(range);
++                        self.word_drag_anchor = double_click.then_some(range);
++                        editor.devtui.explicit_selection = double_click && !range.is_empty();
+                         editor.devtui.column_selection_active = false;
++                        editor.devtui.column_selection = None;
+                     }
+ 
+                     if view_id != prev_view_id {
+@@ -2107,8 +2152,17 @@ fn handle_mouse_event(
+ 
+                 let mut selection = doc.selection(view.id).clone();
+                 let primary = selection.primary_mut();
+-                let anchor = cxt.editor.mouse_down_range.map_or(primary.anchor, |range| range.anchor);
+-                *primary = Range::new(anchor, pos);
++                if let Some(anchor) = self.word_drag_anchor {
++                    let target = devtui_word_range(doc.text().slice(..), pos);
++                    *primary = if target.from() < anchor.from() {
++                        Range::new(anchor.to(), target.from())
++                    } else {
++                        Range::new(anchor.from(), target.to())
++                    };
++                } else {
++                    let anchor = cxt.editor.mouse_down_range.map_or(primary.anchor, |range| range.anchor);
++                    *primary = Range::new(anchor, pos);
++                }
+                 doc.set_selection(view.id, selection);
+                 let view_id = view.id;
+                 cxt.editor.devtui.explicit_selection = true;
+@@ -2140,6 +2194,7 @@ fn handle_mouse_event(
+             }
+ 
+             MouseEventKind::Up(MouseButton::Left) => {
++                self.word_drag_anchor = None;
+                 if !config.middle_click_paste {
+                     return EventResult::Ignored(None);
+                 }
+@@ -2244,6 +2299,8 @@ fn handle_event(
+         self.apply_pending_explorer_reveal(context.editor);
+ 
+         if let Event::Key(key) = event {
++            self.last_text_click = None;
++            self.word_drag_anchor = None;
+             let mut key = *key;
+             canonicalize_key(&mut key);
+             if self.handle_explorer_key(key, context.editor) {
