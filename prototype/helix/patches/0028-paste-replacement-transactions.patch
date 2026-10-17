@@ -1,0 +1,82 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index afbf0be..7252d64 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -4997,6 +4997,13 @@ fn devtui_cut_to_clipboard(cx: &mut Context) {
+     }
+     devtui_yank_filtered_to_clipboard(cx.editor);
+     delete_selection_impl(cx, Operation::Delete, YankAction::NoYank);
++    // Deletion may leave a modal one-character range. It is a caret, not a
++    // fresh explicit selection to replace on the next terminal paste.
++    let (view, doc) = current!(cx.editor);
++    let carets = doc.selection(view.id).clone().transform(|range| Range::point(range.from()));
++    doc.set_selection(view.id, carets);
++    cx.editor.devtui.explicit_selection = false;
++    cx.editor.devtui.column_selection_active = false;
+ }
+ 
+ fn devtui_save_as(cx: &mut Context) {
+@@ -5315,29 +5322,42 @@ fn devtui_spread_paste_values(contents: &str, selection_count: usize) -> Option<
+ }
+ 
+ pub(crate) fn paste_bracketed_value(cx: &mut Context, contents: String) {
++    // Match VS Code PasteOperation: replace the selected ranges in one undo
++    // transaction, distribute rows only when counts match, and leave carets
++    // after the inserted text. Terminal paste has no linewise metadata.
++    let explicit = cx.editor.devtui.explicit_selection
++        || cx.editor.devtui.column_selection_active
++        || cx.editor.mode == Mode::Select;
+     let count = cx.count();
+-    let paste = match cx.editor.mode {
+-        Mode::Insert | Mode::Select => Paste::Cursor,
+-        Mode::Normal => Paste::Before,
+-    };
+     let (view, doc) = current!(cx.editor);
+-
+-    // VS Code's default editor.multiCursorPaste="spread": when pasted rows
+-    // match the number of selections, distribute one row to each selection in
+-    // document order. Otherwise every selection receives the full pasted block.
+-    let selection_count = doc.selection(view.id).len();
+-    if let Some(spread_values) = devtui_spread_paste_values(&contents, selection_count) {
+-        paste_impl(
+-            &spread_values,
+-            doc,
+-            view,
+-            paste,
+-            count,
+-            cx.editor.mode,
+-        );
+-    } else {
+-        paste_impl(&[contents], doc, view, paste, count, cx.editor.mode);
+-    }
++    doc.append_changes_to_history(view);
++    let selection = doc.selection(view.id).clone();
++    let values = devtui_spread_paste_values(&contents, selection.len());
++    let text = doc.text().slice(..);
++    let mut changes = Vec::with_capacity(selection.len());
++    let mut carets = SmallVec::with_capacity(selection.len());
++    let mut offset: isize = 0;
++    for (index, range) in selection.ranges().iter().enumerate() {
++        let (start, end) = if explicit {
++            (range.from(), range.to())
++        } else {
++            let cursor = range.cursor(text);
++            (cursor, cursor)
++        };
++        let value = values.as_ref().map(|rows| rows[index].as_str()).unwrap_or(&contents);
++        let value = LINE_ENDING_REGEX.replace_all(value, doc.line_ending.as_str()).repeat(count);
++        let length = value.chars().count();
++        let cursor = start.saturating_add_signed(offset) + length;
++        carets.push(Range::point(cursor));
++        offset += length as isize - (end - start) as isize;
++        changes.push((start, end, Some(Tendril::from(value))));
++    }
++    let transaction = Transaction::change(doc.text(), changes.into_iter())
++        .with_selection(Selection::new(carets, selection.primary_index()));
++    doc.apply(&transaction, view.id);
++    doc.append_changes_to_history(view);
++    cx.editor.devtui.explicit_selection = false;
++    cx.editor.devtui.column_selection_active = false;
+     exit_select_mode(cx);
+ }
+ 
