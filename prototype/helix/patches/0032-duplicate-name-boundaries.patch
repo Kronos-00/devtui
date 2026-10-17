@@ -1,0 +1,87 @@
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 4a5b6d8..929dbce 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1061,47 +1061,51 @@ fn clipboard_paths(editor: &mut Editor, root: &Path, paths: &[PathBuf], relative
+     }
+ }
+
+-fn next_copy_destination(directory: &Path, source: &Path) -> PathBuf {
+-    let name = source
+-        .file_name()
+-        .and_then(|name| name.to_str())
+-        .unwrap_or("copy");
+-    let (stem, extension) = if source.is_file() {
+-        match (source.file_stem().and_then(|s| s.to_str()), source.extension().and_then(|s| s.to_str())) {
+-            (Some(stem), Some(ext)) => (stem.to_string(), Some(ext.to_string())),
+-            _ => (name.to_string(), None),
+-        }
++// Match VS Code fileActions.incrementFileName's simple naming policy.
++// Keep non-numbered suffixes literal, special-case zero, and grow the name
++// rather than saturating a counter: saturation can retry the same existing
++// path forever and block the editor event loop.
++fn increment_copy_name(name: &str, is_directory: bool) -> String {
++    let (stem, extension) = if is_directory {
++        (name, String::new())
+     } else {
+-        (name.to_string(), None)
++        let path = Path::new(name);
++        match (path.file_stem().and_then(|s| s.to_str()), path.extension().and_then(|s| s.to_str())) {
++            (Some(stem), Some(ext)) => (stem, format!(".{ext}")),
++            _ => (name, String::new()),
++        }
+     };
+
+-    let split_copy = |value: &str| -> (String, Option<u32>) {
+-        if let Some((base, suffix)) = value.rsplit_once(" copy") {
+-            if suffix.is_empty() {
+-                return (base.to_string(), Some(2));
+-            }
+-            if let Ok(number) = suffix.trim_start().parse::<u32>() {
+-                return (base.to_string(), Some(number.saturating_add(1)));
+-            }
++    let incremented = if stem.strip_suffix(" copy").is_some_and(|base| !base.is_empty()) {
++        format!("{stem} 2")
++    } else if let Some((base, digits)) = stem.rsplit_once(" copy ").filter(|(base, digits)| {
++        !base.is_empty() && !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
++    }) {
++        match digits.parse::<u64>() {
++            Ok(0) => format!("{base} copy"),
++            // The reference uses Constants.MAX_SAFE_SMALL_INTEGER = 1 << 30.
++            Ok(number) if number < (1 << 30) => format!("{base} copy {}", number + 1),
++            _ => format!("{stem} copy"),
+         }
+-        (value.to_string(), None)
++    } else {
++        format!("{stem} copy")
+     };
++    format!("{incremented}{extension}")
++}
+
+-    let (base, mut number) = split_copy(&stem);
++fn next_copy_destination(directory: &Path, source: &Path) -> PathBuf {
++    let mut name = source
++        .file_name()
++        .and_then(|name| name.to_str())
++        .unwrap_or("copy")
++        .to_owned();
++    let is_directory = source.is_dir();
+     loop {
+-        let copied_stem = match number {
+-            None => format!("{base} copy"),
+-            Some(number) => format!("{base} copy {number}"),
+-        };
+-        let filename = extension
+-            .as_ref()
+-            .map(|ext| format!("{copied_stem}.{ext}"))
+-            .unwrap_or(copied_stem);
+-        let candidate = directory.join(filename);
++        name = increment_copy_name(&name, is_directory);
++        let candidate = directory.join(&name);
+         if fs::symlink_metadata(&candidate).is_err() {
+             return candidate;
+         }
+-        number = Some(number.unwrap_or(1).saturating_add(1));
+     }
+ }
+

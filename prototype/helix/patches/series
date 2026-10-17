@@ -29,3 +29,4 @@
 0029-overview-annotations.patch
 0030-caret-focus-and-context.patch
 0031-debug-launch-isolation.patch
+0032-duplicate-name-boundaries.patch
