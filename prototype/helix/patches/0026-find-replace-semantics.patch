@@ -1,0 +1,261 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 1632936..7a0fb8a 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -495,6 +495,7 @@ pub fn doc(&self) -> &str {
+         devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
+         devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
+         devtui_save_as, "Open Save As for the current buffer",
++        devtui_find, "Find text with case, word and regular-expression controls",
+         devtui_current_replace, "Open VS Code-style Replace in current file",
+         devtui_project_replace, "Open VS Code-style Replace in Files",
+         devtui_add_next_occurrence, "Add the next VS Code-style matching occurrence",
+@@ -5002,6 +5003,11 @@ fn devtui_save_as(cx: &mut Context) {
+     cx.editor.devtui_request_save_as(doc_id, false);
+ }
+ 
++fn devtui_find(cx: &mut Context) {
++    let prompt = ui::devtui::find_prompt(cx.editor);
++    cx.push_layer(Box::new(prompt));
++}
++
+ fn devtui_current_replace(cx: &mut Context) {
+     let doc_id = view!(cx.editor).doc;
+     cx.push_layer(Box::new(ui::devtui::current_replace_search_prompt(doc_id)));
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 96c4ba2..a98db86 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -384,9 +384,102 @@ pub enum ProjectReplaceItem {
+ #[derive(Clone, Debug, Default)]
+ pub struct ProjectReplaceData;
+ 
++/// Search controls are shared by Find and both Replace scopes. Their labels
++/// expose state; Alt+C/W/R and left-click toggle case/word/regular expression.
++pub struct DevTuiSearchPrompt {
++    prompt: Prompt,
++    find: bool,
++    area: helix_view::graphics::Rect,
++}
++impl DevTuiSearchPrompt {
++    fn new(prompt: Prompt, find: bool) -> Self { Self { prompt, find, area: Default::default() } }
++    fn toggle(&mut self, flag: char, cx: &mut crate::compositor::Context) {
++        match flag {
++            'c' => cx.editor.devtui.find_match_case = !cx.editor.devtui.find_match_case,
++            'w' => cx.editor.devtui.find_whole_word = !cx.editor.devtui.find_whole_word,
++            'r' => cx.editor.devtui.find_regex = !cx.editor.devtui.find_regex,
++            _ => return,
++        }
++        self.prompt.notify(cx, PromptEvent::Update);
++    }
++}
++impl crate::compositor::Component for DevTuiSearchPrompt {
++    fn handle_event(&mut self, event: &crate::compositor::Event, cx: &mut crate::compositor::Context) -> crate::compositor::EventResult {
++        use crate::compositor::{Event, EventResult};
++        use helix_view::{keyboard::{KeyCode, KeyModifiers}, input::{MouseButton, MouseEventKind}};
++        if let Event::Key(key) = event {
++            if key.modifiers.contains(KeyModifiers::ALT) {
++                if let KeyCode::Char(c @ ('c' | 'w' | 'r')) = key.code {
++                    self.toggle(c, cx); return EventResult::Consumed(None);
++                }
++            }
++            if self.find && key.code == KeyCode::Enter {
++                self.prompt.notify(cx, PromptEvent::Validate);
++                return EventResult::Consumed(None);
++            }
++        }
++        if let Event::Mouse(mouse) = event {
++            if mouse.kind == MouseEventKind::Down(MouseButton::Left) && mouse.row == self.area.bottom().saturating_sub(1) {
++                let x = mouse.column.saturating_sub(self.area.x);
++                let flag = if x < 5 { Some('c') } else if x < 10 { Some('w') } else if x < 15 { Some('r') } else { None };
++                if let Some(flag) = flag { self.toggle(flag, cx); return EventResult::Consumed(None); }
++            }
++        }
++        self.prompt.handle_event(event, cx)
++    }
++    fn render(&mut self, area: helix_view::graphics::Rect, surface: &mut Surface, cx: &mut crate::compositor::Context) {
++        self.area = area;
++        let mark = |yes| if yes { '+' } else { '-' };
++        let count = if self.find { cx.editor.devtui.find_result_count.map(|n| format!(" ({n} matches)")).unwrap_or_default() } else { String::new() };
++        self.prompt.set_label(format!("[Aa{}][W {}][.*{}] {}{}: ", mark(cx.editor.devtui.find_match_case), mark(cx.editor.devtui.find_whole_word), mark(cx.editor.devtui.find_regex), if self.find { "Find" } else { "Search" }, count));
++        self.prompt.render(area, surface, cx);
++    }
++    fn cursor(&self, area: helix_view::graphics::Rect, editor: &Editor) -> (Option<helix_core::Position>, helix_view::graphics::CursorKind) {
++        self.prompt.cursor(area, editor)
++    }
++}
++
++pub fn find_prompt(editor: &Editor) -> DevTuiSearchPrompt {
++    let view_id = editor.tree.focus;
++    let doc_id = editor.tree.get(view_id).doc;
++    let doc = editor.document(doc_id).expect("active document");
++    let start = doc.selection(view_id).primary().from();
++    let mut previous_query = String::new();
++    let mut current = start;
++    let prompt = Prompt::new(Cow::Borrowed("Find: "), None, ui::completers::none, move |cx, input, event| {
++        if event == PromptEvent::Abort || input.is_empty() { return; }
++        let Some(doc) = cx.editor.document(doc_id) else { return; };
++        let matcher = match project_replace_matcher(cx.editor, input) {
++            Ok(matcher) => matcher, Err(err) => { cx.editor.set_error(err.to_string()); return; }
++        };
++        let content = doc.text().to_string();
++        let changed = input != previous_query;
++        let offset = doc.text().char_to_byte(if changed { start } else { current }.min(doc.text().len_chars()));
++        let mut matches = Vec::new();
++        if let Err(err) = matcher.find_iter(content.as_bytes(), |m| { matches.push((m.start(), m.end())); true }) {
++            cx.editor.set_error(err.to_string()); return;
++        }
++        let chosen = matches.iter().copied().find(|(a, _)| if event == PromptEvent::Validate { *a > offset } else { *a >= offset }).or_else(|| matches.first().copied());
++        previous_query = input.to_string();
++        cx.editor.devtui.find_result_count = Some(matches.len());
++        if let Some((a,b)) = chosen {
++            let doc = cx.editor.document_mut(doc_id).unwrap();
++            let from = doc.text().byte_to_char(a); let to = doc.text().byte_to_char(b);
++            current = from;
++            doc.set_selection(view_id, helix_core::Selection::single(from,to));
++            cx.editor.devtui.explicit_selection = true;
++            cx.editor.ensure_cursor_in_view(view_id);
++            cx.editor.set_status(format!("{} matches",matches.len()));
++        } else { cx.editor.set_status("No results"); }
++    });
++    DevTuiSearchPrompt::new(prompt,true)
++}
++
+ fn project_replace_matcher(editor: &Editor, query: &str) -> anyhow::Result<grep_regex::RegexMatcher> {
+     RegexMatcherBuilder::new()
+-        .case_smart(editor.config().search.smart_case)
++        .case_insensitive(!editor.devtui.find_match_case)
++        .fixed_strings(!editor.devtui.find_regex)
++        .word(editor.devtui.find_whole_word)
+         .multi_line(true)
+         .build(query)
+         .map_err(Into::into)
+@@ -397,7 +490,9 @@ fn replacement_text(
+     haystack: &[u8],
+     caps: &impl Captures,
+     replacement: &str,
++    regex: bool,
+ ) -> String {
++    if !regex { return replacement.to_string(); }
+     let mut out = Vec::new();
+     caps.interpolate(
+         |name| matcher.capture_index(name),
+@@ -437,7 +532,7 @@ fn current_replace_scan(
+             .position(|&b| b == b'\n')
+             .map_or(bytes.len(), |idx| m.end() + idx);
+         let before = String::from_utf8_lossy(&bytes[line_start..line_end]).into_owned();
+-        let replacement_piece = replacement_text(&matcher, bytes, caps, replacement);
++        let replacement_piece = replacement_text(&matcher, bytes, caps, replacement, editor.devtui.find_regex);
+         let mut after = Vec::new();
+         after.extend_from_slice(&bytes[line_start..m.start()]);
+         after.extend_from_slice(replacement_piece.as_bytes());
+@@ -473,9 +568,10 @@ fn project_replace_apply(
+     replacement: &str,
+     target_ordinal: Option<usize>,
+ ) -> anyhow::Result<usize> {
+-    let already_open = editor.document_by_path(path).is_some();
+     let doc_id = editor.open(path, Action::Load)?;
+-    document_replace_apply(editor, doc_id, query, replacement, target_ordinal, !already_open)
++    // VS Code ReplaceService explicitly saves every touched resource after
++    // applying workspace replacements. In-file replacements remain dirty.
++    document_replace_apply(editor, doc_id, query, replacement, target_ordinal, true)
+ }
+ 
+ fn document_replace_apply(
+@@ -499,12 +595,9 @@ fn document_replace_apply(
+             let current = ordinal;
+             ordinal += 1;
+             if target_ordinal.is_none_or(|wanted| wanted == current) {
+-                caps.interpolate(
+-                    |name| matcher.capture_index(name),
+-                    original.as_bytes(),
+-                    replacement.as_bytes(),
+-                    dst,
+-                );
++                if editor.devtui.find_regex {
++                    caps.interpolate(|name| matcher.capture_index(name), original.as_bytes(), replacement.as_bytes(), dst);
++                } else { dst.extend_from_slice(replacement.as_bytes()); }
+                 applied += 1;
+             } else if let Some(m) = caps.get(0) {
+                 dst.extend_from_slice(&original.as_bytes()[m.start()..m.end()]);
+@@ -589,7 +682,7 @@ fn project_replace_scan(
+                 .position(|&b| b == b'\n')
+                 .map_or(bytes.len(), |idx| m.end() + idx);
+             let before = String::from_utf8_lossy(&bytes[line_start..line_end]).into_owned();
+-            let replacement_piece = replacement_text(&matcher, bytes, caps, replacement);
++            let replacement_piece = replacement_text(&matcher, bytes, caps, replacement, editor.devtui.find_regex);
+             let mut after = Vec::new();
+             after.extend_from_slice(&bytes[line_start..m.start()]);
+             after.extend_from_slice(replacement_piece.as_bytes());
+@@ -623,8 +716,8 @@ fn project_replace_scan(
+     Ok(items)
+ }
+ 
+-pub fn current_replace_search_prompt(doc_id: DocumentId) -> Prompt {
+-    Prompt::new(
++pub fn current_replace_search_prompt(doc_id: DocumentId) -> DevTuiSearchPrompt {
++    DevTuiSearchPrompt::new(Prompt::new(
+         Cow::Borrowed("Search: "),
+         Some('/'),
+         ui::completers::none,
+@@ -639,7 +732,7 @@ pub fn current_replace_search_prompt(doc_id: DocumentId) -> Prompt {
+                     });
+             }
+         },
+-    )
++    ), false)
+ }
+ 
+ pub fn current_replace_replacement_prompt(
+@@ -729,8 +822,8 @@ pub fn current_replace_picker(
+     }))
+ }
+ 
+-pub fn project_replace_search_prompt() -> Prompt {
+-    Prompt::new(
++pub fn project_replace_search_prompt() -> DevTuiSearchPrompt {
++    DevTuiSearchPrompt::new(Prompt::new(
+         Cow::Borrowed("Search: "),
+         Some('/'),
+         ui::completers::none,
+@@ -741,7 +834,7 @@ pub fn project_replace_search_prompt() -> Prompt {
+                 });
+             }
+         },
+-    )
++    ), false)
+ }
+ 
+ pub fn project_replace_replacement_prompt(editor: &Editor, query: String) -> Prompt {
+diff --git a/helix-term/src/ui/prompt.rs b/helix-term/src/ui/prompt.rs
+index a5e8c73..b2cac23 100644
+--- a/helix-term/src/ui/prompt.rs
++++ b/helix-term/src/ui/prompt.rs
+@@ -133,6 +133,11 @@ pub fn with_language(
+         self
+     }
+ 
++    pub(crate) fn set_label(&mut self, label: String) { self.prompt = label.into(); }
++    pub(crate) fn notify(&mut self, cx: &mut Context, event: PromptEvent) {
++        (self.callback_fn)(cx, &self.line, event);
++    }
++
+     pub fn line(&self) -> &String {
+         &self.line
+     }
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 6ba3b60..1b3bcaf 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1349,6 +1349,11 @@ pub struct DevTuiState {
+     pub column_selection_active: bool,
+     /// Distinguish deliberate selections from the modal one-character cursor.
+     pub explicit_selection: bool,
++    /// VS Code defaults: literal, case-insensitive, not whole-word.
++    pub find_regex: bool,
++    pub find_match_case: bool,
++    pub find_whole_word: bool,
++    pub find_result_count: Option<usize>,
+     /// Reveal a created/renamed item without disturbing the workspace root.
+     pub explorer_reveal: Option<PathBuf>,
+     /// UI requests produced by editor/command code and consumed by helix-term.
