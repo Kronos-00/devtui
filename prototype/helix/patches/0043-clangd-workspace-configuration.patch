@@ -1,0 +1,124 @@
+diff --git a/helix-lsp/src/client.rs b/helix-lsp/src/client.rs
+index cf69058..20a9eba 100644
+--- a/helix-lsp/src/client.rs
++++ b/helix-lsp/src/client.rs
+@@ -62,6 +62,8 @@ pub struct Client {
+     pub(crate) capabilities: OnceCell<lsp::ServerCapabilities>,
+     pub(crate) file_operation_interest: OnceLock<FileOperationsInterest>,
+     config: Option<Value>,
++    cpp_properties: Option<crate::cpp_properties::CppProperties>,
++    cpp_properties_enabled: bool,
+     root_path: std::path::PathBuf,
+     root_uri: Option<lsp::Url>,
+     workspace_folders: Mutex<Vec<lsp::WorkspaceFolder>>,
+@@ -80,6 +82,13 @@ pub fn try_add_doc(
+         doc_path: Option<&std::path::Path>,
+         may_support_workspace: bool,
+     ) -> bool {
++        if self.cpp_properties_enabled {
++            let workspace = helix_stdx::env::current_working_dir();
++            let source = crate::cpp_properties::discover(doc_path, &workspace);
++            let own_source = self.cpp_properties.as_ref().map(|properties| &properties.source);
++            if own_source != source.as_ref() { return false; }
++            if source.is_some() { return true; }
++        }
+         let (workspace, workspace_is_cwd) = find_workspace();
+         let workspace = path::normalize(workspace);
+         let root = find_lsp_workspace(
+@@ -224,6 +233,21 @@ pub fn start(
+         Arc<Notify>,
+     )> {
+         info!("Starting lsp {name:?} in root {root_path:?}");
++        let cpp_properties_enabled = crate::cpp_properties::is_clangd(&name, cmd);
++        let cpp_properties = if cpp_properties_enabled {
++            crate::cpp_properties::discover(None, &root_path).map(|source| {
++                let selected = std::env::var("DEVTUI_CPP_CONFIGURATION").ok();
++                crate::cpp_properties::CppProperties::read(source, selected.as_deref())
++            })
++        } else { None };
++        let mut args = args.to_vec();
++        let config = if let Some(properties) = &cpp_properties {
++            for warning in &properties.warnings { log::warn!("C/C++: {warning}"); }
++            let drivers = properties.query_drivers();
++            if !drivers.is_empty() { args.push(format!("--query-driver={}", drivers.join(","))); }
++            properties.initialize_options(config)
++        } else { config };
++
+         // Resolve path to the binary
+         let cmd = helix_stdx::env::which(cmd)?;
+ 
+@@ -262,6 +286,8 @@ pub fn start(
+             capabilities: OnceCell::new(),
+             file_operation_interest: OnceLock::new(),
+             config,
++            cpp_properties,
++            cpp_properties_enabled,
+             req_timeout,
+             root_path,
+             root_uri,
+@@ -273,6 +299,10 @@ pub fn start(
+         Ok((client, server_rx, initialize_notify))
+     }
+ 
++    pub fn cpp_properties_info(&self, document: Option<&std::path::Path>, language: &str) -> Option<Vec<(String, String)>> {
++        self.cpp_properties.as_ref().map(|properties| properties.info(document, language))
++    }
++
+     pub fn name(&self) -> &str {
+         &self.name
+     }
+@@ -963,6 +993,13 @@ pub fn text_document_did_open(
+         doc: &Rope,
+         language_id: String,
+     ) {
++        if let (Some(properties), Ok(file)) = (&self.cpp_properties, uri.to_file_path()) {
++            if let Some(change) = properties.change(&file, &language_id) {
++                // Queue the command before didOpen, so the first parse already
++                // uses the project's selected macros, includes and compiler.
++                self.did_change_configuration(change);
++            }
++        }
+         self.notify::<lsp::notification::DidOpenTextDocument>(lsp::DidOpenTextDocumentParams {
+             text_document: lsp::TextDocumentItem {
+                 uri,
+diff --git a/helix-lsp/src/lib.rs b/helix-lsp/src/lib.rs
+index d339180..150fbc6 100644
+--- a/helix-lsp/src/lib.rs
++++ b/helix-lsp/src/lib.rs
+@@ -925,8 +925,14 @@ fn start_client(
+ 
+     // `root_uri` and `workspace_folder` can be empty in case there is no workspace
+     // `root_url` can not, use `workspace` as a fallback
+-    let root_path = root.clone().unwrap_or_else(|| workspace.clone());
+-    let root_uri = root.and_then(|root| lsp::Url::from_file_path(root).ok());
++    let mut root_path = root.clone().unwrap_or_else(|| workspace.clone());
++    let mut root_uri = root.and_then(|root| lsp::Url::from_file_path(root).ok());
++    if cpp_properties::is_clangd(&name, &ls_config.command) {
++        if let Some(source) = cpp_properties::discover(doc_path, &helix_stdx::env::current_working_dir()) {
++            root_path = source.parent().and_then(std::path::Path::parent).unwrap().to_owned();
++            root_uri = lsp::Url::from_file_path(&root_path).ok();
++        }
++    }
+ 
+     if let Some(globset) = &ls_config.required_root_patterns {
+         if !root_path
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 16e0160..e1633a9 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1934,9 +1934,12 @@ pub fn lsp_info_select(editor: &Editor) -> Option<Select<LspInfoItem>> {
+     let doc = editor.document(editor.tree.get(editor.tree.focus).doc)?;
+     let items = doc
+         .language_servers()
+-        .map(|server| LspInfoItem {
+-            name: server.name().to_string(),
+-            id: server.id().to_string(),
++        .flat_map(|server| {
++            let mut items = vec![LspInfoItem { name: server.name().to_string(), id: server.id().to_string() }];
++            if let Some(details) = server.cpp_properties_info(doc.path(), doc.language_id().unwrap_or("cpp")) {
++                items.extend(details.into_iter().map(|(name, id)| LspInfoItem { name, id }));
++            }
++            items
+         })
+         .collect::<Vec<_>>();
+ 
