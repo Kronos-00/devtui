@@ -1,0 +1,317 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index 8dfa6e9..be11ffb 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -894,6 +894,8 @@ fn process_devtui_requests(&mut self) -> bool {
+                         "hover" => crate::commands::MappableCommand::hover,
+                         "rename_symbol" => crate::commands::MappableCommand::rename_symbol,
+                         "code_action" => crate::commands::MappableCommand::code_action,
++                        "devtui_format_document" => crate::commands::MappableCommand::devtui_format_document,
++                        "format_selections" => crate::commands::MappableCommand::format_selections,
+                         "devtui_copy_to_clipboard" => crate::commands::MappableCommand::devtui_copy_to_clipboard,
+                         "devtui_cut_to_clipboard" => crate::commands::MappableCommand::devtui_cut_to_clipboard,
+                         "devtui_paste_from_clipboard" => crate::commands::MappableCommand::devtui_paste_from_clipboard,
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index a32986b..20d2c2d 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -521,6 +521,7 @@ pub fn doc(&self) -> &str {
+         indent, "Indent selection",
+         unindent, "Unindent selection",
+         format_selections, "Format selection",
++        devtui_format_document, "Format the current document",
+         join_selections, "Join lines inside selection",
+         join_selections_space, "Join lines inside selection and select spaces",
+         keep_selections, "Keep selections matching regex",
+@@ -3873,7 +3874,9 @@ async fn make_format_callback(
+     let format = format.await;
+ 
+     let call: job::Callback = Callback::Editor(Box::new(move |editor| {
+-        if !editor.documents.contains_key(&doc_id) || !editor.tree.contains(view_id) {
++        if !editor.documents.contains_key(&doc_id) || !editor.tree.contains(view_id)
++            || (write.is_none() && editor.tree.get(view_id).doc != doc_id)
++        {
+             return;
+         }
+ 
+@@ -5690,87 +5693,91 @@ fn unindent(cx: &mut Context) {
+     exit_select_mode(cx);
+ }
+ 
++fn devtui_format_document(cx: &mut Context) {
++    {
++        let (view, doc) = current!(cx.editor);
++        doc.append_changes_to_history(view);
++    }
++    let (view, doc) = current_ref!(cx.editor);
++    let Some(format) = doc.format(cx.editor) else {
++        cx.editor.set_error("No configured formatter supports this document");
++        return;
++    };
++    cx.jobs.callback(make_format_callback(doc.id(), doc.version(), view.id, format, None));
++}
++
+ fn format_selections(cx: &mut Context) {
+     use helix_lsp::{lsp, util::range_to_lsp_range};
+-
++    let logical = devtui_logical_column_selection(cx.editor);
++    let selected = devtui_has_selection(cx.editor);
+     let (view, doc) = current!(cx.editor);
+-    let view_id = view.id;
+-
+-    // via lsp if available
+-    // TODO: else via tree-sitter indentation calculations
+-
+-    if doc.selection(view_id).len() != 1 {
+-        cx.editor
+-            .set_error("format_selections only supports a single selection for now");
+-        return;
+-    }
+-
+-    // TODO extra LanguageServerFeature::FormatSelections?
+-    // maybe such that LanguageServerFeature::Format contains it as well
+-    let Some(language_server) = doc
+-        .language_servers_with_feature(LanguageServerFeature::Format)
+-        .find(|ls| {
+-            matches!(
+-                ls.capabilities().document_range_formatting_provider,
+-                Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_))
+-            )
+-        })
+-    else {
+-        cx.editor
+-            .set_error("No configured language server supports range formatting");
++    let Some(server) = doc.range_formatting_language_server() else {
++        cx.editor.set_error("No configured language server supports range formatting");
+         return;
+     };
+-
+-    let offset_encoding = language_server.offset_encoding();
+-    let ranges: Vec<lsp::Range> = doc
+-        .selection(view_id)
+-        .iter()
+-        .map(|range| range_to_lsp_range(doc.text(), *range, offset_encoding))
+-        .collect();
+-
+-    // TODO: handle fails
+-    // TODO: concurrent map over all ranges
+-
+-    let range = ranges[0];
+-
+-    let future = language_server
+-        .text_document_range_formatting(
+-            doc.identifier(),
+-            range,
+-            lsp::FormattingOptions {
+-                tab_size: doc.tab_width() as u32,
+-                insert_spaces: matches!(doc.indent_style, IndentStyle::Spaces(_)),
+-                ..Default::default()
+-            },
+-            None,
+-        )
+-        .unwrap();
+-
++    doc.append_changes_to_history(view);
++    let encoding = server.offset_encoding();
+     let text = doc.text().clone();
++    let selection = logical.unwrap_or_else(|| doc.selection(view.id).clone());
++    let mut requested: Vec<lsp::Range> = selection.iter().map(|range| {
++        let range = if range.is_empty() || !selected {
++            let line = text.char_to_line(range.from());
++            Range::new(text.line_to_char(line), line_end_char_index(&text.slice(..), line))
++        } else { *range };
++        range_to_lsp_range(&text, range, encoding)
++    }).collect();
++    let key = |pos: lsp::Position| (pos.line, pos.character);
++    requested.sort_by_key(|range| key(range.start));
++    let mut ranges: Vec<lsp::Range> = Vec::new();
++    for range in requested {
++        if let Some(last) = ranges.last_mut().filter(|last| key(range.start) <= key(last.end)) {
++            if key(range.end) > key(last.end) { last.end = range.end; }
++        } else { ranges.push(range); }
++    }
++    let identifier = doc.identifier();
++    let options = lsp::FormattingOptions {
++        tab_size: doc.tab_width() as u32,
++        insert_spaces: matches!(doc.indent_style, IndentStyle::Spaces(_)),
++        ..Default::default()
++    };
++    let view_id = view.id;
+     let doc_id = doc.id();
+-    let doc_version = doc.version();
+-
+-    tokio::spawn(async move {
+-        match future.await {
+-            Ok(Some(res)) => {
+-                let transaction =
+-                    helix_lsp::util::generate_transaction_from_edits(&text, res, offset_encoding);
+-                job::dispatch(move |editor, _compositor| {
+-                    let Some(doc) = editor.document_mut(doc_id) else {
+-                        return;
+-                    };
+-                    // Updating a desynced document causes problems with applying the transaction
+-                    if doc.version() != doc_version {
+-                        return;
+-                    }
+-                    doc.apply(&transaction, view_id);
+-                })
+-                .await
++    let version = doc.version();
++    let future = async move {
++        let compute = |range| {
++            server.text_document_range_formatting(identifier.clone(), range, options.clone(), None)
++                .ok_or_else(|| FormatterError::LanguageServer("Range formatting is unavailable".into()))
++        };
++        let mut edits = Vec::new();
++        for range in &ranges {
++            edits.push(compute(*range)?.await
++                .map_err(|error| FormatterError::LanguageServer(error.to_string()))?.unwrap_or_default());
++        }
++        // Like VS Code, recompute a union when formatter expansion makes two
++        // responses overlap. Never clip edits back to the originally selected
++        // text: clang-format can expand to a complete syntactic entity.
++        loop {
++            let mut conflict = None;
++            'scan: for i in 0..edits.len() {
++                for j in i + 1..edits.len() {
++                    if edits[i].iter().any(|a| edits[j].iter().any(|b| {
++                        key(a.range.start) <= key(b.range.end) && key(b.range.start) <= key(a.range.end)
++                    })) { conflict = Some((i, j)); break 'scan; }
++                }
+             }
+-            Err(err) => log::error!("format sections failed: {err}"),
+-            Ok(None) => (),
++            let Some((i, j)) = conflict else { break; };
++            let range = lsp::Range {
++                start: if key(ranges[i].start) < key(ranges[j].start) { ranges[i].start } else { ranges[j].start },
++                end: if key(ranges[i].end) > key(ranges[j].end) { ranges[i].end } else { ranges[j].end },
++            };
++            let combined = compute(range)?.await
++                .map_err(|error| FormatterError::LanguageServer(error.to_string()))?.unwrap_or_default();
++            ranges.remove(j); ranges.remove(i); ranges.push(range);
++            edits.remove(j); edits.remove(i); edits.push(combined);
+         }
+-    });
++        Ok(helix_lsp::util::generate_transaction_from_edits(&text, edits.into_iter().flatten().collect(), encoding))
++    };
++    cx.jobs.callback(make_format_callback(doc_id, version, view_id, future, None));
+ }
+ 
+ fn join_selections_impl(cx: &mut Context, select_space: bool) {
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 4366513..16e0160 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -72,6 +72,8 @@ pub enum EditorContextAction {
+     Hover,
+     Rename,
+     CodeAction,
++    FormatDocument,
++    FormatSelection,
+     Cut,
+     Copy,
+     Paste,
+@@ -91,6 +93,8 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+             Self::Hover => "Show Hover",
+             Self::Rename => "Rename Symbol",
+             Self::CodeAction => "Code Action",
++            Self::FormatDocument => "Format Document",
++            Self::FormatSelection => "Format Selection",
+             Self::Cut => "Cut",
+             Self::Copy => "Copy",
+             Self::Paste => "Paste",
+@@ -111,6 +115,8 @@ fn command(self) -> &'static str {
+             Self::Hover => "hover",
+             Self::Rename => "rename_symbol",
+             Self::CodeAction => "code_action",
++            Self::FormatDocument => "devtui_format_document",
++            Self::FormatSelection => "format_selections",
+             Self::Cut => "devtui_cut_to_clipboard",
+             Self::Copy => "devtui_copy_to_clipboard",
+             Self::Paste => "devtui_paste_from_clipboard",
+@@ -220,6 +226,8 @@ pub fn editor_context_select(editor: &Editor) -> Select<EditorContextItem> {
+             EditorContextAction::Hover => Feature::Hover,
+             EditorContextAction::Rename => Feature::RenameSymbol,
+             EditorContextAction::CodeAction => Feature::CodeAction,
++            EditorContextAction::FormatDocument => return doc.is_some_and(|doc| doc.can_format()),
++            EditorContextAction::FormatSelection => return doc.is_some_and(|doc| doc.range_formatting_language_server().is_some()),
+             EditorContextAction::Copy | EditorContextAction::Cut | EditorContextAction::Paste => return true,
+             EditorContextAction::Delete => return crate::commands::devtui_has_selection(editor),
+         };
+@@ -236,11 +244,14 @@ pub fn editor_context_select(editor: &Editor) -> Select<EditorContextItem> {
+             EditorContextAction::Hover,
+             EditorContextAction::Rename,
+             EditorContextAction::CodeAction,
++            EditorContextAction::FormatDocument,
++            EditorContextAction::FormatSelection,
+             EditorContextAction::Cut,
+             EditorContextAction::Copy,
+             EditorContextAction::Paste,
+             EditorContextAction::Delete,
+-        ].into_iter().map(|action| EditorContextItem { action, enabled: enabled(action) }),
++        ].into_iter().filter(|action| !matches!(action, EditorContextAction::FormatSelection) || crate::commands::devtui_has_selection(editor))
++            .map(|action| EditorContextItem { action, enabled: enabled(action) }),
+         (),
+         |editor, item, event| {
+             if event == PromptEvent::Validate {
+diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
+index eabf969..33d5b61 100644
+--- a/helix-view/src/document.rs
++++ b/helix-view/src/document.rs
+@@ -860,6 +860,25 @@ pub fn auto_format(
+         }
+     }
+ 
++    /// Capability checks must not start a formatting request while building a menu.
++    pub fn can_format(&self) -> bool {
++        self.language_config().and_then(|config| config.formatter.as_ref())
++            .is_some_and(|formatter| helix_stdx::env::which(&formatter.command).is_ok())
++            || self.language_servers_with_feature(LanguageServerFeature::Format).next().is_some()
++    }
++
++    /// Range formatting is a distinct LSP capability. A range-only provider is
++    /// valid even when it does not advertise whole-document formatting.
++    pub fn range_formatting_language_server(&self) -> Option<Arc<Client>> {
++        self.language_config()?.language_servers.iter().find_map(|features| {
++            let server = self.language_servers.get(&features.name)?;
++            (server.is_initialized() && features.has_feature(LanguageServerFeature::Format)
++                && matches!(server.capabilities().document_range_formatting_provider,
++                    Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_))))
++                .then(|| Arc::clone(server))
++        })
++    }
++
+     /// If supported, returns the changes that should be applied to this document in order
+     /// to format it nicely.
+     // We can't use anyhow::Result here since the output of the future has to be
+@@ -973,12 +992,8 @@ pub fn format(
+         )?;
+ 
+         let fut = async move {
+-            let edits = request
+-                .await
+-                .unwrap_or_else(|e| {
+-                    log::warn!("LSP formatting failed: {}", e);
+-                    Default::default()
+-                })
++            let edits = request.await
++                .map_err(|error| FormatterError::LanguageServer(error.to_string()))?
+                 .unwrap_or_default();
+             Ok(helix_lsp::util::generate_transaction_from_edits(
+                 &text,
+@@ -2526,6 +2541,7 @@ pub enum FormatterError {
+     WaitForOutputFailed,
+     InvalidUtf8Output,
+     NonZeroExitStatus(Option<String>),
++    LanguageServer(String),
+ }
+ 
+ impl std::error::Error for FormatterError {}
+@@ -2540,6 +2556,7 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+             Self::WaitForOutputFailed => write!(f, "Waiting for formatter output failed"),
+             Self::InvalidUtf8Output => write!(f, "Invalid UTF-8 formatter output"),
+             Self::NonZeroExitStatus(Some(output)) => write!(f, "Formatter error: {}", output),
++            Self::LanguageServer(message) => write!(f, "Formatting failed: {message}"),
+             Self::NonZeroExitStatus(None) => {
+                 write!(f, "Formatter exited with non zero exit status")
+             }

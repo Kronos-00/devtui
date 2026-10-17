@@ -19,13 +19,13 @@ command = "cmake-language-server"
 [[language]]
 name = "c"
 language-servers = ["clangd"]
-formatter = { command = "clang-format" }
+formatter = { command = "clang-format", args = ["--assume-filename=%{file_path_absolute}"] }
 auto-format = true
 
 [[language]]
 name = "cpp"
 language-servers = ["clangd"]
-formatter = { command = "clang-format" }
+formatter = { command = "clang-format", args = ["--assume-filename=%{file_path_absolute}"] }
 auto-format = true
 [[language]]
 name = "cmake"
