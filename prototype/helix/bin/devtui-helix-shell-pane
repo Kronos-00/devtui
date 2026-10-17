@@ -1,5 +1,12 @@
-#!/usr/bin/env bash
-set -e
-unset DEVTUI_HELIX_SOCKET
-unset DEVTUI_HELIX_EDITOR_PANE_FILE
-exec bash --noprofile --norc -i
+#!/usr/bin/env -S python3 -I -S
+"""Preserve exported variables/functions without sourcing shell startup files."""
+import os
+import sys
+
+for key in ("DEVTUI_HELIX_SOCKET", "DEVTUI_HELIX_EDITOR_PANE_FILE"):
+    os.environ.pop(key, None)
+try:
+    os.execvp("bash", ["bash", "--noprofile", "--norc", "-i"])
+except OSError as error:
+    print(f"Cannot start Bash: {error}", file=sys.stderr)
+    raise SystemExit(127)

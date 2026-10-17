@@ -1,30 +1,35 @@
-#!/usr/bin/env bash
-set -e
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  echo 'Usage: devtui-helix [project-directory]'
-  echo 'Starts the Helix edition without changing your shell or SDK environment.'
-  exit 0
-fi
-ROOT="${1:-$PWD}"
-cd "$ROOT"
-export DEVTUI_HELIX_EDITOR_PANE_FILE="/tmp/devtui-helix-editor-${UID}-$$.pane"
-export DEVTUI_HELIX_SOCKET="/tmp/devtui-helix-${UID}-$$.sock"
-rm -f "$DEVTUI_HELIX_EDITOR_PANE_FILE" "$DEVTUI_HELIX_SOCKET"
+#!/usr/bin/env -S python3 -I -S
+"""Start the terminal workspace without running another shell startup pass."""
+import argparse
+import os
+import shutil
+import sys
+from pathlib import Path
 
-cols="${DEVTUI_COLUMNS:-}"
-if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
-  cols="$(stty size 2>/dev/null | awk '{print $2}')"
-fi
-if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
-  cols="$(tput cols 2>/dev/null || true)"
-fi
-if ! [[ "$cols" =~ ^[0-9]+$ ]] || [ "$cols" -lt 20 ]; then
-  cols=120
-fi
+parser = argparse.ArgumentParser(description="Start the Helix edition with the inherited environment.")
+parser.add_argument("directory", nargs="?", default=os.getcwd(), help="project directory")
+args = parser.parse_args()
+try:
+    os.chdir(args.directory)
+except OSError as error:
+    parser.error(str(error))
 
-layout="$HOME/.config/zellij/layouts/dev-helix.kdl"
-if [ "$cols" -ge 240 ]; then
-  layout="$HOME/.config/zellij/layouts/dev-helix-wide.kdl"
-fi
-
-exec zellij --config "$HOME/.config/devtui-helix/zellij.kdl" --layout "$layout"
+# Only private IPC bookkeeping is introduced; compiler, SDK, locale, PATH and
+# shell-startup variables remain exactly as exported by the calling process.
+identity = f"{os.getuid()}-{os.getpid()}"
+os.environ["DEVTUI_HELIX_EDITOR_PANE_FILE"] = f"/tmp/devtui-helix-editor-{identity}.pane"
+os.environ["DEVTUI_HELIX_SOCKET"] = f"/tmp/devtui-helix-{identity}.sock"
+try:
+    columns = int(os.environ.get("DEVTUI_COLUMNS", "0"))
+except ValueError:
+    columns = 0
+if columns < 20:
+    columns = shutil.get_terminal_size(fallback=(120, 30)).columns
+home = Path(os.environ.get("HOME", str(Path.home())))
+layout = home / ".config/zellij/layouts" / ("dev-helix-wide.kdl" if columns >= 240 else "dev-helix.kdl")
+command = ["zellij", "--config", str(home / ".config/devtui-helix/zellij.kdl"), "--layout", str(layout)]
+try:
+    os.execvp(command[0], command)
+except OSError as error:
+    print(f"Cannot start Zellij: {error}", file=sys.stderr)
+    raise SystemExit(127)
