@@ -1,5 +1,7 @@
 # main 额外功能 → VS Code 语义 → Helix 迁移审计
 
+后续 Unicode 列选择复核发现并修复了原测试未覆盖的边界，见 [Unicode 列选择修复与验收](UNICODE_COLUMN_SELECTION.md)。原有验收是当时的测试结果，不代表覆盖了这些新增案例。
+
 基线：`main@b10574bee0c85ef6ed51b620729d212760ee2520`。逐文件 SHA-256 清单见 [main-baseline.json](main-baseline.json)。
 VS Code 源码参考：`e97039dd9293ef2b9df8876d0bc8c0c8ff87f871`；文件和符号出处见 [VSCODE_REFERENCES.md](VSCODE_REFERENCES.md)。
 

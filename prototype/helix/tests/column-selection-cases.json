@@ -1,0 +1,653 @@
+[
+  {
+    "name": "cjk_left_half",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文中文中文中文中文",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 12,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 13,
+        "text": "3456789ab"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 7,
+        "text": "文中文中文"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 13,
+        "text": "3456789ab"
+      }
+    ],
+    "clipboard": "3456789ab\n文中文中文\n3456789ab",
+    "cut": "012cdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n中中文中文\n012cdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "cjk_right_half",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文中文中文中文中文",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 2,
+    "to": 11,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 3,
+        "head": 12,
+        "text": "23456789a"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 6,
+        "text": "文中文中"
+      },
+      {
+        "row": 3,
+        "anchor": 3,
+        "head": 12,
+        "text": "23456789a"
+      }
+    ],
+    "clipboard": "23456789a\n文中文中\n23456789a",
+    "cut": "01bcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n中文中文中文\n01bcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "cjk_short_eol",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文中文文",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 24,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 25,
+        "text": "3456789abcdefghijklmn"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 6,
+        "text": "文中文文"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 25,
+        "text": "3456789abcdefghijklmn"
+      }
+    ],
+    "clipboard": "3456789abcdefghijklmn\n文中文文\n3456789abcdefghijklmn",
+    "cut": "012opqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n中\n012opqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "mixed_short_final",
+    "lines": [
+      "中文中文中文中文中文中文中文abcdefghijklmnopqrstuvwx",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文说明文字abcdefghijklmnopqrst，必要时可以进行查阅。"
+    ],
+    "from": 41,
+    "to": 70,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 28,
+        "head": 39,
+        "text": "nopqrstuvwx"
+      },
+      {
+        "row": 2,
+        "anchor": 42,
+        "head": 63,
+        "text": "FGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "row": 3,
+        "anchor": 42,
+        "head": 63,
+        "text": "FGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "row": 4,
+        "anchor": 42,
+        "head": 63,
+        "text": "FGHIJKLMNOPQRSTUVWXYZ"
+      },
+      {
+        "row": 5,
+        "anchor": 31,
+        "head": 38,
+        "text": "可以进行查阅。"
+      }
+    ],
+    "clipboard": "nopqrstuvwx\nFGHIJKLMNOPQRSTUVWXYZ\nFGHIJKLMNOPQRSTUVWXYZ\nFGHIJKLMNOPQRSTUVWXYZ\n可以进行查阅。",
+    "cut": "中文中文中文中文中文中文中文abcdefghijklm\n0123456789abcdefghijklmnopqrstuvwxyzABCDE\n0123456789abcdefghijklmnopqrstuvwxyzABCDE\n0123456789abcdefghijklmnopqrstuvwxyzABCDE\n中文说明文字abcdefghijklmnopqrst，必要时\n"
+  },
+  {
+    "name": "japanese",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "日本語の文字列と仮名カタカナ",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 18,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 19,
+        "text": "3456789abcdefgh"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 10,
+        "text": "本語の文字列と仮"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 19,
+        "text": "3456789abcdefgh"
+      }
+    ],
+    "clipboard": "3456789abcdefgh\n本語の文字列と仮\n3456789abcdefgh",
+    "cut": "012ijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n日名カタカナ\n012ijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "korean",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "한글문자열과너비테스트",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 18,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 19,
+        "text": "3456789abcdefgh"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 10,
+        "text": "글문자열과너비테"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 19,
+        "text": "3456789abcdefgh"
+      }
+    ],
+    "clipboard": "3456789abcdefgh\n글문자열과너비테\n3456789abcdefgh",
+    "cut": "012ijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n한스트\n012ijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "fullwidth_punctuation",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "ＡＢ，Ｃ。Ｄ！Ｅ？Ｆ：Ｇ",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 14,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 15,
+        "text": "3456789abcd"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 8,
+        "text": "Ｂ，Ｃ。Ｄ！"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 15,
+        "text": "3456789abcd"
+      }
+    ],
+    "clipboard": "3456789abcd\nＢ，Ｃ。Ｄ！\n3456789abcd",
+    "cut": "012efghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\nＡＥ？Ｆ：Ｇ\n012efghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "accented_and_combining",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "éàñöéöáz",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 8,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 9,
+        "text": "34567"
+      },
+      {
+        "row": 2,
+        "anchor": 4,
+        "head": 12,
+        "text": "öéöáz"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 9,
+        "text": "34567"
+      }
+    ],
+    "clipboard": "34567\nöéöáz\n34567",
+    "cut": "01289abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\néàñ\n01289abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "emoji",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "😀😃😄😁😆😅😂🙂🙃",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 12,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 13,
+        "text": "3456789ab"
+      },
+      {
+        "row": 2,
+        "anchor": 3,
+        "head": 13,
+        "text": "😃😄😁😆😅"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 13,
+        "text": "3456789ab"
+      }
+    ],
+    "clipboard": "3456789ab\n😃😄😁😆😅\n3456789ab",
+    "cut": "012cdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n😀😂🙂🙃\n012cdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "emoji_sequences",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "👩‍💻👍🏽🇨🇳👨‍👩‍👧‍👦abc",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 9,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 10,
+        "text": "345678"
+      },
+      {
+        "row": 2,
+        "anchor": 6,
+        "head": 26,
+        "text": "👍🏽🇨🇳👨‍👩‍👧‍👦a"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 10,
+        "text": "345678"
+      }
+    ],
+    "clipboard": "345678\n👍🏽🇨🇳👨‍👩‍👧‍👦a\n345678",
+    "cut": "0129abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n👩‍💻bc\n0129abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "tab_left_nearest",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "\tabcdefghijkl",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 8,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 9,
+        "text": "34567"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 6,
+        "text": "abcd"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 9,
+        "text": "34567"
+      }
+    ],
+    "clipboard": "34567\nabcd\n34567",
+    "cut": "01289abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n\tefghijkl\n01289abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "tab_right_nearest",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "a\tbcdefghijkl",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 0,
+    "to": 3,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 1,
+        "head": 4,
+        "text": "012"
+      },
+      {
+        "row": 2,
+        "anchor": 1,
+        "head": 3,
+        "text": "a\t"
+      },
+      {
+        "row": 3,
+        "anchor": 1,
+        "head": 4,
+        "text": "012"
+      }
+    ],
+    "clipboard": "012\na\t\n012",
+    "cut": "3456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\nbcdefghijkl\n3456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "tab_tie",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "\tabcdefghijkl",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 2,
+    "to": 6,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 3,
+        "head": 7,
+        "text": "2345"
+      },
+      {
+        "row": 2,
+        "anchor": 1,
+        "head": 4,
+        "text": "\tab"
+      },
+      {
+        "row": 3,
+        "anchor": 3,
+        "head": 7,
+        "text": "2345"
+      }
+    ],
+    "clipboard": "2345\n\tab\n2345",
+    "cut": "016789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\ncdefghijkl\n016789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "tab_and_cjk",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中\t文\t字\t测试",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 3,
+    "to": 11,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 12,
+        "text": "3456789a"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 6,
+        "text": "\t文\t字"
+      },
+      {
+        "row": 3,
+        "anchor": 4,
+        "head": 12,
+        "text": "3456789a"
+      }
+    ],
+    "clipboard": "3456789a\n\t文\t字\n3456789a",
+    "cut": "012bcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n中\t测试\n012bcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "zero_width",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文中文",
+      "\tabcdef",
+      "é😀abc",
+      ""
+    ],
+    "from": 3,
+    "to": 3,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 4,
+        "head": 4,
+        "text": ""
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 2,
+        "text": ""
+      },
+      {
+        "row": 3,
+        "anchor": 2,
+        "head": 2,
+        "text": ""
+      },
+      {
+        "row": 4,
+        "anchor": 5,
+        "head": 5,
+        "text": ""
+      },
+      {
+        "row": 5,
+        "anchor": 1,
+        "head": 1,
+        "text": ""
+      }
+    ],
+    "clipboard": "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n\n中文中文\n\n\tabcdef\n\né😀abc\n\n\n",
+    "cut": ""
+  },
+  {
+    "name": "sparse_and_eol",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文",
+      "",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中"
+    ],
+    "from": 4,
+    "to": 16,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 5,
+        "head": 17,
+        "text": "456789abcdef"
+      },
+      {
+        "row": 2,
+        "anchor": 3,
+        "head": 3,
+        "text": ""
+      },
+      {
+        "row": 4,
+        "anchor": 5,
+        "head": 17,
+        "text": "456789abcdef"
+      }
+    ],
+    "clipboard": "456789abcdef\n中文\n\n456789abcdef",
+    "cut": "0123ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n\n0123ghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n中\n"
+  },
+  {
+    "name": "all_eol",
+    "lines": [
+      "中文",
+      "é",
+      ""
+    ],
+    "from": 20,
+    "to": 24,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 3,
+        "head": 3,
+        "text": ""
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 2,
+        "text": ""
+      },
+      {
+        "row": 3,
+        "anchor": 1,
+        "head": 1,
+        "text": ""
+      }
+    ],
+    "clipboard": "中文\n\né\n\n\n",
+    "cut": ""
+  },
+  {
+    "name": "empty_range_inside_tab",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "\tabcd",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 1,
+    "to": 2,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 2,
+        "head": 3,
+        "text": "1"
+      },
+      {
+        "row": 3,
+        "anchor": 2,
+        "head": 3,
+        "text": "1"
+      }
+    ],
+    "clipboard": "1\n1",
+    "cut": "023456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n\tabcd\n023456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  },
+  {
+    "name": "rounded_caret_inside_cjk",
+    "lines": [
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "中文中文",
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ],
+    "from": 2,
+    "to": 3,
+    "tabSize": 4,
+    "selection": [
+      {
+        "row": 1,
+        "anchor": 3,
+        "head": 4,
+        "text": "2"
+      },
+      {
+        "row": 2,
+        "anchor": 2,
+        "head": 2,
+        "text": ""
+      },
+      {
+        "row": 3,
+        "anchor": 3,
+        "head": 4,
+        "text": "2"
+      }
+    ],
+    "clipboard": "2\n中文中文\n\n2",
+    "cut": "013456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n013456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+  }
+]

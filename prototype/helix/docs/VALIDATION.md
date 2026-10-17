@@ -1,5 +1,7 @@
 # Final migration acceptance
 
+This is the original migration acceptance snapshot. The subsequent Unicode column-selection correction and its installed-build evidence are recorded in [UNICODE_COLUMN_SELECTION.md](UNICODE_COLUMN_SELECTION.md).
+
 This report supersedes the early overlay-picker prototype results. The migrated edition now includes the persistent Explorer and complete portable custom-feature scope recorded in [MAIN_FEATURE_AUDIT.md](MAIN_FEATURE_AUDIT.md). Machine-readable executed results, test names and build provenance are in [acceptance-results.json](acceptance-results.json).
 
 ## Frozen inputs and installed build

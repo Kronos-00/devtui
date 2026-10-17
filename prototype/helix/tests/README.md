@@ -24,6 +24,7 @@ TOOLS="$HOME/.local/opt/devtui/helix-tools/bin"
 PY=.venv-tests/bin/python
 $PY -I prototype/helix/tests/terminal_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/strict_parity.py --binary "$HX" --runtime "$RT"
+$PY -I prototype/helix/tests/column_selection_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/deployment_regression.py
 $PY -I prototype/helix/tests/service_smoke.py --tools "$TOOLS"
 $PY -I prototype/helix/tests/debugger_regression.py --tools "$TOOLS"
@@ -66,3 +67,27 @@ The workspace smoke test starts and stops only its own disposable named Zellij s
 The editor-debugger suite additionally exercises F9/F5 and debug menu controls inside Helix, checks that the editor retains its terminal foreground group, and verifies the selected virtual environment is used by the debuggee.
 
 To additionally verify an applied source checkout against `HELIX_TREE`, run `audit_manifest.py --source /path/to/applied/helix`. This checks implementation paths, patch order inventory and named regression references, not merely whether a checklist file exists.
+
+## Unicode column-selection oracle
+
+`column_selection_regression.py` checks 19 source-derived fixtures in all four
+horizontal/vertical drag directions (76 combinations). Additional cases cover
+mixed empty carets, clipboard/cut, Unicode typing and undo/redo, bracketed paste,
+arrow collapse, horizontal scrolling, right-edge scrolloff and soft wrapping.
+There are 8 unittest methods and 96 case/direction combinations in total.
+
+`column-selection-cases.json` is computed by executing pinned VS Code
+`ColumnSelection`, `CursorColumns`, string/grapheme utilities, copy and cut code.
+The Node adapter supplies only model access and data containers; it does not
+reimplement those algorithms. Source hashes are checked before execution.
+Default `emptySelectionClipboard=true` is used. To independently verify:
+
+```bash
+node --disable-warning=ExperimentalWarning prototype/helix/tests/vscode_column_oracle.mjs /path/to/reference-cache --fetch
+```
+
+Node 24 or newer is required for its built-in TypeScript transform. Omit `--fetch`
+to verify offline against an existing cache. `--write` deliberately regenerates
+the fixture after reference changes; normal runs compare without changing it.
+All committed fixtures use generic text. User documents are tested only through
+isolated temporary copies and are never embedded in the test suite.

@@ -106,14 +106,6 @@
       "reviewed_behavior": "explicit project replace saves target text files"
     },
     {
-      "key": "viewModelImpl",
-      "path": "src/vs/editor/common/viewModel/viewModelImpl.ts",
-      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
-      "sha256": "3689f786022e48730d6b449514d3d816ff1f34acbc85af2205f5885029f34e23",
-      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/viewModel/viewModelImpl.ts",
-      "reviewed_behavior": "getPlainTextToCopy, empty-selection line copy, selection ordering"
-    },
-    {
       "key": "cursorTypeEditOperations",
       "path": "src/vs/editor/common/cursor/cursorTypeEditOperations.ts",
       "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
@@ -162,12 +154,68 @@
       "sha256": "708a8e84f236614c4ef56d5f264b8cc558d57e0cd48acfbfd0a857d32f1ef1e6"
     },
     {
+      "key": "cursorColumns",
+      "path": "src/vs/editor/common/core/cursorColumns.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "ad77ad13290b47a1102d567a762d6fe8cd7bb7ae4e1f3b5ae0f2338939679702",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/core/cursorColumns.ts",
+      "reviewed_behavior": "visible columns, grapheme boundaries, nearest-edge snapping and ties"
+    },
+    {
+      "key": "strings",
+      "path": "src/vs/base/common/strings.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "8419f80b407c97e88e5c7ebd73732737c364b360050740bb0ab4cab52680f811",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/strings.ts",
+      "reviewed_behavior": "grapheme segmentation and fullwidth/emoji classification"
+    },
+    {
+      "key": "charCode",
+      "path": "src/vs/base/common/charCode.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "ddb45e08c0f66a253a52ca5eaafc705687ceda45229ce5c9a1aa64d0fb34e510",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/charCode.ts",
+      "reviewed_behavior": "source oracle character constants"
+    },
+    {
       "key": "uint",
       "path": "src/vs/base/common/uint.ts",
       "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
       "sha256": "0b1102ade974b21bd46bd789027c2dd7959366202e9b87287b13be0a8cf3b05a",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/uint.ts",
-      "reviewed_behavior": "MAX_SAFE_SMALL_INTEGER limit used by duplicate filename increments"
+      "reviewed_behavior": "source oracle Unicode constants"
+    },
+    {
+      "key": "lazy",
+      "path": "src/vs/base/common/lazy.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "c24572ac4d39148c814f914e69c9fc40a7ce66836ef9eda65f80ce47f2357893",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/lazy.ts",
+      "reviewed_behavior": "source oracle lazy initialization"
+    },
+    {
+      "key": "viewModelImpl",
+      "path": "src/vs/editor/common/viewModel/viewModelImpl.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "3689f786022e48730d6b449514d3d816ff1f34acbc85af2205f5885029f34e23",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/viewModel/viewModelImpl.ts",
+      "reviewed_behavior": "copy mixed empty/nonempty selections with default emptySelectionClipboard"
+    },
+    {
+      "key": "cursorDeleteOperations",
+      "path": "src/vs/editor/common/cursor/cursorDeleteOperations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "a969af06b4adf17202497e2b6c5414fa646d49a6d37b533e523b1475e55255be",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorDeleteOperations.ts",
+      "reviewed_behavior": "cut participating empty ranges as whole lines"
+    },
+    {
+      "key": "clipboardUtils",
+      "path": "src/vs/editor/browser/controller/editContext/clipboardUtils.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "6439c5ebdb96099dae538e9fdff81f09fb23ace3ab7c42608093d516a919ba69",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/controller/editContext/clipboardUtils.ts",
+      "reviewed_behavior": "clipboard collection uses emptySelectionClipboard for rectangular selections"
     }
   ]
 }

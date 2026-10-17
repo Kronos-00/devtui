@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "validated_date_utc": "2026-10-17",
+  "code_revision": "47f7a844f3c9c0be33e7d32ca281ce295db43ca5",
+  "previous_patched_tree": "9d038c3072a7d71ab177e8228ba92b97eaa6eed6",
+  "build": {
+    "upstream": "ba40e547426b0f9896c8bdc699a4ab11f2b37dbc",
+    "patched_tree": "f5af604b88198b97bb98c50e71d2c2aff6f33414",
+    "rust": "1.95.0",
+    "binary_sha256": "802575a4df5051c0970c94b7259d6eefe87d0ceea136028b61aa306a7475f373",
+    "patches": {
+      "0001-mouse-foundation.patch": "de0b7ad71fcde81c089562dcb77e6bc5280f3601125db254b9493589ab2eaa96",
+      "0002-editor-lifecycle.patch": "123409485e3156a39d8abc7d34aff2e4d19c12886422f0d7f5b4c9782a72fb38",
+      "0003-persistent-explorer.patch": "5da602891c219ed314875b95412b547fa3a8f41de4ec1f3bc10dca16feeb388b",
+      "0004-explorer-file-actions.patch": "58ae08cbd56e3d155478fb294b69031776479e6ab4ae55efd3d7400cbf1989de",
+      "0005-preview-promotion.patch": "d06c5c4874e51d97360ed69be5d19c5502c2ef869d57ce6ca01b43e8fe440a02",
+      "0006-editor-context-ipc.patch": "6534d34a8ba51193b2381d9894693eb88c3bde8dffcbddc9b089b04661bb9885",
+      "0007-ipc-editor-focus.patch": "0b2356a6688210d17fff31cb612ef2a4172ab86562b06f274254ed477b3946b8",
+      "0008-column-selection.patch": "8632b17672a6b6fa95ff01bfcd5415fab21a4b1c258c667ae54e138a8755a901",
+      "0009-editor-scrollbar.patch": "fe84f6e8b2cfd7feca3eafc1195418bbdf601542e2e75a4c60f125e17615f82d",
+      "0010-inactive-regions.patch": "4e0c34a9a997dcbdee483580321d455f93b03ab15e5ca1df121521a59b7c3411",
+      "0011-shortcut-actions.patch": "eb669001caae68d908599de769194c1a21aae6cabedb1ce363f46122b80c41f8",
+      "0012-project-replace.patch": "795eb59c2807e8de3cab9f73025ec88d7972c3ea1026d649c5fc4addd4121017",
+      "0013-editing-shortcuts.patch": "2f609c9427a7e563db927f5c1135ac82febfbaeee5ab9f1ae835a6ca26d0a239",
+      "0014-column-clipboard.patch": "8101c58a8c41b6365e59ab01a0dd10024f57409572ff9acfd01ba5041dbd8f54",
+      "0015-explorer-keyboard.patch": "2d23d50e5c4fa6670d86c0cae249ee9edac96c9c73cb2ee7fd1af2acd2628c29",
+      "0016-language-debug-integration.patch": "aed5149eeab4afed7fd5d4f325817883c25e534255e17ec16666573452ce9543",
+      "0017-save-as-confirmation.patch": "889089d9cb1365a29207d22c0c07da0f023902f452a1260b315b56de4a6ed3a1",
+      "0018-menu-pointer-actions.patch": "9e849c390e75569a75ea4f40444fc67031d67debf2f9ece1822914bccefa2aff",
+      "0019-explorer-filesystem-safety.patch": "19917f197cde21257f44d164afb6a147eba7d36fb34020443a84f19c29942ea6",
+      "0020-save-as-safety.patch": "b3f514d507848702512d890d23fa909d33412469b93f44fccee90df89928baa8",
+      "0021-ipc-request-safety.patch": "ffb36bf3247d3267a7ab1c7ed57f7974144c35d5cea3115c9cfe8993b93758ae",
+      "0022-navigation-parity.patch": "f578133ee38bb2b71bf41bd74855ef7e1a60cc9f76f003fa635ac6d7e6a6bb19",
+      "0023-command-dispatch-and-replace.patch": "8a6d7e7bda0de754e11b379a49738eedcc3909c53711eaf55b5a1c20e90b28bf",
+      "0024-explorer-workflow-parity.patch": "8b8da31c504aed096a40358f2242ba685a3ac6d65c1747d967f34c16c89ccdec",
+      "0025-explicit-selection-editing.patch": "68f285fcaeb70af28f9d2d4df5dd945f1055a72d7cdd490492b19232777abdec",
+      "0026-find-replace-semantics.patch": "aaa217c111cb505580540035f07cb07dcb612320a98cd5dadb5cb286b7ce24fb",
+      "0027-navigation-and-key-routing.patch": "2fc763be1e1799b2e59af854f27873c65d25564bbe40bd265ceb2f1c56f66e91",
+      "0028-paste-replacement-transactions.patch": "1b0aec78943408ff4090dca580a9b841bf1c7c4e24548f6988f7e066c7b37a70",
+      "0029-overview-annotations.patch": "751e218d042015a613b4c9541a8a5a6a85c444773c23638a5e041253049c572e",
+      "0030-caret-focus-and-context.patch": "cfd048c6bbcbc8aa98864a666ea07eabc2f54e7667da5ed598944ba06ca2a9b0",
+      "0031-debug-launch-isolation.patch": "4756f31d94f36fb7c4c3da3fcba9600fa72cfbf86124ae6348261f01fd3386fa",
+      "0032-duplicate-name-boundaries.patch": "7d29f9e479c1f50e796f25e696e43c80eb8bcb8ec9fa5c61ebdbf4ee6c19b188",
+      "0033-unicode-column-selection.patch": "87686edf7114bbc9b635c08873e5f0bb573a72736e6744eb4226f972cd8d9ae7",
+      "0034-grapheme-sequence-widths.patch": "4f087c9e1d91932d02bf0ce93525c7c89cf0c23132b2fbca69901bfcedf48be1"
+    }
+  },
+  "release_validation": {
+    "fresh_upstream_patch_application": "PASS",
+    "canonical_source_tree_check": "PASS",
+    "locked_offline_release_build": "PASS",
+    "installed_binary_matches_tested_binary": "PASS",
+    "runtime_unchanged": "PASS"
+  },
+  "reference_revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+  "verified_reference_files": [
+    "cursorColumnSelection",
+    "cursorMoveOperations",
+    "cursorTypeOperations",
+    "clipboard",
+    "cursorColumns",
+    "strings",
+    "charCode",
+    "uint",
+    "lazy",
+    "viewModelImpl",
+    "cursorDeleteOperations",
+    "clipboardUtils"
+  ],
+  "source_oracle_cases": 19,
+  "reported_document_reproduction": {
+    "isolated_copy_checks": [
+      {
+        "visible_columns_zero_based": [
+          41,
+          65
+        ],
+        "participating_rows": 5,
+        "final_line_range": [
+          32,
+          40
+        ],
+        "clipboard_matches_reference": true,
+        "replacement_matches_reference": true
+      },
+      {
+        "visible_columns_zero_based": [
+          41,
+          70
+        ],
+        "participating_rows": 5,
+        "final_line_range": [
+          32,
+          40
+        ],
+        "clipboard_matches_reference": true,
+        "replacement_matches_reference": true
+      },
+      {
+        "visible_columns_zero_based": [
+          27,
+          48
+        ],
+        "participating_rows": 5,
+        "final_line_range": [
+          22,
+          36
+        ],
+        "clipboard_matches_reference": true,
+        "replacement_matches_reference": true
+      }
+    ],
+    "original_unchanged": true
+  },
+  "installed_unittest_suites": {
+    "column_selection_regression.py": {
+      "result": "PASS",
+      "methods": 8,
+      "seconds": 96.466,
+      "passed_test_methods": [
+        "test_arrows_collapse_ranges_but_move_empty_unicode_carets",
+        "test_horizontal_viewport_offset_uses_visual_columns",
+        "test_oracle_copy_and_typing_all_drag_directions",
+        "test_paste_keeps_empty_carets_and_replaces_nonempty_ranges",
+        "test_right_edge_scrolloff_does_not_move_drag_anchor",
+        "test_softwrapped_wide_graphemes_select_both_visual_rows",
+        "test_sparse_and_empty_caret_cut",
+        "test_unicode_replacement_undo_redo"
+      ],
+      "source_fixtures": 19,
+      "drag_direction_combinations": 76,
+      "total_case_combinations": 96
+    },
+    "terminal_regression.py": {
+      "result": "PASS",
+      "methods": 31,
+      "seconds": 46.246,
+      "passed_test_methods": [
+        "test_active_tab_visible_when_overflowing",
+        "test_blank_tab_strip_creates_untitled",
+        "test_close_glyph_remains_clickable_when_dirty",
+        "test_copy_on_self_duplicates_beside_folder",
+        "test_create_existing_does_not_truncate",
+        "test_current_replace_in_untitled",
+        "test_current_replace_preserves_unsaved_state",
+        "test_existing_pinned_tab_does_not_pin_other_preview",
+        "test_explorer_modifiers_and_path_copy",
+        "test_explorer_wheel_does_not_reset_viewport",
+        "test_external_ipc_preserves_editor_and_tree",
+        "test_failed_save_does_not_close_on_later_manual_save",
+        "test_incomplete_ipc_request_cannot_block_following_client",
+        "test_live_multicursor_before_escape",
+        "test_markdown_source_and_symbol_menu",
+        "test_middle_from_insert_no_clipboard_query",
+        "test_mouse_close_dialog_cancel_and_discard",
+        "test_mouse_file_menu_copy_paste",
+        "test_normal_escape_clears_additional_carets",
+        "test_palette_debug_menu_and_interpreter_prompt",
+        "test_preview_pinning_and_single_click_after_insert",
+        "test_project_replace",
+        "test_quit_command_families",
+        "test_recursive_paste_is_rejected_before_creation",
+        "test_rename_collision_does_not_overwrite",
+        "test_resize_reverse_pause_and_minimum",
+        "test_save_as_overwrite_cancel_then_confirm",
+        "test_scrollbar_drags_without_editing_document",
+        "test_sparse_column_copy_and_spread_paste",
+        "test_symlink_copy_does_not_follow_cycle",
+        "test_untitled_wq_and_cancel"
+      ]
+    },
+    "strict_parity.py": {
+      "result": "PASS",
+      "methods": 38,
+      "seconds": 51.541,
+      "passed_test_methods": [
+        "test_ZZ_ZQ_and_full_quit_aliases",
+        "test_all_short_rows_fallback_and_boundary_navigation",
+        "test_clangd_definition_navigation_in_editor",
+        "test_copy_after_keyboard_motion_copies_line_not_block_cursor",
+        "test_copy_name_large_counter_never_stalls",
+        "test_copy_name_zero_and_literal_suffix_match_vscode",
+        "test_ctrl_d_first_selects_word_second_adds_occurrence",
+        "test_ctrl_d_in_insert_selects_current_word",
+        "test_ctrl_z_undoes_pending_insert_transaction",
+        "test_cut_selection_then_terminal_paste",
+        "test_delete_dirty_document_warns_and_does_not_resurrect_file",
+        "test_double_click_and_keyboard_open_focus_editor",
+        "test_duplicate_names_keep_extensions_and_advance_existing_copies",
+        "test_empty_file_clipboard_cannot_activate_paste",
+        "test_external_open_dismisses_transient_picker",
+        "test_external_utf16_column",
+        "test_find_defaults_literal_case_insensitive_and_mouse_toggle",
+        "test_find_whole_word_option",
+        "test_in_file_replace_literal_dollar_and_regex_opt_in",
+        "test_invalid_regex_does_not_modify_document",
+        "test_mouse_dirty_save_and_named_save_as",
+        "test_new_file_opens_pinned_and_nested_parent_is_revealed",
+        "test_new_file_rejects_parent_escape",
+        "test_new_folder_and_hidden_toggle",
+        "test_overview_search_and_named_mark_navigation",
+        "test_paste_replacement_undo_is_single_transaction",
+        "test_pasted_single_file_opens_pinned_without_losing_tree",
+        "test_plain_drag_is_half_open_and_copy_preserves_selection",
+        "test_project_replace_saves_explicitly_even_open_documents",
+        "test_quick_open_from_tree_focus_accepts_immediate_edit",
+        "test_rectangle_left_and_right_collapse_exactly_to_boundary",
+        "test_rectangle_typing_replaces_instead_of_inserting_before",
+        "test_redo_terminal_bridge_is_not_reference_key",
+        "test_reverse_rectangle_and_mismatch_paste",
+        "test_root_path_clipboard",
+        "test_shift_selection_and_context_preserve_group",
+        "test_symbol_actions_without_provider_are_disabled",
+        "test_tree_left_right_preserve_keyboard_context"
+      ]
+    }
+  },
+  "rust_core_and_tui": {
+    "passed": 265,
+    "ignored": 3,
+    "failed": 0
+  },
+  "test_files_sha256": {
+    "column_selection_regression.py": "326a5e9dbea030394342320af4d7edd3987657bd5c2b615caf84fa0e88a97bda",
+    "column-selection-cases.json": "65dbb32918bf6ea2df8fc4d6595e1c63441aa7702d2d8399ef6ff5afbbcc8d77",
+    "vscode_column_oracle.mjs": "e7379b9f52c95bdb0d9922b8109572d125428b2fa97404ccb5a72d462f4e1633",
+    "terminal_regression.py": "da9ba2f6b4bd8d29be9563c695f955f8e6342c35cf05c5cd27328b72a424cb3f",
+    "strict_parity.py": "2a4afe96d49b6d397231282f8cfc83695e7dcc47cae8f54232df1056a8fdc9a3"
+  }
+}

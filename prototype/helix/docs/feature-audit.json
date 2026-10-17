@@ -1891,7 +1891,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -1899,7 +1904,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -1918,7 +1924,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -1926,14 +1937,15 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
         {
           "id": "05-05",
           "feature": "短行夹取",
-          "reference_logic": "零宽拖选夹取到 EOL",
+          "reference_logic": "按显示列吸附到最近字素边界；与矩形相交的短行截到行尾，不能因左边界落入宽字符而跳过",
           "main_assessment": "主分支已有；迁移保留并核对行为",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
@@ -1945,7 +1957,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -1953,7 +1970,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -1972,7 +1990,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -1980,7 +2003,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -1999,7 +2023,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2007,7 +2036,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2026,7 +2056,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2034,7 +2069,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2053,7 +2089,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2061,7 +2102,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2080,7 +2122,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2088,7 +2135,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2107,7 +2155,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2115,7 +2168,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2134,7 +2188,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2142,7 +2201,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2161,7 +2221,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2169,14 +2234,15 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
         {
           "id": "05-14",
           "feature": "稀疏复制",
-          "reference_logic": "不为真正跳过的行制造空白剪贴板行",
+          "reference_logic": "真正跳过的行不参与复制；参与的空光标按默认 emptySelectionClipboard 复制整行",
           "main_assessment": "主分支已有；迁移保留并核对行为",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
@@ -2188,7 +2254,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2196,7 +2267,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2215,7 +2287,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2223,7 +2300,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2242,7 +2320,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2250,7 +2333,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
@@ -2269,7 +2353,12 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorColumns",
+            "strings",
+            "viewModelImpl",
+            "cursorDeleteOperations",
+            "clipboardUtils"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
@@ -2277,7 +2366,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "column_selection_regression.py"
           ],
           "status": "implemented"
         },
