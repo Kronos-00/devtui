@@ -24,6 +24,7 @@ TOOLS="$HOME/.local/opt/devtui/helix-tools/bin"
 PY=.venv-tests/bin/python
 $PY -I prototype/helix/tests/terminal_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/strict_parity.py --binary "$HX" --runtime "$RT"
+$PY -I prototype/helix/tests/delete_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/column_selection_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/deployment_regression.py
 $PY -I prototype/helix/tests/service_smoke.py --tools "$TOOLS"
@@ -91,3 +92,17 @@ to verify offline against an existing cache. `--write` deliberately regenerates
 the fixture after reference changes; normal runs compare without changing it.
 All committed fixtures use generic text. User documents are tested only through
 isolated temporary copies and are never embedded in the test suite.
+
+## Explorer deletion and status-row regression
+
+`delete_regression.py` uses only disposable files. It verifies one permanent
+confirmation, cancellation, recursive and multiple-item deletion, symlinks,
+concurrent removal, open-buffer cleanup and preserved terminal geometry.
+A stub `gio` proves that neither its presence nor its exit status affects the
+terminal provider. Multiline and overlong status messages must stay on one row.
+
+The permission-error fixture runs the same editor binary against a directory
+without write permission. When the test runner is root on Linux, only the
+fixture's forked child drops to numeric uid/gid 65534; readable binary/theme
+copies are placed in its temporary directory. It does not change the caller's
+identity, configuration or project permissions.

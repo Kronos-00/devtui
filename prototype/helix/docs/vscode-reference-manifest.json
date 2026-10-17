@@ -31,7 +31,7 @@
       "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
       "sha256": "d62e3626b8ff42ae6d3f11f3bae6d8a34bceb98813121df609a0f4dab146cce1",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/fileActions.ts",
-      "reviewed_behavior": "create, paste, duplicate naming, source/descendant checks, reveal/open after operations"
+      "reviewed_behavior": "create, paste, duplicate naming, source/descendant checks, reveal/open after operations; permanent confirmation, delete failure and explicit retry handling"
     },
     {
       "key": "fileCommands",
@@ -55,7 +55,7 @@
       "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
       "sha256": "004206b811b6d2c584be8cd9769d838bb202eb6431ed918f7b6aa89852ba2bfb",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/views/explorerView.ts",
-      "reviewed_behavior": "open/preserveFocus/pinned and right-click selection routing"
+      "reviewed_behavior": "open/preserveFocus/pinned and right-click selection routing; trash action requires both files.enableTrash and provider Trash capability"
     },
     {
       "key": "cursorColumnSelection",
@@ -216,6 +216,30 @@
       "sha256": "6439c5ebdb96099dae538e9fdff81f09fb23ace3ab7c42608093d516a919ba69",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/controller/editContext/clipboardUtils.ts",
       "reviewed_behavior": "clipboard collection uses emptySelectionClipboard for rectangular selections"
+    },
+    {
+      "key": "fileActionsContribution",
+      "path": "src/vs/workbench/contrib/files/browser/fileActions.contribution.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "eaca0eb4de006d40c9758621abaa2a9663c359beabee75cbf46e34d66cce82b6",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/fileActions.contribution.ts",
+      "reviewed_behavior": "Delete key and context action follow ExplorerResourceMoveableToTrash"
+    },
+    {
+      "key": "diskFileSystemProvider",
+      "path": "src/vs/platform/files/node/diskFileSystemProvider.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "14395e336ff9215f3b07f21df74634ec2b4269cfed0c28d070a99322da3db308",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/platform/files/node/diskFileSystemProvider.ts",
+      "reviewed_behavior": "Node disk provider does not advertise Trash capability"
+    },
+    {
+      "key": "remoteFileSystemProviderServer",
+      "path": "src/vs/server/node/remoteFileSystemProviderServer.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "37e101d01c22e88a5e33588f2fcd1f4850b08597f8131b1966ed4788fe789e03",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/server/node/remoteFileSystemProviderServer.ts",
+      "reviewed_behavior": "Remote server uses Node disk file provider"
     }
   ]
 }

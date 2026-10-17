@@ -1713,7 +1713,10 @@
           "reference_sources": [
             "fileActions",
             "fileCommands",
-            "explorerView"
+            "explorerView",
+            "fileActionsContribution",
+            "diskFileSystemProvider",
+            "remoteFileSystemProviderServer"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
@@ -1721,7 +1724,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "delete_regression.py"
           ],
           "status": "implemented"
         },
@@ -1736,7 +1740,10 @@
           "reference_sources": [
             "fileActions",
             "fileCommands",
-            "explorerView"
+            "explorerView",
+            "fileActionsContribution",
+            "diskFileSystemProvider",
+            "remoteFileSystemProviderServer"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
@@ -1744,22 +1751,26 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "delete_regression.py"
           ],
           "status": "implemented"
         },
         {
           "id": "04-17",
-          "feature": "回收站优先",
-          "reference_logic": "能使用回收站时使用；失败须明确询问永久删除",
-          "main_assessment": "主分支永久删除；Helix 按 VS Code 默认安全逻辑改进",
+          "feature": "按文件提供者选择删除方式",
+          "reference_logic": "仅 files.enableTrash 且文件提供者声明 Trash 能力时使用回收站；当前终端提供者直接确认永久删除",
+          "main_assessment": "原先无条件调用 gio 不符合远程提供者语义，已改为确认后永久删除",
           "baseline_sources": [
             "config/nvim/lua/config/devtui_explorer_context.lua"
           ],
           "reference_sources": [
             "fileActions",
             "fileCommands",
-            "explorerView"
+            "explorerView",
+            "fileActionsContribution",
+            "diskFileSystemProvider",
+            "remoteFileSystemProviderServer"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
@@ -1767,7 +1778,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "delete_regression.py"
           ],
           "status": "implemented"
         },
@@ -1782,7 +1794,10 @@
           "reference_sources": [
             "fileActions",
             "fileCommands",
-            "explorerView"
+            "explorerView",
+            "fileActionsContribution",
+            "diskFileSystemProvider",
+            "remoteFileSystemProviderServer"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
@@ -1790,7 +1805,8 @@
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "delete_regression.py"
           ],
           "status": "implemented"
         },
