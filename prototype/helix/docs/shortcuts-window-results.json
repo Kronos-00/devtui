@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "validated_date_utc": "2026-10-17",
+  "code_revision": "0c970c9a63364360f07125634b18aa0efbd6616d",
+  "workspace_build": {
+    "zellij_version": "0.45.1",
+    "upstream_archive_sha256": "5cbe711437d2a61afd9287165f6aca0bcccb9ab1473633665a5b11ed55467852",
+    "rust": "1.95.0",
+    "binary_sha256": "82198f75504150dfb4169aa74d44f8e210ac6e236a94223cdb87b722183f6625",
+    "shortcuts_plugin_sha256": "0086f1f673d05561a054c858c8a7f383414b671d7f535c5c66c28aaecee800c7",
+    "inputs": {
+      "patches/zellij-0.45.1-mouse-passthrough.patch": "22358576364164747f3099231b628d76746d7830df3db41cdda37ce3a3b7b1a8",
+      "prototype/helix/zellij/cheatsheet-window.patch": "833f7d0181315f819ccc1feea1030c5839ba3e93edecfd8ed94d0e7d828f52af",
+      "patches/zellij-link-devtui.patch": "5ace78390d065e72fcf2007bdf6d8d4c6ca23d2652acbfd7ffad4923891b6df8",
+      "prototype/helix/zellij/link-paths.patch": "0e3172ccb1b7479f9cf88bc3e536579bcd6cd59ec22a1edd324ff620152a5255",
+      "prototype/helix/shortcuts/Cargo.toml": "8e4ab960b11233f68ebb97d826c959f7f491b5b72a724721b4efd34911eb1e07",
+      "prototype/helix/shortcuts/src/main.rs": "2e4fcc07ebde1f658a801c35a8dbb763d0aceb812e076a3f8418763c5e4dac1c",
+      "prototype/helix/shortcuts/shortcuts.json": "56757abd4f8560e617f94d886ece4a0d7fe7327f7207dfddb3b9100d2775c3e0"
+    },
+    "builtin_plugins": {
+      "about.wasm": "74f1829b9a680348b5c4ec1a96f6560e0c8d3873f14d81dbfc9a7f6d716afbed",
+      "compact-bar.wasm": "5b1f5cb06ba784c54002d947808718d55343ca84e49c3f5ae89b0cae85c50502",
+      "configuration.wasm": "7165ef63eb0eb73f5b718ebe64f9277452820ee4d75f282dfc67b1ec98c15365",
+      "fixture-plugin-for-tests.wasm": "00ced10693fc77e67b58d2d25c7f3479e0897829bc4006242da81966175d0214",
+      "layout-manager.wasm": "db5eb7cc26a834783350d5c68503a574ecb22dc5c8f018eab63f74dbb01b34d9",
+      "link.wasm": "97ecffc1b3d232eecb7dd1d8539e79db7104ce7493ab687d9c4bda17212bd80b",
+      "multiple-select.wasm": "28df558c5b6b2c1388e265cdd64456341c83112796f8f40e24122a008b2173d6",
+      "plugin-manager.wasm": "4d82a14b5a85ef716a03701f950e9211e6599a1cf1fb15a945b6837b1c831303",
+      "session-manager.wasm": "630a87ff6ad45e1c630a744e09d6ceeec511bf81ffa347011edec1af5f1852c3",
+      "share.wasm": "a68fde43aa43398b2ba468de764632321f4793516a627230cb09568484547f2e",
+      "status-bar.wasm": "ee6dfd3c2b4035b7ca5293c715d7d62e7e245b511c2384b4541f77cc2490f642",
+      "strider.wasm": "950bb1cdf5be3538b71b6b5ac0b1c324727aad5d89a145efb1c4eb5d1306daac",
+      "tab-bar.wasm": "5e5b1f962cc3417d7c38a873f1a0aa3e80b8d78cd157422863428d974a123ff7"
+    }
+  },
+  "unchanged_editor_build": {
+    "upstream": "ba40e547426b0f9896c8bdc699a4ab11f2b37dbc",
+    "patched_tree": "1668c00e3d78fa0f5dc8bd329c6664d330b5e101",
+    "rust": "1.95.0",
+    "binary_sha256": "74569f931ab1bcf6decd8f76321019421f783a688d649d3795bd359a2a417ae6",
+    "patches": {
+      "0001-mouse-foundation.patch": "de0b7ad71fcde81c089562dcb77e6bc5280f3601125db254b9493589ab2eaa96",
+      "0002-editor-lifecycle.patch": "123409485e3156a39d8abc7d34aff2e4d19c12886422f0d7f5b4c9782a72fb38",
+      "0003-persistent-explorer.patch": "5da602891c219ed314875b95412b547fa3a8f41de4ec1f3bc10dca16feeb388b",
+      "0004-explorer-file-actions.patch": "58ae08cbd56e3d155478fb294b69031776479e6ab4ae55efd3d7400cbf1989de",
+      "0005-preview-promotion.patch": "d06c5c4874e51d97360ed69be5d19c5502c2ef869d57ce6ca01b43e8fe440a02",
+      "0006-editor-context-ipc.patch": "6534d34a8ba51193b2381d9894693eb88c3bde8dffcbddc9b089b04661bb9885",
+      "0007-ipc-editor-focus.patch": "0b2356a6688210d17fff31cb612ef2a4172ab86562b06f274254ed477b3946b8",
+      "0008-column-selection.patch": "8632b17672a6b6fa95ff01bfcd5415fab21a4b1c258c667ae54e138a8755a901",
+      "0009-editor-scrollbar.patch": "fe84f6e8b2cfd7feca3eafc1195418bbdf601542e2e75a4c60f125e17615f82d",
+      "0010-inactive-regions.patch": "4e0c34a9a997dcbdee483580321d455f93b03ab15e5ca1df121521a59b7c3411",
+      "0011-shortcut-actions.patch": "eb669001caae68d908599de769194c1a21aae6cabedb1ce363f46122b80c41f8",
+      "0012-project-replace.patch": "795eb59c2807e8de3cab9f73025ec88d7972c3ea1026d649c5fc4addd4121017",
+      "0013-editing-shortcuts.patch": "2f609c9427a7e563db927f5c1135ac82febfbaeee5ab9f1ae835a6ca26d0a239",
+      "0014-column-clipboard.patch": "8101c58a8c41b6365e59ab01a0dd10024f57409572ff9acfd01ba5041dbd8f54",
+      "0015-explorer-keyboard.patch": "2d23d50e5c4fa6670d86c0cae249ee9edac96c9c73cb2ee7fd1af2acd2628c29",
+      "0016-language-debug-integration.patch": "aed5149eeab4afed7fd5d4f325817883c25e534255e17ec16666573452ce9543",
+      "0017-save-as-confirmation.patch": "889089d9cb1365a29207d22c0c07da0f023902f452a1260b315b56de4a6ed3a1",
+      "0018-menu-pointer-actions.patch": "9e849c390e75569a75ea4f40444fc67031d67debf2f9ece1822914bccefa2aff",
+      "0019-explorer-filesystem-safety.patch": "19917f197cde21257f44d164afb6a147eba7d36fb34020443a84f19c29942ea6",
+      "0020-save-as-safety.patch": "b3f514d507848702512d890d23fa909d33412469b93f44fccee90df89928baa8",
+      "0021-ipc-request-safety.patch": "ffb36bf3247d3267a7ab1c7ed57f7974144c35d5cea3115c9cfe8993b93758ae",
+      "0022-navigation-parity.patch": "f578133ee38bb2b71bf41bd74855ef7e1a60cc9f76f003fa635ac6d7e6a6bb19",
+      "0023-command-dispatch-and-replace.patch": "8a6d7e7bda0de754e11b379a49738eedcc3909c53711eaf55b5a1c20e90b28bf",
+      "0024-explorer-workflow-parity.patch": "8b8da31c504aed096a40358f2242ba685a3ac6d65c1747d967f34c16c89ccdec",
+      "0025-explicit-selection-editing.patch": "68f285fcaeb70af28f9d2d4df5dd945f1055a72d7cdd490492b19232777abdec",
+      "0026-find-replace-semantics.patch": "aaa217c111cb505580540035f07cb07dcb612320a98cd5dadb5cb286b7ce24fb",
+      "0027-navigation-and-key-routing.patch": "2fc763be1e1799b2e59af854f27873c65d25564bbe40bd265ceb2f1c56f66e91",
+      "0028-paste-replacement-transactions.patch": "1b0aec78943408ff4090dca580a9b841bf1c7c4e24548f6988f7e066c7b37a70",
+      "0029-overview-annotations.patch": "751e218d042015a613b4c9541a8a5a6a85c444773c23638a5e041253049c572e",
+      "0030-caret-focus-and-context.patch": "cfd048c6bbcbc8aa98864a666ea07eabc2f54e7667da5ed598944ba06ca2a9b0",
+      "0031-debug-launch-isolation.patch": "4756f31d94f36fb7c4c3da3fcba9600fa72cfbf86124ae6348261f01fd3386fa",
+      "0032-duplicate-name-boundaries.patch": "7d29f9e479c1f50e796f25e696e43c80eb8bcb8ec9fa5c61ebdbf4ee6c19b188",
+      "0033-unicode-column-selection.patch": "87686edf7114bbc9b635c08873e5f0bb573a72736e6744eb4226f972cd8d9ae7",
+      "0034-grapheme-sequence-widths.patch": "4f087c9e1d91932d02bf0ce93525c7c89cf0c23132b2fbca69901bfcedf48be1",
+      "0035-provider-aware-permanent-delete.patch": "8a0b7298665180252eff117903391bfe036a6bf384828ed7523b7090d3052f16",
+      "0036-single-line-status-rendering.patch": "71fcaec68cb02ebbbf0daa9781e5981f0644e784fb38b1d184c99a6195b12473",
+      "0037-pointer-context-menu-placement.patch": "8e8a5c8a2de0503c4dd32707aeb662a980d57f3fa7b98ad5af74b9ebe58abb82",
+      "0038-context-menu-retargeting.patch": "9023828346878911536b52db3fec7ce7d783d56450ddc04f967e16d5432970a4",
+      "0039-unified-editor-context-and-paste.patch": "daac109bac541218f3a82d66a9ce330a72efef33a2529ca26bedabefe888b899",
+      "0040-double-click-word-selection.patch": "f7b96e85fe27b8d9d0f85e2129f1c2133b562af25107e8ebce5672deb51c5a9f",
+      "0041-editor-document-and-range-formatting.patch": "2085eed4093055456e88f2793b26b80f91513963d486ce9c729b0086c28a9b1a",
+      "0042-cpp-properties-configuration.patch": "da03893ec18da1e8edf9a77100c68897447ba935f323e560dea659989f426f89",
+      "0043-clangd-workspace-configuration.patch": "b93c9c2c57e2aa360344416b4b9454c064647e86d6389e1fb652f8484c890ce1"
+    }
+  },
+  "installation": {
+    "installed_workspace_sha256": "82198f75504150dfb4169aa74d44f8e210ac6e236a94223cdb87b722183f6625",
+    "installed_shortcuts_sha256": "0086f1f673d05561a054c858c8a7f383414b671d7f535c5c66c28aaecee800c7",
+    "editor_binary_unchanged": true,
+    "main_workspace_binary_unchanged": true,
+    "new_layouts_have_no_banner": true
+  },
+  "release_validation": {
+    "fresh_pinned_patch_application": "PASS",
+    "patched_build_inputs_match": "PASS"
+  },
+  "shortcut_catalogue": {
+    "entries": 137,
+    "categories": 10,
+    "configured_bindings": 67,
+    "manual_context_entries": 70,
+    "matches_shipped_editor_configuration": true,
+    "modifier_names_expanded": true,
+    "transport_alias_F24_excluded": true
+  },
+  "function_key": "F4",
+  "windows_terminal_reference": {
+    "repository": "microsoft/terminal",
+    "revision": "9fd41b2baec77d25b8cfb584070d5998eab7df81",
+    "path": "src/cascadia/TerminalSettingsModel/defaults.json",
+    "url": "https://raw.githubusercontent.com/microsoft/terminal/9fd41b2baec77d25b8cfb584070d5998eab7df81/src/cascadia/TerminalSettingsModel/defaults.json",
+    "sha256": "5b8f30150cfc7604f72673556e56865e1cb7002ab456adb66b676c1941d1aa62",
+    "plain_f4_bound": false
+  },
+  "unittest_suites": {
+    "shortcuts_regression.py": {
+      "result": "PASS",
+      "methods": 16,
+      "seconds": 41.602,
+      "target": "installed workspace Release and shortcut plugin",
+      "passed_test_methods": [
+        "test_all_four_edges_and_four_corners_resize",
+        "test_always_on_top_when_other_panes_gain_focus",
+        "test_close_button_restores_underlay_and_focus",
+        "test_existing_control_and_mouse_input_reaches_editor",
+        "test_f4_works_from_every_pane_and_locked_mode",
+        "test_geometry_limits_keep_title_and_close_button_reachable",
+        "test_help_input_is_not_forwarded_to_background",
+        "test_ordinary_float_keeps_native_title_and_border_drag",
+        "test_repeated_toggles_never_duplicate_window",
+        "test_resizing_reflows_between_one_two_and_three_columns",
+        "test_scroll_keys_wheel_and_page_navigation",
+        "test_search_uses_full_names_and_real_descriptions",
+        "test_terminal_resize_keeps_window_inside_screen_and_closable",
+        "test_title_drag_moves_without_resizing",
+        "test_toggle_esc_and_unique_window",
+        "test_very_small_window_keeps_close_button"
+      ]
+    },
+    "deployment_regression.py": {
+      "result": "PASS",
+      "methods": 6,
+      "seconds": 0.475,
+      "target": "isolated deployment scripts",
+      "passed_test_methods": [
+        "test_install_isolated_and_backed_up",
+        "test_launcher_scope_and_environment",
+        "test_navigation_client_ignores_project_python_startup",
+        "test_shell_keeps_exported_development_environment",
+        "test_shell_scripts_parse",
+        "test_workspace_has_no_banner_and_global_f4_help"
+      ]
+    }
+  },
+  "total_python_test_methods": 22,
+  "rust_suites": {
+    "shortcut_plugin": {
+      "result": "PASS",
+      "methods": 5,
+      "passed_test_methods": [
+        "wide_unicode_is_not_split_into_half_cells",
+        "catalogue_is_complete_and_has_full_modifier_names",
+        "filtering_matches_keys_description_context_and_unicode",
+        "scrolling_and_tiny_viewports_are_bounded",
+        "columns_reflow_and_every_line_stays_inside_the_window"
+      ]
+    },
+    "terminal_links": {
+      "result": "PASS",
+      "methods": 15,
+      "passed_test_methods": [
+        "parse_line_and_column",
+        "expand_path_tilde",
+        "expand_path_braced_var",
+        "expand_path_no_expansion_needed",
+        "expand_path_env_var",
+        "expand_path_unknown_var_preserved",
+        "parse_line_number",
+        "parse_no_trailing_number",
+        "parse_simple_path",
+        "parse_parenthesized_location",
+        "regex_escape_no_special_chars",
+        "regex_escape_special_chars",
+        "scan_directory_returns_entries",
+        "quoted_path_locations_preserve_spaces",
+        "relative_and_unicode_locations_are_highlighted"
+      ]
+    }
+  },
+  "total_rust_test_methods": 20,
+  "installed_workspace_smoke": {
+    "explorer_visible": true,
+    "editor_endpoint": true,
+    "shortcut_banner_removed": true,
+    "shortcut_hint_visible": true,
+    "git_pane": true,
+    "editor_pane_recorded": true,
+    "external_open_in_existing_pane": true,
+    "shortcut_window_visible": true,
+    "shortcut_window_closed": true,
+    "editor_save_after_help": true
+  },
+  "feature_audit": {
+    "baseline_files": 45,
+    "feature_checkpoints": 160,
+    "source_references": 44,
+    "ordered_patches": 43,
+    "implementation_paths": 30,
+    "applied_source_tree_verified": true,
+    "result": "PASS"
+  },
+  "geometry_validation": {
+    "resize_handles": [
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right"
+    ],
+    "responsive_columns": [
+      1,
+      2,
+      3
+    ],
+    "cross_tab_single_instance": true,
+    "modes": [
+      "normal",
+      "locked",
+      "pane",
+      "tab",
+      "resize",
+      "session",
+      "scroll",
+      "search"
+    ],
+    "close_button_at_native_minimum_width": true,
+    "background_keystrokes_blocked": true
+  },
+  "validation_files_sha256": {
+    "tests/shortcuts_regression.py": "666199760c4f7890743f7c67eea714582b4bc36564d17ae6f44aef237b5c2543",
+    "tests/fixtures/shortcuts_surface.py": "078f59c254f6fe2657c8e138567884a9c4a5427d4608f7be693248b7e48f3284",
+    "tests/deployment_regression.py": "51ea86fb950ff7d74c3878ea5ee3f71707d2dba3594ca4d186c6f0b517ea2491",
+    "tests/workspace_smoke.py": "0484a389fa6bebd78e6e46921019056bae1a71a62eda1a5ddfff7ccd9efa8f37",
+    "shortcuts/generate.py": "fbb9939631c3ec43516952c71a1c6a102ec53ef08da96e9f10c6bc5d924e0050",
+    "shortcuts/fingerprint.py": "26006b55d300b9020f8b51f09540ef7a7ab910462b5a0aeee3cfb3f187a32604",
+    "shortcuts/shortcuts.json": "56757abd4f8560e617f94d886ece4a0d7fe7327f7207dfddb3b9100d2775c3e0",
+    "shortcuts/src/main.rs": "2e4fcc07ebde1f658a801c35a8dbb763d0aceb812e076a3f8418763c5e4dac1c",
+    "scripts/build-workspace.sh": "5341c97f5ba2140e563d77cd29fa02ccd546496d71c0242dcbb21f77eff72cc6",
+    "zellij/zellij.kdl.in": "a8d4df85642e0f7e6ff090b0e981abb13d5ddb2f305462fc189701f755d44ac2",
+    "zellij/dev-helix.kdl.in": "c688b950c9a79e34c053e315df03217db0e652164fb9b9e18f44527770d18de9",
+    "zellij/dev-helix-wide.kdl.in": "c688b950c9a79e34c053e315df03217db0e652164fb9b9e18f44527770d18de9",
+    "bin/devtui-helix": "3f17338674446a181b5fc08f1a7a35f38e743b629274bbe0a7381c8577764018",
+    "install-prototype.sh": "aecdcf269359f0f9d4484685d07cba1365a490eec9ecd59da9d03d3d608f36ee"
+  }
+}

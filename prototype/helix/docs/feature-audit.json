@@ -31,8 +31,8 @@
         },
         {
           "id": "01-02",
-          "feature": "编辑器/Git/shell/横幅布局",
-          "reference_logic": "三个工作区域并列组合；布局不改变工具链",
+          "feature": "编辑器/Git/shell 与快捷键浮窗",
+          "reference_logic": "保留三个工作区域；F4 单实例快捷键浮窗替代固定横幅，支持置顶、移动和边角缩放",
           "main_assessment": "devtui 的终端工作区约定，不是 VS Code 像素布局",
           "baseline_sources": [
             "bin/devtui",
@@ -45,10 +45,17 @@
           "helix_sources": [
             "prototype/helix/bin/devtui-helix",
             "prototype/helix/bin/devtui-helix-shell-pane",
-            "prototype/helix/zellij"
+            "prototype/helix/zellij",
+            "prototype/helix/shortcuts/src/main.rs",
+            "prototype/helix/zellij/cheatsheet-window.patch",
+            "prototype/helix/scripts/build-workspace.sh"
           ],
           "verification": [
-            "deployment_regression.py"
+            "deployment_regression.py",
+            "shortcuts_regression.py:test_toggle_esc_and_unique_window",
+            "shortcuts_regression.py:test_all_four_edges_and_four_corners_resize",
+            "shortcuts_regression.py:test_always_on_top_when_other_panes_gain_focus",
+            "shortcuts_regression.py:test_existing_control_and_mouse_input_reaches_editor"
           ],
           "status": "implemented"
         },

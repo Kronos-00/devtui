@@ -171,3 +171,21 @@ use disposable projects and configuration; they do not edit user projects.
 The matching translator unit tests are selected with
 `cargo test -p helix-lsp cpp_properties` in an applied source checkout.
 See [CPP_PROPERTIES.md](../docs/CPP_PROPERTIES.md) for supported fields and limits.
+
+## Workspace shortcut window
+
+```bash
+$PY -I prototype/helix/tests/shortcuts_regression.py \
+  --zellij "$HOME/.local/opt/devtui/helix-prototype/bin/zellij" \
+  --plugin "$HOME/.local/share/devtui/devtui-shortcuts.wasm" \
+  --assets "$HOME/.local/opt/devtui/helix-prototype/share/zellij"
+python3 prototype/helix/shortcuts/generate.py --check
+```
+
+The 16 window methods use disposable named sessions and pane surfaces that log
+only their own input. They verify actual native window geometry, title dragging,
+all eight resize handles, z-order, close cleanup, singleton requests, responsive
+columns, Unicode search and shifted-key input, scrolling and terminal resizing.
+They also verify existing control-key and Ctrl/Alt/middle-mouse passthrough.
+Only sessions created by a test are stopped. The suite never closes a user's
+workspace. The full installed workspace is checked by `workspace_smoke.py`.

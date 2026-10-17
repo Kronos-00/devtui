@@ -21,9 +21,12 @@ class DeploymentTests(unittest.TestCase):
             for name,text in files.items():
                 p=home/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(text)
             env=os.environ.copy();env['HOME']=str(home)
+            legacy=home/'.local/bin/devtui-helix-banner';legacy.write_text('legacy banner\n')
             command=[str(ROOT/'prototype/helix/install-prototype.sh'),'--config-only']
             subprocess.run(command,env=env,check=True,stdout=subprocess.PIPE)
             for name,text in files.items():self.assertEqual((home/name).read_text(),text)
+            self.assertFalse(legacy.exists())
+            self.assertTrue(any(p.read_text()=='legacy banner\n' for p in (home/'.local/state/devtui').glob('helix-backup-*/.local/bin/devtui-helix-banner')))
             cfg=home/'.config/devtui-helix/helix/config.toml'
             self.assertTrue(cfg.exists());cfg.write_text('# prior Helix settings\n')
             subprocess.run(command,env=env,check=True,stdout=subprocess.PIPE)
@@ -77,6 +80,10 @@ class DeploymentTests(unittest.TestCase):
                 self.assertTrue(result['args'][-1].endswith(layout));self.assertEqual(result['cwd'],str(project))
                 self.assertEqual(result['cc'],'custom-cc');self.assertIsNone(result['sentinel'])
                 self.assertEqual(result['function'],env['BASH_FUNC_devtui_probe%%'])
+            native=home/'.local/opt/devtui/helix-prototype/bin/zellij';native.parent.mkdir(parents=True);native.write_text(fake.read_text());native.chmod(0o755)
+            assets=native.parent.parent/'share/zellij';assets.mkdir(parents=True)
+            subprocess.run([str(ROOT/'prototype/helix/bin/devtui-helix'),str(project)],env=env,check=True)
+            result=json.loads(output.read_text());self.assertEqual(result['args'][0],str(native));self.assertIn('--data-dir',result['args']);self.assertIn(str(assets),result['args'])
 
     def test_navigation_client_ignores_project_python_startup(self):
         import socket
@@ -96,18 +103,16 @@ class DeploymentTests(unittest.TestCase):
             self.assertFalse(marker.exists())
             self.assertEqual(target.read_text(),'unchanged\n')
 
-    def test_banner_stays_alive_without_keystrokes(self):
-        master,slave=pty.openpty()
-        proc=subprocess.Popen([str(ROOT/'prototype/helix/bin/devtui-helix-banner')],stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
-        os.close(slave)
-        try:
-            import time
-            time.sleep(.4)
-            self.assertIsNone(proc.poll(), 'shortcut banner exited on its first read timeout')
-        finally:
-            proc.terminate()
-            try:proc.wait(3)
-            except subprocess.TimeoutExpired:proc.kill();proc.wait()
-            os.close(master)
+    def test_workspace_has_no_banner_and_global_f4_help(self):
+        for name in ['dev-helix.kdl.in','dev-helix-wide.kdl.in']:
+            text=(ROOT/'prototype/helix/zellij'/name).read_text()
+            self.assertNotIn('devtui-helix-banner',text)
+            self.assertNotIn('name="shortcuts"',text)
+            self.assertIn('F4 shortcuts',text)
+        config=(ROOT/'prototype/helix/zellij/zellij.kdl.in').read_text()
+        self.assertIn('bind "F4"',config)
+        self.assertIn('MessagePlugin',config)
+        self.assertIn('floating true',config)
+        self.assertFalse((ROOT/'prototype/helix/bin/devtui-helix-banner').exists())
 
 if __name__=='__main__':unittest.main(verbosity=2)

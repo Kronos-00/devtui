@@ -1,5 +1,7 @@
 # Final migration acceptance
 
+Latest workspace shortcut validation: [SHORTCUTS_WINDOW.md](SHORTCUTS_WINDOW.md).
+
 Latest C/C++ configuration validation: [CPP_PROPERTIES.md](CPP_PROPERTIES.md).
 
 Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).

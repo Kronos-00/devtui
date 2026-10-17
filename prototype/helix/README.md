@@ -1,5 +1,7 @@
 # devtui Helix edition
 
+Press **F4** for the movable, resizable shortcut window. The fixed banner has been removed. See [workspace shortcut help](docs/SHORTCUTS_WINDOW.md).
+
 The `helix-prototype` branch contains the migrated terminal IDE. It installs alongside, rather than replacing, Neovim devtui. The branch name is retained for review; the editor now has a persistent Explorer, not merely a file-picker overlay.
 
 ## Audit and scope

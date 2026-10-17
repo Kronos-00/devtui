@@ -1,5 +1,7 @@
 # main 额外功能 → VS Code 语义 → Helix 迁移审计
 
+Latest workspace shortcut validation: [SHORTCUTS_WINDOW.md](SHORTCUTS_WINDOW.md).
+
 Latest C/C++ configuration validation: [CPP_PROPERTIES.md](CPP_PROPERTIES.md).
 
 Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).
@@ -34,7 +36,7 @@ Helix 实现：`prototype/helix/bin/devtui-helix`、`prototype/helix/bin/devtui-
 | ID | 额外功能 | 目标行为 | main 审计与迁移处理 |
 |---|---|---|---|
 | 01-01 | 指定目录启动 | 工作目录由启动参数或调用者的当前目录决定 | 主分支已有；迁移保留并核对行为 |
-| 01-02 | 编辑器/Git/shell/横幅布局 | 三个工作区域并列组合；布局不改变工具链 | devtui 的终端工作区约定，不是 VS Code 像素布局 |
+| 01-02 | 编辑器/Git/shell 与快捷键浮窗 | 三个工作区域并列组合；布局不改变工具链 | devtui 的终端工作区约定，不是 VS Code 像素布局 |
 | 01-03 | 宽屏自适应 | 宽度达到阈值选择 wide 布局；异常尺寸有回退 | 主分支已有；迁移保留并核对行为 |
 | 01-04 | 完整退出 | Ctrl-Q 退出 Zellij 会话 | 有意保留 devtui 会话快捷键 |
 | 01-05 | 分离/恢复会话 | Zellij detach/attach 保留进程 | 复用固定版本的终端复用器，不重写功能 |

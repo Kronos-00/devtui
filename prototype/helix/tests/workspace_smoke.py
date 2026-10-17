@@ -24,10 +24,12 @@ class Screen(pyte.Screen):
 def main() -> None:
     parser=argparse.ArgumentParser()
     parser.add_argument('--home',type=Path,default=Path.home())
-    parser.add_argument('--zellij',default=shutil.which('zellij'))
+    parser.add_argument('--zellij',default=None)
     args=parser.parse_args()
-    if not args.zellij: parser.error('Zellij is not installed')
     home=args.home.resolve()
+    args.zellij=args.zellij or str(home/'.local/opt/devtui/helix-prototype/bin/zellij')
+    if not Path(args.zellij).is_file(): args.zellij=shutil.which('zellij')
+    if not args.zellij: parser.error('Zellij is not installed')
     with tempfile.TemporaryDirectory(prefix='devtui-session-smoke-') as temporary:
         base=Path(temporary);work=base/'workspace';work.mkdir()
         (work/'sample.txt').write_text('smoke fixture\n')
@@ -39,7 +41,8 @@ def main() -> None:
         env.update(HOME=str(home),TERM='xterm-256color',
                    DEVTUI_HELIX_SOCKET=str(base/'editor.sock'),
                    DEVTUI_HELIX_EDITOR_PANE_FILE=str(base/'editor.pane'))
-        command=[args.zellij,'--session',session,'--config',str(home/'.config/devtui-helix/zellij.kdl'),
+        assets=home/'.local/opt/devtui/helix-prototype/share/zellij'
+        command=[args.zellij]+(['--data-dir',str(assets)] if assets.is_dir() else [])+['--session',session,'--config',str(home/'.config/devtui-helix/zellij.kdl'),
                  '--new-session-with-layout',str(home/'.config/zellij/layouts/dev-helix.kdl')]
         pid,fd=pty.fork()
         if pid==0:
@@ -64,7 +67,8 @@ def main() -> None:
             text='\n'.join(screen.display)
             result={'explorer_visible':'EXPLORER' in text,
                     'editor_endpoint':(base/'editor.sock').exists(),
-                    'shortcut_banner_visible':'devtui-helix' in text,
+                    'shortcut_banner_removed':'VS Code-style terminal IDE' not in text,
+                    'shortcut_hint_visible':'F4 shortcuts' in text,
                     'git_pane':'git' in text.lower(),
                     'editor_pane_recorded':(base/'editor.pane').exists()}
             assert all(result.values()),result
@@ -75,6 +79,19 @@ def main() -> None:
                                 env=env,text=True,capture_output=True,check=True,timeout=5)
             result['external_open_in_existing_pane']='smoke fixture' in dump.stdout
             assert result['external_open_in_existing_pane'],dump.stdout
+            os.write(fd,b'\x1bOS')
+            until=time.monotonic()+5
+            while time.monotonic()<until:
+                drain(.1)
+                if 'Ctrl / Shift / Alt' in '\n'.join(screen.display):break
+            result['shortcut_window_visible']='Ctrl / Shift / Alt' in '\n'.join(screen.display)
+            assert result['shortcut_window_visible'],'\n'.join(screen.display)
+            os.write(fd,b'\x1b');drain(.35)
+            result['shortcut_window_closed']='Ctrl / Shift / Alt' not in '\n'.join(screen.display)
+            assert result['shortcut_window_closed'],'\n'.join(screen.display)
+            os.write(fd,b'iW\x1b');drain(.2);os.write(fd,b'\x13');drain(.4)
+            result['editor_save_after_help']=(work/'sample.txt').read_text()=='smWoke fixture\n'
+            assert result['editor_save_after_help'],(work/'sample.txt').read_text()
             print(json.dumps(result,indent=2))
         finally:
             subprocess.run([args.zellij,'kill-session',session],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5)
