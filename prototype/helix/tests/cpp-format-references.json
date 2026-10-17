@@ -1,0 +1,23 @@
+[
+  {
+    "key": "cpp-document-format.ts",
+    "path": "Extension/src/LanguageServer/Providers/documentFormattingEditProvider.ts",
+    "revision": "035c1147a774c959de7c5c13276e1809d4ed11e0",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode-cpptools/035c1147a774c959de7c5c13276e1809d4ed11e0/Extension/src/LanguageServer/Providers/documentFormattingEditProvider.ts",
+    "sha256": "c83e5e52575ded16ae41c45dcb42755a2a08cd1481cc06a24a55cac27cb39457"
+  },
+  {
+    "key": "cpp-range-format.ts",
+    "path": "Extension/src/LanguageServer/Providers/documentRangeFormattingEditProvider.ts",
+    "revision": "035c1147a774c959de7c5c13276e1809d4ed11e0",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode-cpptools/035c1147a774c959de7c5c13276e1809d4ed11e0/Extension/src/LanguageServer/Providers/documentRangeFormattingEditProvider.ts",
+    "sha256": "891970afbad92b9bf8a350121ff085561d5571681b000523c7bca3b90c0a3795"
+  },
+  {
+    "key": "cpp-format-settings.ts",
+    "path": "Extension/src/LanguageServer/settings.ts",
+    "revision": "035c1147a774c959de7c5c13276e1809d4ed11e0",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode-cpptools/035c1147a774c959de7c5c13276e1809d4ed11e0/Extension/src/LanguageServer/settings.ts",
+    "sha256": "55d0d4a5cfe1d2f7ef7674f28dc0fda913476677274383202f751d01f6110ded"
+  }
+]

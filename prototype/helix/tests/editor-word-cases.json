@@ -1,0 +1,122 @@
+[
+  {
+    "name": "cpp_variable",
+    "text": "int alpha_beta = 1;",
+    "click_char": 8,
+    "expected": "alpha_beta"
+  },
+  {
+    "name": "cpp_type",
+    "text": "WidgetType object;",
+    "click_char": 4,
+    "expected": "WidgetType"
+  },
+  {
+    "name": "namespace",
+    "text": "outer_ns::inner_ns::value",
+    "click_char": 14,
+    "expected": "inner_ns"
+  },
+  {
+    "name": "standard_namespace",
+    "text": "std::vector<int> values;",
+    "click_char": 1,
+    "expected": "std"
+  },
+  {
+    "name": "member",
+    "text": "object.member_value",
+    "click_char": 12,
+    "expected": "member_value"
+  },
+  {
+    "name": "underscore_identifier",
+    "text": "_private_2 + value",
+    "click_char": 5,
+    "expected": "_private_2"
+  },
+  {
+    "name": "word_boundary",
+    "text": "alpha_beta::value",
+    "click_char": 10,
+    "expected": "alpha_beta"
+  },
+  {
+    "name": "separator_run",
+    "text": "alpha_beta::value",
+    "click_char": 11,
+    "expected": "::"
+  },
+  {
+    "name": "next_word_boundary",
+    "text": "alpha_beta::value",
+    "click_char": 12,
+    "expected": "value"
+  },
+  {
+    "name": "whitespace_run",
+    "text": "one    two",
+    "click_char": 5,
+    "expected": "    "
+  },
+  {
+    "name": "left_word_at_space",
+    "text": "one    two",
+    "click_char": 3,
+    "expected": "one"
+  },
+  {
+    "name": "operator_run",
+    "text": "a->*b",
+    "click_char": 2,
+    "expected": "->*"
+  },
+  {
+    "name": "unicode_identifier",
+    "text": "auto 变量名称 = 0;",
+    "click_char": 7,
+    "expected": "变量名称"
+  },
+  {
+    "name": "accented_identifier",
+    "text": "int café_count = 2;",
+    "click_char": 7,
+    "expected": "café_count"
+  },
+  {
+    "name": "combining_identifier",
+    "text": "int café_count = 2;",
+    "click_char": 7,
+    "expected": "café_count"
+  },
+  {
+    "name": "regular_unicode_graphemes",
+    "text": "auto value_👩‍💻 = 3;",
+    "click_char": 8,
+    "expected": "value_👩‍💻"
+  },
+  {
+    "name": "punctuation_only",
+    "text": "<<::",
+    "click_char": 2,
+    "expected": "<<::"
+  },
+  {
+    "name": "end_of_line",
+    "text": "last_identifier",
+    "click_char": 15,
+    "expected": "last_identifier"
+  },
+  {
+    "name": "tab_separated",
+    "text": "one\tvalue_two",
+    "click_char": 7,
+    "expected": "value_two"
+  },
+  {
+    "name": "single_character",
+    "text": "a + b",
+    "click_char": 0,
+    "expected": "a"
+  }
+]

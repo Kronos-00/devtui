@@ -1,5 +1,7 @@
 # main 额外功能 → VS Code 语义 → Helix 迁移审计
 
+Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).
+
 右键菜单跟随鼠标及边缘定位的后续改进见 [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md)。
 
 删除行为与弹窗绘制的后续修复见 [DELETE_BEHAVIOR.md](DELETE_BEHAVIOR.md)。

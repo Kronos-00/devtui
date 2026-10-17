@@ -26,6 +26,7 @@ $PY -I prototype/helix/tests/terminal_regression.py --binary "$HX" --runtime "$R
 $PY -I prototype/helix/tests/strict_parity.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/delete_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/context_menu_regression.py --binary "$HX" --runtime "$RT"
+$PY -I prototype/helix/tests/editor_context_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/column_selection_regression.py --binary "$HX" --runtime "$RT"
 $PY -I prototype/helix/tests/deployment_regression.py
 $PY -I prototype/helix/tests/service_smoke.py --tools "$TOOLS"
@@ -128,3 +129,31 @@ node --disable-warning=ExperimentalWarning prototype/helix/tests/vscode_context_
 Omit `--fetch` for an offline cache check; `--write` deliberately regenerates
 fixtures. The shared PTY helper matches exact menu labels inside the visible
 menu rectangle, allowing background text outside a moved menu on the same row.
+
+
+## Unified editor interactions
+
+`editor_context_regression.py` has 18 methods and 45 case combinations. It
+checks double-click words and word drags, shared navigation/clipboard menus,
+whole-line copy including an unterminated final line, Paste through a disposable
+clipboard provider, linewise metadata, external clipboard changes and one-step
+undo. It also runs real clang-format and clangd formatting against a project
+style, plus isolated LSP fixtures for range-only capability, UTF-16 requests,
+overlapping expanded ranges, failures and delayed/stale responses.
+
+The 20 word fixtures execute the pinned upstream `WordOperations.word` and its
+real character classifiers. Cursor-state records and the single-line model are
+minimal harness objects; the selection algorithm is upstream. The default
+separator set and empty word-segmenter locale list are used.
+
+```bash
+node --disable-warning=ExperimentalWarning prototype/helix/tests/vscode_editor_word_oracle.mjs /path/to/reference-cache --fetch
+```
+
+As with the layout oracle, omit `--fetch` for offline validation, and use
+`--write` only when intentionally regenerating the source-derived fixtures.
+The fixture provider and custom clipboard programs run only inside disposable
+test configuration and directories. They do not modify the caller's settings.
+The default terminal clipboard provider cannot read external clipboard text;
+menu Paste can reuse editor-copied text, and terminal bracketed Paste remains
+the external-text path for that provider.

@@ -1,5 +1,7 @@
 # Final migration acceptance
 
+Latest editor interaction validation: [EDITOR_CONTEXT_ACTIONS.md](EDITOR_CONTEXT_ACTIONS.md).
+
 The pointer-anchored context-menu update is recorded in [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md).
 
 The subsequent permanent-delete and status-row correction is recorded in [DELETE_BEHAVIOR.md](DELETE_BEHAVIOR.md).

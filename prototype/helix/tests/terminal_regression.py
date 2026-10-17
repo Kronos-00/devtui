@@ -33,7 +33,7 @@ class Screen(pyte.Screen):
         pass
 
 class Terminal:
-    def __init__(self, files: dict[str, str], initial: str | None = None, width: int = 120):
+    def __init__(self, files: dict[str, str], initial: str | None = None, width: int = 120, *, config: str | None = None, languages: str | None = None):
         self.tmp = tempfile.TemporaryDirectory(prefix='devtui-regression-')
         self.base = Path(self.tmp.name)
         self.work = self.base / 'workspace'
@@ -47,6 +47,8 @@ class Terminal:
         cfg.mkdir(parents=True)
         shutil.copyfile(ROOT / 'prototype/helix/config/config.toml', cfg / 'config.toml')
         shutil.copyfile(ROOT / 'prototype/helix/config/languages.toml', cfg / 'languages.toml')
+        if config is not None: (cfg / 'config.toml').write_text(config)
+        if languages is not None: (cfg / 'languages.toml').write_text(languages)
         self.sock = self.base / 'editor.sock'
         self.width = width
         self.screen = Screen(width, 30)

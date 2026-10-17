@@ -280,6 +280,78 @@
       "sha256": "0b2d64597b9ac66752ebc291b40270ff3b92459625373cf2c76c0ecfb046c20d",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/platform/contextview/browser/contextMenuHandler.ts",
       "reviewed_behavior": "right mouse events can request a new context menu; ordinary outside clicks dismiss current menu"
+    },
+    {
+      "key": "mouseSelection",
+      "path": "src/vs/editor/browser/controller/mouseHandler.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/controller/mouseHandler.ts",
+      "sha256": "3a07ac0185272ffd9f6b557d18fec24e2b441e2da23ff15c958607fdb809386a",
+      "reviewed_behavior": "Mouse click count is dispatched to word selection"
+    },
+    {
+      "key": "cursorWordOperations",
+      "path": "src/vs/editor/common/cursor/cursorWordOperations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorWordOperations.ts",
+      "sha256": "119d21b91afec5d35af1d1ec83951959170222cb0bb625c8e6e3c877ed97f5b6",
+      "reviewed_behavior": "Word selection, boundary preference and word-drag behavior"
+    },
+    {
+      "key": "wordHelper",
+      "path": "src/vs/editor/common/core/wordHelper.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/core/wordHelper.ts",
+      "sha256": "6f91676884dab09a935c7567a5ef9f8beec241aa0fe326e9af06f6336be102a4",
+      "reviewed_behavior": "Default editor word separators"
+    },
+    {
+      "key": "editorOptions",
+      "path": "src/vs/editor/common/config/editorOptions.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/config/editorOptions.ts",
+      "sha256": "2a09e8e63a4d35eb961169d595fee3c0ceff34316c7d19a279776eb74fc7a4b7",
+      "reviewed_behavior": "Default empty-selection clipboard and word selection configuration"
+    },
+    {
+      "key": "formatActions",
+      "path": "src/vs/editor/contrib/format/browser/formatActions.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/format/browser/formatActions.ts",
+      "sha256": "8c6183adcf4d8aba003f5d53d555472409dcfe4852064fcb12a2915826f3633a",
+      "reviewed_behavior": "Document and selection actions share the editor context menu; empty ranges select their line"
+    },
+    {
+      "key": "formatProvider",
+      "path": "src/vs/editor/contrib/format/browser/format.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/format/browser/format.ts",
+      "sha256": "6e746c950731150163a26e473db322656434933739788ea0ddffdd3f613369ec",
+      "reviewed_behavior": "Provider edits are applied without clipping; intersecting range responses are recomputed as a union"
+    },
+    {
+      "key": "wordCharacterClassifier",
+      "path": "src/vs/editor/common/core/wordCharacterClassifier.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/core/wordCharacterClassifier.ts",
+      "sha256": "ef7830423d9bd56face300301120fb27259fa41916a61e7b6aeb5d66951c8c87",
+      "reviewed_behavior": "Default separator classes and optional word segmentation"
+    },
+    {
+      "key": "characterClassifier",
+      "path": "src/vs/editor/common/core/characterClassifier.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/core/characterClassifier.ts",
+      "sha256": "892ad85d50589b63516d5a2d9a6bf07f6104f299f2d0e112b29063cb192eb0eb",
+      "reviewed_behavior": "Character classifier dependency used by word selection"
+    },
+    {
+      "key": "viewController",
+      "path": "src/vs/editor/browser/view/viewController.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/view/viewController.ts",
+      "sha256": "141c86256a0929f0fd1a8b466a6ee56d477fab4a5bca5063a8c55ee8d0d6a2fe",
+      "reviewed_behavior": "Double click dispatches word selection"
     }
   ]
 }

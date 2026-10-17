@@ -1856,9 +1856,9 @@
       "features": [
         {
           "id": "05-01",
-          "feature": "左键定位与拖选",
-          "reference_logic": "字符区定位，选区采用半开边界",
-          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "feature": "左键定位、拖选与双击选词",
+          "reference_logic": "普通拖选使用半开范围；双击按默认单词分隔符选词，双击拖动按词扩展",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
             "config/nvim/lua/config/keymaps.lua"
@@ -1869,23 +1869,33 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "cursorWordOperations",
+            "wordHelper",
+            "wordCharacterClassifier",
+            "characterClassifier",
+            "mouseSelection",
+            "viewController",
+            "editorOptions"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
-            "helix-term/src/commands.rs"
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "editor_context_regression.py",
+            "vscode_editor_word_oracle.mjs"
           ],
           "status": "implemented"
         },
         {
           "id": "05-02",
-          "feature": "普通复制保留选区",
-          "reference_logic": "Copy 不取消高亮",
-          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "feature": "普通复制与整行复制",
+          "reference_logic": "Copy 保留选区；无选区时复制整行并附带文档换行符，包括未终止的末行",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
             "config/nvim/lua/config/keymaps.lua"
@@ -1896,15 +1906,19 @@
             "cursorTypeOperations",
             "cursorTypeEditOperations",
             "clipboard",
-            "multicursor"
+            "multicursor",
+            "viewModelImpl",
+            "editorOptions"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
-            "helix-term/src/commands.rs"
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "editor_context_regression.py"
           ],
           "status": "implemented"
         },
@@ -2207,9 +2221,9 @@
         },
         {
           "id": "05-12",
-          "feature": "多选右键 Copy/Cut/Delete",
-          "reference_logic": "按选区动作，不误开符号菜单",
-          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "feature": "统一编辑区右键菜单",
+          "reference_logic": "选区与光标共用导航、剪贴板及格式化菜单；选区内右键保留整个选择组",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
             "config/nvim/lua/config/keymaps.lua"
@@ -2229,20 +2243,24 @@
             "contextMenuLayout",
             "contextView",
             "editorContextMenu",
-            "contextMenuHandler"
+            "contextMenuHandler",
+            "formatActions",
+            "formatProvider"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
             "helix-term/src/commands.rs",
             "helix-term/src/ui/select.rs",
             "helix-term/src/application.rs",
-            "helix-view/src/editor.rs"
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/devtui.rs"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
             "column_selection_regression.py",
-            "context_menu_regression.py"
+            "context_menu_regression.py",
+            "editor_context_regression.py"
           ],
           "status": "implemented"
         },
@@ -2315,8 +2333,8 @@
         {
           "id": "05-15",
           "feature": "按行分配粘贴",
-          "reference_logic": "行数等于 caret 数则逐行分配，否则各接收完整文本",
-          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "reference_logic": "行数等于 caret 数则逐行分配，否则各接收完整文本；菜单 Paste 复用同一替换事务",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
             "config/nvim/lua/config/keymaps.lua"
@@ -2336,20 +2354,23 @@
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
-            "helix-term/src/commands.rs"
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/register.rs"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
-            "column_selection_regression.py"
+            "column_selection_regression.py",
+            "editor_context_regression.py"
           ],
           "status": "implemented"
         },
         {
           "id": "05-16",
           "feature": "粘贴替换选区",
-          "reference_logic": "一次 undo 事务替换，不在选区前插入",
-          "main_assessment": "本轮严格测试发现并修复",
+          "reference_logic": "一次 undo 事务替换；读取剪贴板提供者时必须与缓存完整匹配",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/plugins/multicursor.lua",
             "config/nvim/lua/config/keymaps.lua"
@@ -2369,12 +2390,15 @@
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
-            "helix-term/src/commands.rs"
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/register.rs"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
-            "column_selection_regression.py"
+            "column_selection_regression.py",
+            "editor_context_regression.py"
           ],
           "status": "implemented"
         },
@@ -3259,9 +3283,9 @@
         },
         {
           "id": "07-16",
-          "feature": "编辑器符号右键菜单",
-          "reference_logic": "定义/声明/引用/实现/类型/Hover/Rename/Code Action 及键盘入口",
-          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "feature": "统一编辑区右键与格式化",
+          "reference_logic": "导航与 Copy/Cut/Paste/Delete 共用菜单；整文件与选区格式化按能力启用，保留提供者对选区之外的合法修改",
+          "main_assessment": "编辑器交互审计补齐并通过真实 PTY、上游选词源码及格式化提供者回归",
           "baseline_sources": [
             "config/nvim/lua/config/keymaps.lua",
             "config/nvim/lua/plugins/devtui-interaction.lua"
@@ -3274,7 +3298,10 @@
             "contextMenuLayout",
             "contextView",
             "editorContextMenu",
-            "contextMenuHandler"
+            "contextMenuHandler",
+            "clipboard",
+            "formatActions",
+            "formatProvider"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
@@ -3283,12 +3310,15 @@
             "prototype/helix/config/config.toml",
             "helix-term/src/ui/select.rs",
             "helix-term/src/application.rs",
-            "helix-view/src/editor.rs"
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
-            "context_menu_regression.py"
+            "context_menu_regression.py",
+            "editor_context_regression.py"
           ],
           "status": "implemented"
         }
