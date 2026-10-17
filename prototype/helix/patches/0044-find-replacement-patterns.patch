@@ -1,0 +1,724 @@
+diff --git a/helix-view/src/devtui_find.rs b/helix-view/src/devtui_find.rs
+new file mode 100644
+index 0000000..0e0df76
+--- /dev/null
++++ b/helix-view/src/devtui_find.rs
+@@ -0,0 +1,646 @@
++//! Find/replace semantics reviewed against VS Code's findModel, textModelSearch,
++//! replacePattern and base/common/search (see the public reference manifest).
++use helix_core::regex::{Regex, RegexBuilder};
++use std::ops::Range;
++
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct SearchOptions {
++    pub regex: bool,
++    pub match_case: bool,
++    pub whole_word: bool,
++}
++
++impl SearchOptions {
++    pub fn compile(self, query: &str) -> Result<Regex, helix_core::regex::Error> {
++        let expression = if self.regex {
++            query.replace("\r\n", "\n")
++        } else {
++            helix_core::regex::escape(&query.replace("\r\n", "\n"))
++        };
++        RegexBuilder::new(&expression)
++            .case_insensitive(!self.match_case)
++            .multi_line(true)
++            .crlf(true)
++            .build()
++    }
++}
++
++/// VS Code searches a model with LF line endings, even for a CRLF file.
++/// Keep a sparse map back to the original UTF-8 offsets for editor edits.
++pub struct SearchText<'a> {
++    pub text: std::borrow::Cow<'a, str>,
++    crlf: Vec<usize>,
++}
++impl<'a> SearchText<'a> {
++    pub fn new(text: &'a str) -> Self {
++        let crlf: Vec<_> = text
++            .match_indices("\r\n")
++            .enumerate()
++            .map(|(removed, (index, _))| index - removed)
++            .collect();
++        let text = if crlf.is_empty() {
++            std::borrow::Cow::Borrowed(text)
++        } else {
++            std::borrow::Cow::Owned(text.replace("\r\n", "\n"))
++        };
++        Self { text, crlf }
++    }
++    pub fn original_offset(&self, offset: usize) -> usize {
++        offset + self.crlf.partition_point(|&newline| newline < offset)
++    }
++}
++
++// VS Code's usual word separators, plus line boundaries. In particular,
++// underscore and non-ASCII identifier characters are regular word characters.
++fn separator(ch: char) -> bool {
++    matches!(ch, ' ' | '\t' | '\r' | '\n') || "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?".contains(ch)
++}
++
++pub fn whole_word(text: &str, range: Range<usize>) -> bool {
++    let hit = &text[range.clone()];
++    (range.start == 0
++        || text[..range.start]
++            .chars()
++            .next_back()
++            .is_some_and(separator)
++        || hit.chars().next().is_some_and(separator))
++        && (range.end == text.len()
++            || text[range.end..].chars().next().is_some_and(separator)
++            || hit.chars().next_back().is_some_and(separator))
++}
++
++pub fn in_scope(range: &Range<usize>, scopes: Option<&[Range<usize>]>) -> bool {
++    scopes.is_none_or(|scopes| {
++        scopes
++            .iter()
++            .any(|scope| range.start >= scope.start && range.end <= scope.end)
++    })
++}
++
++#[derive(Clone, Debug)]
++enum Piece {
++    Static(String),
++    Group(usize, Vec<char>),
++}
++
++/// A parsed replacement is reusable across matches. Literal mode bypasses all
++/// replacement syntax; Preserve Case only applies to entirely static patterns,
++/// exactly as in VS Code (capture groups/case operators have their own casing).
++#[derive(Clone, Debug)]
++pub struct Replacement {
++    pieces: Vec<Piece>,
++    dynamic: bool,
++}
++impl Replacement {
++    pub fn parse(value: &str, regex: bool) -> Self {
++        if !regex {
++            return Self {
++                pieces: vec![Piece::Static(value.into())],
++                dynamic: false,
++            };
++        }
++        let chars: Vec<_> = value.chars().collect();
++        let mut pieces = Vec::new();
++        let mut plain = String::new();
++        let mut ops = Vec::new();
++        let mut i = 0;
++        while i < chars.len() {
++            let ch = chars[i];
++            i += 1;
++            if ch == '\\' && i < chars.len() {
++                let next = chars[i];
++                i += 1;
++                match next {
++                    '\\' => plain.push('\\'),
++                    'n' => plain.push('\n'),
++                    't' => plain.push('\t'),
++                    'u' | 'U' | 'l' | 'L' => ops.push(next),
++                    _ => {
++                        plain.push('\\');
++                        plain.push(next);
++                    }
++                }
++            } else if ch == '$' && i < chars.len() {
++                let next = chars[i];
++                i += 1;
++                if next == '$' {
++                    plain.push('$');
++                    continue;
++                }
++                let index = if next == '&' || next == '0' {
++                    Some(0)
++                } else if ('1'..='9').contains(&next) {
++                    let mut n = next as usize - '0' as usize;
++                    if i < chars.len() && chars[i].is_ascii_digit() {
++                        n = n * 10 + chars[i] as usize - '0' as usize;
++                        i += 1;
++                    }
++                    Some(n)
++                } else {
++                    None
++                };
++                if let Some(index) = index {
++                    if !plain.is_empty() {
++                        pieces.push(Piece::Static(std::mem::take(&mut plain)));
++                    }
++                    pieces.push(Piece::Group(index, std::mem::take(&mut ops)));
++                } else {
++                    plain.push('$');
++                    plain.push(next);
++                }
++            } else {
++                plain.push(ch);
++            }
++        }
++        if !plain.is_empty() {
++            pieces.push(Piece::Static(plain));
++        }
++        let dynamic = pieces.iter().any(|p| matches!(p, Piece::Group(..)));
++        Self { pieces, dynamic }
++    }
++
++    pub fn expand(&self, groups: &[Option<&str>], preserve: bool) -> String {
++        let mut result = String::new();
++        for piece in &self.pieces {
++            match piece {
++                Piece::Static(value) => result.push_str(value),
++                Piece::Group(index, ops) => {
++                    let mut n = *index;
++                    let mut suffix = String::new();
++                    let value = loop {
++                        if n < groups.len() && (n > 0 || *index == 0) {
++                            break format!("{}{suffix}", groups[n].unwrap_or(""));
++                        }
++                        if n == 0 {
++                            break format!("${suffix}");
++                        }
++                        suffix.insert(0, char::from(b'0' + (n % 10) as u8));
++                        n /= 10;
++                    };
++                    result.push_str(&case_ops(&value, ops));
++                }
++            }
++        }
++        if preserve && !self.dynamic {
++            preserve_case(groups.first().copied().flatten().unwrap_or(""), &result)
++        } else {
++            result
++        }
++    }
++}
++
++// Upstream applies case operators to UTF-16 code units. Preserve this detail
++// for astral text, while retaining Unicode expansion (eg. uppercase sharp s).
++fn case_unit(unit: u16, upper: bool) -> Vec<u16> {
++    match char::from_u32(unit as u32) {
++        Some(ch) => if upper {
++            ch.to_uppercase().collect::<String>()
++        } else {
++            ch.to_lowercase().collect::<String>()
++        }
++        .encode_utf16()
++        .collect(),
++        None => vec![unit],
++    }
++}
++fn case_ops(value: &str, ops: &[char]) -> String {
++    let mut result = Vec::new();
++    let mut op = 0;
++    for unit in value.encode_utf16() {
++        if let Some(&kind) = ops.get(op) {
++            result.extend(case_unit(unit, matches!(kind, 'u' | 'U')));
++            if matches!(kind, 'u' | 'l') {
++                op += 1;
++            }
++        } else {
++            result.push(unit);
++        }
++    }
++    String::from_utf16_lossy(&result)
++}
++fn first_case(value: &str, upper: bool) -> String {
++    let mut units = value.encode_utf16();
++    let Some(first) = units.next() else {
++        return String::new();
++    };
++    let mut result = case_unit(first, upper);
++    result.extend(units);
++    String::from_utf16_lossy(&result)
++}
++fn preserve_case(original: &str, value: &str) -> String {
++    if original.is_empty() {
++        return value.into();
++    }
++    let valid = |sep| {
++        original.contains(sep)
++            && value.contains(sep)
++            && original.split(sep).count() == value.split(sep).count()
++    };
++    let hyphen = valid('-');
++    let underscore = valid('_');
++    if hyphen != underscore {
++        let sep = if hyphen { '-' } else { '_' };
++        return original
++            .split(sep)
++            .zip(value.split(sep))
++            .map(|(a, b)| preserve_case(a, b))
++            .collect::<Vec<_>>()
++            .join(&sep.to_string());
++    }
++    if original.to_uppercase() == original {
++        value.to_uppercase()
++    } else if original.to_lowercase() == original {
++        value.to_lowercase()
++    } else {
++        let first = original.encode_utf16().next().unwrap();
++        if case_unit(first, false) != vec![first] {
++            first_case(value, true)
++        } else if case_unit(first, true) != vec![first] {
++            first_case(value, false)
++        } else {
++            value.into()
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn numeric_groups_dollars_and_missing_groups() {
++        let groups = [Some("ab"), Some("a"), Some("b"), None];
++        assert_eq!(
++            Replacement::parse("$2$1 $$ $& $0 $12 $99 $3 ${1} $<x>", true).expand(&groups, false),
++            "ba $ ab ab a2 $99  ${1} $<x>"
++        );
++        assert_eq!(
++            Replacement::parse("$00-$01-$123", true).expand(&groups, false),
++            "ab0-ab1-a23"
++        );
++        assert_eq!(
++            Replacement::parse("$1\\n$$", false).expand(&groups, false),
++            "$1\\n$$"
++        );
++    }
++    #[test]
++    fn escapes_and_case_operators() {
++        let groups = [Some("AbCd"), Some("AbCd")];
++        assert_eq!(
++            Replacement::parse(r"\u\u\l\L$1|\l\U$1|\n\t\\|\q|\$1", true).expand(&groups, false),
++            "ABcd|aBCD|\n\t\\|\\q|\\$1"
++        );
++        assert_eq!(
++            Replacement::parse(r"\u$1", true).expand(&[Some("😀a"), Some("😀a")], false),
++            "😀a"
++        );
++    }
++    #[test]
++    fn preserved_static_and_dynamic_case() {
++        for (a, b, want) in [
++            ("FOO", "bar", "BAR"),
++            ("foo", "BAR", "bar"),
++            ("Foo", "bar", "Bar"),
++            ("fOo", "BAR", "bAR"),
++            ("foo-BAR", "new-text", "new-TEXT"),
++            ("Foo_bar", "new_WORD", "New_word"),
++        ] {
++            assert_eq!(Replacement::parse(b, false).expand(&[Some(a)], true), want);
++        }
++        assert_eq!(
++            Replacement::parse("x$1", true).expand(&[Some("ABC"), Some("ABC")], true),
++            "xABC"
++        );
++    }
++    #[test]
++    fn word_separators_include_match_edges_not_unicode_boundaries() {
++        assert!(whole_word("a.b", 1..2));
++        assert!(whole_word("中 foo-bar 文", 4..7));
++        assert!(!whole_word("中foo文", 3..6));
++        assert!(!whole_word("cat_catalog", 0..3));
++    }
++    #[test]
++    fn crlf_search_offsets_and_capture_text() {
++        let original = "中\r\nfoo\r\nbar";
++        let normalized = SearchText::new(original);
++        assert_eq!(normalized.text, "中\nfoo\nbar");
++        let pattern = SearchOptions::default().compile("中\nfoo").unwrap();
++        let hit = pattern.find(&normalized.text).unwrap();
++        assert_eq!(
++            &original
++                [normalized.original_offset(hit.start())..normalized.original_offset(hit.end())],
++            "中\r\nfoo"
++        );
++        let newline = SearchOptions::default().compile("\n").unwrap();
++        for hit in newline.find_iter(&normalized.text) {
++            assert_eq!(
++                &original[normalized.original_offset(hit.start())
++                    ..normalized.original_offset(hit.end())],
++                "\r\n"
++            );
++        }
++    }
++
++    // Generated by executing the pinned upstream TypeScript replacement code.
++    #[test]
++    fn upstream_replacement_cases() {
++        let cases: &[(&str, bool, bool, &[Option<&str>], &str)] = &[
++            (
++                "$2:$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "xy:AbCd",
++            ),
++            (
++                "$&/$0",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "AbCd-xy/AbCd-xy",
++            ),
++            (
++                "$$/$/$$$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "$/$/$AbCd",
++            ),
++            (
++                "$12/$99/$10",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "AbCd2/$99/AbCd0",
++            ),
++            (
++                "$3/$9",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "/$9",
++            ),
++            (
++                "$00/$01/$012",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "AbCd-xy0/AbCd-xy1/AbCd-xy12",
++            ),
++            (
++                "$123",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "AbCd23",
++            ),
++            (
++                "${1}/$<name>",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "${1}/$<name>",
++            ),
++            (
++                "$q/$`/$'",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "$q/$`/$'",
++            ),
++            (
++                "\\n\\t\\\\",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "\n\t\\",
++            ),
++            (
++                "\\q\\r\\$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "\\q\\r\\$1",
++            ),
++            (
++                "$1\\",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "AbCd\\",
++            ),
++            (
++                "\\U$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "ABCD",
++            ),
++            (
++                "\\L$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "abcd",
++            ),
++            (
++                "\\u\\u\\l\\L$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "ABcd",
++            ),
++            (
++                "\\l\\U$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "aBCD",
++            ),
++            (
++                "\\uword-$1",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "word-AbCd",
++            ),
++            (
++                "\\Utail",
++                true,
++                false,
++                &[Some("AbCd-xy"), Some("AbCd"), Some("xy"), None],
++                "tail",
++            ),
++            ("$2/$1", true, false, &[Some("b"), None, Some("b")], "b/"),
++            ("$12/$1", true, false, &[Some("abc")], "$12/$1"),
++            (
++                "$12/$1",
++                true,
++                false,
++                &[
++                    Some("all"),
++                    Some("1"),
++                    Some("2"),
++                    Some("3"),
++                    Some("4"),
++                    Some("5"),
++                    Some("6"),
++                    Some("7"),
++                    Some("8"),
++                    Some("9"),
++                    Some("10"),
++                    Some("11"),
++                    Some("12"),
++                ],
++                "12/1",
++            ),
++            ("bar", false, true, &[Some("FOO")], "BAR"),
++            ("BAR", false, true, &[Some("foo")], "bar"),
++            ("bar", false, true, &[Some("Foo")], "Bar"),
++            ("BAR", false, true, &[Some("fOo")], "bAR"),
++            ("new-text", false, true, &[Some("foo-BAR")], "new-TEXT"),
++            ("new_WORD", false, true, &[Some("Foo_bar")], "New_word"),
++            ("X-Y_Z", false, true, &[Some("a-b_c")], "x-y_z"),
++            ("x-y_z", false, true, &[Some("A-B_C")], "X-Y_Z"),
++            (
++                "new-long-text",
++                false,
++                true,
++                &[Some("foo-bar")],
++                "new-long-text",
++            ),
++            ("name", false, true, &[Some("中文")], "NAME"),
++            ("new", false, true, &[Some("123")], "NEW"),
++            ("New", false, true, &[Some("")], "New"),
++            ("word", false, true, &[Some("éCOLE")], "word"),
++            ("word", false, true, &[Some("École")], "Word"),
++            ("word", false, true, &[Some("ß")], "word"),
++            ("word", false, true, &[Some("😀Ab")], "word"),
++            (
++                "\\u$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "ÉßABC",
++            ),
++            (
++                "\\u$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀ABC",
++            ),
++            ("\\u$1", true, false, &[Some("𐐀abc"), Some("𐐀abc")], "𐐀abc"),
++            ("\\u$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "ΟΣ"),
++            (
++                "\\U$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "ÉSSABC",
++            ),
++            (
++                "\\U$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀ABC",
++            ),
++            ("\\U$1", true, false, &[Some("𐐀abc"), Some("𐐀abc")], "𐐀ABC"),
++            ("\\U$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "ΟΣ"),
++            (
++                "\\l$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "éßABC",
++            ),
++            (
++                "\\l$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀ABC",
++            ),
++            ("\\l$1", true, false, &[Some("𐐀abc"), Some("𐐀abc")], "𐐀abc"),
++            ("\\l$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "οΣ"),
++            (
++                "\\L$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "éßabc",
++            ),
++            (
++                "\\L$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀abc",
++            ),
++            ("\\L$1", true, false, &[Some("𐐀abc"), Some("𐐀abc")], "𐐀abc"),
++            ("\\L$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "οσ"),
++            (
++                "\\u\\u$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "ÉSSABC",
++            ),
++            (
++                "\\u\\u$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀ABC",
++            ),
++            (
++                "\\u\\u$1",
++                true,
++                false,
++                &[Some("𐐀abc"), Some("𐐀abc")],
++                "𐐀abc",
++            ),
++            ("\\u\\u$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "ΟΣ"),
++            (
++                "\\l\\U$1",
++                true,
++                false,
++                &[Some("éßABC"), Some("éßABC")],
++                "éSSABC",
++            ),
++            (
++                "\\l\\U$1",
++                true,
++                false,
++                &[Some("😀ABC"), Some("😀ABC")],
++                "😀ABC",
++            ),
++            (
++                "\\l\\U$1",
++                true,
++                false,
++                &[Some("𐐀abc"), Some("𐐀abc")],
++                "𐐀ABC",
++            ),
++            ("\\l\\U$1", true, false, &[Some("ΟΣ"), Some("ΟΣ")], "οΣ"),
++            (
++                "$1\\n$$",
++                false,
++                false,
++                &[Some("FOO"), Some("FOO")],
++                "$1\\n$$",
++            ),
++            ("\\U$1", false, false, &[Some("FOO"), Some("FOO")], "\\U$1"),
++            ("\\t$&", false, false, &[Some("FOO"), Some("FOO")], "\\t$&"),
++            ("x$1", true, true, &[Some("ABC"), Some("ABC")], "xABC"),
++            ("bar\\t", true, true, &[Some("FOO")], "BAR\t"),
++        ];
++        for &(pattern, regex, preserve, groups, expected) in cases {
++            assert_eq!(
++                Replacement::parse(pattern, regex).expand(groups, preserve),
++                expected,
++                "pattern {pattern:?}, groups {groups:?}"
++            );
++        }
++    }
++}
+diff --git a/helix-view/src/document.rs b/helix-view/src/document.rs
+index 33d5b61..44cc16b 100644
+--- a/helix-view/src/document.rs
++++ b/helix-view/src/document.rs
+@@ -226,6 +226,8 @@ pub struct Document {
+     pub devtui_marks: std::collections::BTreeMap<char, usize>,
+     pub devtui_find_hits: Vec<std::ops::Range<usize>>,
+     pub devtui_find_pattern: Option<helix_core::regex::Regex>,
++    pub devtui_find_scopes: Option<Vec<std::ops::Range<usize>>>,
++    pub devtui_find_whole_word: bool,
+     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
+     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
+     pub color_swatch_controller: TaskController,
+@@ -779,6 +781,8 @@ pub fn from(
+             devtui_marks: std::collections::BTreeMap::new(),
+             devtui_find_hits: Vec::new(),
+             devtui_find_pattern: None,
++            devtui_find_scopes: None,
++            devtui_find_whole_word: false,
+             color_swatch_controller: TaskController::new(),
+             document_highlight_controllers: HashMap::new(),
+             code_action_controllers: HashMap::new(),
+@@ -1645,12 +1649,12 @@ fn apply_impl(
+         }
+ 
+         changes.update_positions(self.devtui_marks.values_mut().map(|pos| (pos, Assoc::After)));
+-        if let Some(pattern) = &self.devtui_find_pattern {
+-            let content = self.text.to_string();
+-            self.devtui_find_hits = pattern.find_iter(&content)
+-                .map(|hit| self.text.byte_to_char(hit.start())..self.text.byte_to_char(hit.end()))
+-                .collect();
++        if let Some(scopes) = &mut self.devtui_find_scopes {
++            for scope in scopes {
++                changes.update_positions([(&mut scope.start, Assoc::Before), (&mut scope.end, Assoc::After)].into_iter());
++            }
+         }
++        self.devtui_refresh_find_hits();
+ 
+         helix_event::dispatch(DocumentDidChange {
+             doc: self,
+@@ -1954,6 +1958,19 @@ pub fn language_config_at<'a>(
+         }
+     }
+ 
++    /// Refresh the same scoped hits used by the widget, editor and overview.
++    pub fn devtui_refresh_find_hits(&mut self) {
++        self.devtui_find_hits.clear();
++        let Some(pattern) = &self.devtui_find_pattern else { return; };
++        let content = self.text.to_string();
++        let normalized = crate::devtui_find::SearchText::new(&content);
++        self.devtui_find_hits = pattern.find_iter(&normalized.text).filter_map(|hit| {
++            if self.devtui_find_whole_word && !crate::devtui_find::whole_word(&normalized.text, hit.range()) { return None; }
++            let range = self.text.byte_to_char(normalized.original_offset(hit.start()))..self.text.byte_to_char(normalized.original_offset(hit.end()));
++            crate::devtui_find::in_scope(&range, self.devtui_find_scopes.as_deref()).then_some(range)
++        }).collect();
++    }
++
+     /// Current document version, incremented at each change.
+     pub fn version(&self) -> i32 {
+         self.version
+diff --git a/helix-view/src/lib.rs b/helix-view/src/lib.rs
+index ab3ec32..0fd6ed4 100644
+--- a/helix-view/src/lib.rs
++++ b/helix-view/src/lib.rs
+@@ -5,6 +5,7 @@
+ pub mod annotations;
+ pub mod clipboard;
+ pub mod document;
++pub mod devtui_find;
+ pub mod editor;
+ pub mod events;
+ pub mod expansion;

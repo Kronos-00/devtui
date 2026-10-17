@@ -1,0 +1,758 @@
+[
+  {
+    "name": "reorder",
+    "pattern": "$2:$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "xy:AbCd"
+  },
+  {
+    "name": "whole",
+    "pattern": "$&/$0",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "AbCd-xy/AbCd-xy"
+  },
+  {
+    "name": "dollars",
+    "pattern": "$$/$/$$$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "$/$/$AbCd"
+  },
+  {
+    "name": "two_digits",
+    "pattern": "$12/$99/$10",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "AbCd2/$99/AbCd0"
+  },
+  {
+    "name": "missing",
+    "pattern": "$3/$9",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "/$9"
+  },
+  {
+    "name": "leading_zero",
+    "pattern": "$00/$01/$012",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "AbCd-xy0/AbCd-xy1/AbCd-xy12"
+  },
+  {
+    "name": "three_digits",
+    "pattern": "$123",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "AbCd23"
+  },
+  {
+    "name": "named_literal",
+    "pattern": "${1}/$<name>",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "${1}/$<name>"
+  },
+  {
+    "name": "unknown",
+    "pattern": "$q/$`/$'",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "$q/$`/$'"
+  },
+  {
+    "name": "newline",
+    "pattern": "\\n\\t\\\\",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "\n\t\\"
+  },
+  {
+    "name": "unknown_escapes",
+    "pattern": "\\q\\r\\$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "\\q\\r\\$1"
+  },
+  {
+    "name": "trailing",
+    "pattern": "$1\\",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "AbCd\\"
+  },
+  {
+    "name": "upper",
+    "pattern": "\\U$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ABCD"
+  },
+  {
+    "name": "lower",
+    "pattern": "\\L$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "abcd"
+  },
+  {
+    "name": "stacked",
+    "pattern": "\\u\\u\\l\\L$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ABcd"
+  },
+  {
+    "name": "mixed",
+    "pattern": "\\l\\U$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "aBCD"
+  },
+  {
+    "name": "pending_across_literal",
+    "pattern": "\\uword-$1",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "word-AbCd"
+  },
+  {
+    "name": "unused_ops",
+    "pattern": "\\Utail",
+    "groups": [
+      "AbCd-xy",
+      "AbCd",
+      "xy",
+      null
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "tail"
+  },
+  {
+    "name": "optional_unmatched",
+    "pattern": "$2/$1",
+    "groups": [
+      "b",
+      null,
+      "b"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "b/"
+  },
+  {
+    "name": "all_groups_missing",
+    "pattern": "$12/$1",
+    "groups": [
+      "abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "$12/$1"
+  },
+  {
+    "name": "two_digit_exists",
+    "pattern": "$12/$1",
+    "groups": [
+      "all",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "12/1"
+  },
+  {
+    "name": "preserve_FOO",
+    "pattern": "bar",
+    "groups": [
+      "FOO"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "BAR"
+  },
+  {
+    "name": "preserve_foo",
+    "pattern": "BAR",
+    "groups": [
+      "foo"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "bar"
+  },
+  {
+    "name": "preserve_Foo",
+    "pattern": "bar",
+    "groups": [
+      "Foo"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "Bar"
+  },
+  {
+    "name": "preserve_fOo",
+    "pattern": "BAR",
+    "groups": [
+      "fOo"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "bAR"
+  },
+  {
+    "name": "preserve_foo-BAR",
+    "pattern": "new-text",
+    "groups": [
+      "foo-BAR"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "new-TEXT"
+  },
+  {
+    "name": "preserve_Foo_bar",
+    "pattern": "new_WORD",
+    "groups": [
+      "Foo_bar"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "New_word"
+  },
+  {
+    "name": "preserve_a-b_c",
+    "pattern": "X-Y_Z",
+    "groups": [
+      "a-b_c"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "x-y_z"
+  },
+  {
+    "name": "preserve_A-B_C",
+    "pattern": "x-y_z",
+    "groups": [
+      "A-B_C"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "X-Y_Z"
+  },
+  {
+    "name": "preserve_foo-bar",
+    "pattern": "new-long-text",
+    "groups": [
+      "foo-bar"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "new-long-text"
+  },
+  {
+    "name": "preserve_中文",
+    "pattern": "name",
+    "groups": [
+      "中文"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "NAME"
+  },
+  {
+    "name": "preserve_123",
+    "pattern": "new",
+    "groups": [
+      "123"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "NEW"
+  },
+  {
+    "name": "preserve_",
+    "pattern": "New",
+    "groups": [
+      ""
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "New"
+  },
+  {
+    "name": "preserve_éCOLE",
+    "pattern": "word",
+    "groups": [
+      "éCOLE"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "word"
+  },
+  {
+    "name": "preserve_École",
+    "pattern": "word",
+    "groups": [
+      "École"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "Word"
+  },
+  {
+    "name": "preserve_ß",
+    "pattern": "word",
+    "groups": [
+      "ß"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "word"
+  },
+  {
+    "name": "preserve_😀Ab",
+    "pattern": "word",
+    "groups": [
+      "😀Ab"
+    ],
+    "regex": false,
+    "preserve": true,
+    "expected": "word"
+  },
+  {
+    "name": "unicode_\\u$1_éßABC",
+    "pattern": "\\u$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ÉßABC"
+  },
+  {
+    "name": "unicode_\\u$1_😀ABC",
+    "pattern": "\\u$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀ABC"
+  },
+  {
+    "name": "unicode_\\u$1_𐐀abc",
+    "pattern": "\\u$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀abc"
+  },
+  {
+    "name": "unicode_\\u$1_ΟΣ",
+    "pattern": "\\u$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ΟΣ"
+  },
+  {
+    "name": "unicode_\\U$1_éßABC",
+    "pattern": "\\U$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ÉSSABC"
+  },
+  {
+    "name": "unicode_\\U$1_😀ABC",
+    "pattern": "\\U$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀ABC"
+  },
+  {
+    "name": "unicode_\\U$1_𐐀abc",
+    "pattern": "\\U$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀ABC"
+  },
+  {
+    "name": "unicode_\\U$1_ΟΣ",
+    "pattern": "\\U$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ΟΣ"
+  },
+  {
+    "name": "unicode_\\l$1_éßABC",
+    "pattern": "\\l$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "éßABC"
+  },
+  {
+    "name": "unicode_\\l$1_😀ABC",
+    "pattern": "\\l$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀ABC"
+  },
+  {
+    "name": "unicode_\\l$1_𐐀abc",
+    "pattern": "\\l$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀abc"
+  },
+  {
+    "name": "unicode_\\l$1_ΟΣ",
+    "pattern": "\\l$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "οΣ"
+  },
+  {
+    "name": "unicode_\\L$1_éßABC",
+    "pattern": "\\L$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "éßabc"
+  },
+  {
+    "name": "unicode_\\L$1_😀ABC",
+    "pattern": "\\L$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀abc"
+  },
+  {
+    "name": "unicode_\\L$1_𐐀abc",
+    "pattern": "\\L$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀abc"
+  },
+  {
+    "name": "unicode_\\L$1_ΟΣ",
+    "pattern": "\\L$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "οσ"
+  },
+  {
+    "name": "unicode_\\u\\u$1_éßABC",
+    "pattern": "\\u\\u$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ÉSSABC"
+  },
+  {
+    "name": "unicode_\\u\\u$1_😀ABC",
+    "pattern": "\\u\\u$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀ABC"
+  },
+  {
+    "name": "unicode_\\u\\u$1_𐐀abc",
+    "pattern": "\\u\\u$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀abc"
+  },
+  {
+    "name": "unicode_\\u\\u$1_ΟΣ",
+    "pattern": "\\u\\u$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "ΟΣ"
+  },
+  {
+    "name": "unicode_\\l\\U$1_éßABC",
+    "pattern": "\\l\\U$1",
+    "groups": [
+      "éßABC",
+      "éßABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "éSSABC"
+  },
+  {
+    "name": "unicode_\\l\\U$1_😀ABC",
+    "pattern": "\\l\\U$1",
+    "groups": [
+      "😀ABC",
+      "😀ABC"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "😀ABC"
+  },
+  {
+    "name": "unicode_\\l\\U$1_𐐀abc",
+    "pattern": "\\l\\U$1",
+    "groups": [
+      "𐐀abc",
+      "𐐀abc"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "𐐀ABC"
+  },
+  {
+    "name": "unicode_\\l\\U$1_ΟΣ",
+    "pattern": "\\l\\U$1",
+    "groups": [
+      "ΟΣ",
+      "ΟΣ"
+    ],
+    "regex": true,
+    "preserve": false,
+    "expected": "οΣ"
+  },
+  {
+    "name": "literal_$1\\n$$",
+    "pattern": "$1\\n$$",
+    "groups": [
+      "FOO",
+      "FOO"
+    ],
+    "regex": false,
+    "preserve": false,
+    "expected": "$1\\n$$"
+  },
+  {
+    "name": "literal_\\U$1",
+    "pattern": "\\U$1",
+    "groups": [
+      "FOO",
+      "FOO"
+    ],
+    "regex": false,
+    "preserve": false,
+    "expected": "\\U$1"
+  },
+  {
+    "name": "literal_\\t$&",
+    "pattern": "\\t$&",
+    "groups": [
+      "FOO",
+      "FOO"
+    ],
+    "regex": false,
+    "preserve": false,
+    "expected": "\\t$&"
+  },
+  {
+    "name": "preserve_dynamic_ignored",
+    "pattern": "x$1",
+    "groups": [
+      "ABC",
+      "ABC"
+    ],
+    "regex": true,
+    "preserve": true,
+    "expected": "xABC"
+  },
+  {
+    "name": "regex_static_preserve",
+    "pattern": "bar\\t",
+    "groups": [
+      "FOO"
+    ],
+    "regex": true,
+    "preserve": true,
+    "expected": "BAR\t"
+  }
+]

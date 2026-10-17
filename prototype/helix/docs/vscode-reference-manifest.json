@@ -352,6 +352,62 @@
       "url": "https://raw.githubusercontent.com/microsoft/vscode/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/view/viewController.ts",
       "sha256": "141c86256a0929f0fd1a8b466a6ee56d477fab4a5bca5063a8c55ee8d0d6a2fe",
       "reviewed_behavior": "Double click dispatches word selection"
+    },
+    {
+      "key": "findWidget",
+      "path": "src/vs/editor/contrib/find/browser/findWidget.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "53b781abff7f7f95f11eefe9a0554d00240250bc20d1fe8ab6f3a0bc9b9c9af9",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/findWidget.ts",
+      "reviewed_behavior": "top-right overlay; left sash drag/reset; input and action controls; scope normalization"
+    },
+    {
+      "key": "findController",
+      "path": "src/vs/editor/contrib/find/browser/findController.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "dbb01db15a7df74b21448e068c5d4abccd5c7e0c7241b8ef602d854a045c81f6",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/findController.ts",
+      "reviewed_behavior": "Ctrl+F/Ctrl+H seeding and focus; scoped search key bindings"
+    },
+    {
+      "key": "findModel",
+      "path": "src/vs/editor/contrib/find/browser/findModel.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "fe74e222208823070a582aff74c54845a8c6edd9e6262d5655e19c7ee6d7ccb7",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/findModel.ts",
+      "reviewed_behavior": "replace current match then advance; one undo step per replace-all; literal vs regex replacement"
+    },
+    {
+      "key": "replacePattern",
+      "path": "src/vs/editor/contrib/find/browser/replacePattern.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "84564b51c8a54ac41876ec74a8326ae132eaf8be6feb2765df864c67b5b446b9",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/replacePattern.ts",
+      "reviewed_behavior": "numbered groups, fallback, literal dollars, escape and stacked case operations"
+    },
+    {
+      "key": "preserveCase",
+      "path": "src/vs/base/common/search.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "a5880ef5a2200fbf57390ed4fa422f12a4e58b61ce103687bf975ba714e03436",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/search.ts",
+      "reviewed_behavior": "static replacement case preservation including corresponding hyphen/underscore segments"
+    },
+    {
+      "key": "replacePatternTests",
+      "path": "src/vs/editor/contrib/find/test/browser/replacePattern.test.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "8bf72f1c43e0f4dbf269e8434c460ce109426d5a67cf5f0a1b0b094d9386c594",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/test/browser/replacePattern.test.ts",
+      "reviewed_behavior": "upstream replacement edge cases"
+    },
+    {
+      "key": "textModelSearch",
+      "path": "src/vs/editor/common/model/textModelSearch.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "5876a3f7e735ab74ee6ab338521f180e560b1839e0f32cdf29823cbb8c68a778",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/model/textModelSearch.ts",
+      "reviewed_behavior": "whole-word separators and match-edge checks"
     }
   ]
 }

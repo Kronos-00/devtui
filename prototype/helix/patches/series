@@ -41,3 +41,4 @@
 0041-editor-document-and-range-formatting.patch
 0042-cpp-properties-configuration.patch
 0043-clangd-workspace-configuration.patch
+0044-find-replacement-patterns.patch
