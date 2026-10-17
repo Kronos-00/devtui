@@ -1,0 +1,155 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index ba28681..7fd1446 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -975,8 +975,14 @@ fn process_devtui_requests(&mut self) -> bool {
+                             let row = line.saturating_sub(1).min(max_line);
+                             let line_start = doc.text().line_to_char(row);
+                             let line_text = doc.text().line(row);
+-                            let line_len = line_text.chars().take_while(|ch| !matches!(ch, '\n' | '\r')).count();
+-                            let col = column.saturating_sub(1).min(line_len);
++                            // VS Code editor locations count UTF-16 code units.
++                            // Clamp on a scalar boundary and never into a line ending.
++                            let mut units = 0usize;
++                            let mut col = 0usize;
++                            for ch in line_text.chars().take_while(|ch| !matches!(ch, '\n' | '\r')) {
++                                if units + ch.len_utf16() > column.saturating_sub(1) { break; }
++                                units += ch.len_utf16(); col += 1;
++                            }
+                             doc.set_selection(
+                                 view_id,
+                                 helix_core::Selection::point(line_start + col),
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index 7a0fb8a..afbf0be 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -3236,7 +3236,8 @@ fn append_mode(cx: &mut Context) {
+ }
+ 
+ fn file_picker(cx: &mut Context) {
+-    let root = find_workspace().0;
++    // Quick Open belongs to the opened folder, not an unrelated ancestor repository.
++    let root = helix_stdx::env::current_working_dir();
+     if !root.exists() {
+         cx.editor.set_error("Workspace directory does not exist");
+         return;
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index a98db86..f27e7d7 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -1129,6 +1129,7 @@ pub fn paste_explorer_clipboard(editor: &mut Editor, directory: &Path) {
+             return;
+         }
+     }
++    let mut destinations = Vec::new();
+     for (source, directory) in sources {
+         let mut destination = directory.join(source.file_name().unwrap_or_default());
+         if fs::symlink_metadata(&destination).is_ok() || destination == source {
+@@ -1138,6 +1139,13 @@ pub fn paste_explorer_clipboard(editor: &mut Editor, directory: &Path) {
+             editor.set_error(format!("Paste failed: {err}"));
+             break;
+         }
++        destinations.push(destination);
++    }
++    if let Some(first) = destinations.first() {
++        editor.devtui.explorer_reveal = Some(first.clone());
++        if destinations.len() == 1 && first.is_file() {
++            if let Err(err) = editor.devtui_open_pinned(first) { editor.set_error(err.to_string()); }
++        }
+     }
+ }
+ 
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 000cfcb..e8813d9 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -123,6 +123,21 @@ pub fn new(keymaps: Keymaps) -> Self {
+         }
+     }
+ 
++    fn apply_pending_explorer_reveal(&mut self, editor: &mut Editor) {
++        if let Some(path) = editor.devtui.explorer_reveal.take() {
++            for parent in path.ancestors().skip(1) {
++                if parent.starts_with(&self.explorer.root) {
++                    self.explorer.expanded.insert(parent.to_path_buf());
++                }
++            }
++            self.explorer.rebuild();
++            if let Some(index) = self.explorer.rows.iter().position(|row| row.path == path) {
++                self.explorer.select_single(index);
++                self.explorer.follow_selection = true;
++            }
++        }
++    }
++
+     pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
+         &mut self.spinners
+     }
+@@ -2119,21 +2134,12 @@ fn handle_event(
+             self.explorer.focused = false;
+         }
+         context.editor.devtui_promote_modified_preview();
+-        if let Some(path) = context.editor.devtui.explorer_reveal.take() {
+-            for parent in path.ancestors().skip(1) {
+-                if parent.starts_with(&self.explorer.root) {
+-                    self.explorer.expanded.insert(parent.to_path_buf());
+-                }
+-            }
+-            self.explorer.rebuild();
+-            if let Some(index) = self.explorer.rows.iter().position(|row| row.path == path) {
+-                self.explorer.select_single(index);
+-                self.explorer.follow_selection = true;
+-            }
+-        }
++        self.apply_pending_explorer_reveal(context.editor);
+ 
+         if let Event::Key(key) = event {
+-            if self.handle_explorer_key(*key, context.editor) {
++            let mut key = *key;
++            canonicalize_key(&mut key);
++            if self.handle_explorer_key(key, context.editor) {
+                 return EventResult::Consumed(None);
+             }
+         }
+@@ -2306,6 +2312,7 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             self.explorer.focused = false;
+         }
+         cx.editor.devtui_promote_modified_preview();
++        self.apply_pending_explorer_reveal(cx.editor);
+         self.layout_area = area;
+ 
+         // clear with background color
+@@ -2465,11 +2472,12 @@ fn cursor(&self, _area: Rect, editor: &Editor) -> (Option<Position>, CursorKind)
+ }
+ 
+ fn canonicalize_key(key: &mut KeyEvent) {
+-    if let KeyEvent {
+-        code: KeyCode::Char(_),
+-        modifiers: _,
+-    } = key
+-    {
+-        key.modifiers.remove(KeyModifiers::SHIFT)
++    if let KeyCode::Char(ch) = key.code {
++        // CSI-u may encode the base (lowercase) codepoint plus Shift. Match
++        // the same canonical representation as keymap parsing (C-S-z == C-Z).
++        if key.modifiers.contains(KeyModifiers::SHIFT) && ch.is_ascii_lowercase() {
++            key.code = KeyCode::Char(ch.to_ascii_uppercase());
++        }
++        key.modifiers.remove(KeyModifiers::SHIFT);
+     }
+ }
+diff --git a/helix-term/src/ui/mod.rs b/helix-term/src/ui/mod.rs
+index 3fd5ad2..ccfe7f1 100644
+--- a/helix-term/src/ui/mod.rs
++++ b/helix-term/src/ui/mod.rs
+@@ -279,7 +279,9 @@ pub fn file_picker(editor: &Editor, root: PathBuf) -> FilePicker {
+         },
+     )];
+     let picker = Picker::new(columns, 0, [], data, move |cx, path: &PathBuf, action| {
+-        if let Err(e) = cx.editor.open(path, action) {
++        let result = if matches!(action, helix_view::editor::Action::Replace) { cx.editor.devtui_open_pinned(path) } else { cx.editor.open(path, action) };
++        cx.editor.devtui.focus_editor_requested = true;
++        if let Err(e) = result {
+             let err = if let Some(err) = e.source() {
+                 format!("{}", err)
+             } else {

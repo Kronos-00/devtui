@@ -13,6 +13,6 @@ keybinds {
         unbind "Ctrl s" "Ctrl h" "Ctrl p"
 
         // Preserve Ctrl-Shift-Z as a distinct key through terminal/Zellij paths.
-        bind "Ctrl Shift z" { Write 27 91 50 52 59 50 126; }
+        bind "Ctrl Shift z" { Write 27 91 49 50 50 59 54 117; }
     }
 }
