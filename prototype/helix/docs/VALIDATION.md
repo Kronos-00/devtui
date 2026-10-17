@@ -73,3 +73,9 @@ Follow [tests/README.md](../tests/README.md). Check `devtui-helix --version` for
 Latest results: [find-widget-results.json](find-widget-results.json); behavior and examples: [FIND_REPLACE_WIDGET.md](FIND_REPLACE_WIDGET.md). The installed build passes 149 editor PTY tests (including 23 widget cases), 6 deployment tests, 16 shortcut-window PTY tests, 6 find-engine unit tests, 5 shortcut-plugin unit tests and all 13 installed-workspace smoke checks. All 45 Helix patches replay to the canonical source tree. The pinned upstream TypeScript oracle independently verifies 66 replacement cases, including numeric fallback, escaping, Unicode case operations and static Preserve Case semantics.
 
 Normal workspace mode releases Alt+L / Alt+P to the editor and explicitly forwards Ctrl+Alt+Enter. Ctrl+H is also exercised through the ordinary terminal byte sequence. The regex matcher remains Helix's Rust regex engine; JavaScript lookaround and pattern backreferences are outside its supported syntax.
+
+## Balanced controls and Find scope compositing
+
+Latest results: [find-presentation-results.json](find-presentation-results.json). The installed build passes 163 editor PTY tests (14 new presentation cases), 6 deployment tests and all 13 installed-workspace smoke checks. The new cases click both sides of every button type and inspect actual terminal colors for scope/selection composition, syntax foreground preservation, multiple and empty lines, column scopes, wide Unicode, tabs, soft wraps, editing/undo and cleanup. All 47 patches replay to the canonical source tree; the audit covers 167 checkpoints and 54 pinned references.
+
+The presentation oracle reads the real VS Code whole-line decoration options, CSS binding and dark/light RGBA defaults; the replacement oracle still verifies all 66 replacement cases. Range tinting composites the existing cell background once per covered line rather than replacing the selection or text styles.

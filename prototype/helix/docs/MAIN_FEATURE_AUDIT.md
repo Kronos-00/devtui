@@ -319,3 +319,7 @@ Helix 实现：`prototype/helix/install-prototype.sh`、`prototype/helix/scripts
 ## Find / Replace overlay validation
 
 The editor now uses one non-modal top-right widget with a draggable left sash, scoped search, inline option/action buttons, Preserve Case and VS Code replacement-string semantics. See [FIND_REPLACE_WIDGET.md](FIND_REPLACE_WIDGET.md) and [find-widget-results.json](find-widget-results.json). The audit now tracks 166 checkpoints, 51 pinned source references and 45 ordered Helix patches; the immutable main baseline remains 45 files.
+
+## Find presentation follow-up
+
+Buttons now have symmetric terminal-cell hit padding. Find scope uses a separate translucent whole-line background composed with existing selection and match backgrounds. See [find-presentation-results.json](find-presentation-results.json): 163 editor tests, 6 deployment tests, 13 workspace checks, 47 replayed patches, 167 audit checkpoints and 54 pinned sources.

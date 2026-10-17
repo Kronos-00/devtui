@@ -1,0 +1,99 @@
+{
+  "date_utc": "2026-10-17T15:46:59.881995+00:00",
+  "patched_tree": "758a1c930cc7930a59ddbfb35c87ff4a9213af30",
+  "helix_binary_sha256": "095c495ea23560b72c0ca84088b01a1b46b7fc401c8e13ac83992cb04d980e20",
+  "ordered_patches": 47,
+  "clean_patch_replay": true,
+  "new_presentation_pty_tests": 14,
+  "editor_pty_tests": 163,
+  "deployment_tests": 6,
+  "suites": [
+    {
+      "suite": "column_selection_regression",
+      "tests": 8,
+      "success": true
+    },
+    {
+      "suite": "context_menu_regression",
+      "tests": 8,
+      "success": true
+    },
+    {
+      "suite": "cpp_properties_regression",
+      "tests": 14,
+      "success": true
+    },
+    {
+      "suite": "delete_regression",
+      "tests": 9,
+      "success": true
+    },
+    {
+      "suite": "deployment_regression",
+      "tests": 6,
+      "success": true
+    },
+    {
+      "suite": "editor_context_regression",
+      "tests": 18,
+      "success": true
+    },
+    {
+      "suite": "find_presentation_regression",
+      "tests": 14,
+      "success": true
+    },
+    {
+      "suite": "find_widget_regression",
+      "tests": 23,
+      "success": true
+    },
+    {
+      "suite": "strict_parity",
+      "tests": 38,
+      "success": true
+    },
+    {
+      "suite": "terminal_regression",
+      "tests": 31,
+      "success": true
+    }
+  ],
+  "presentation_oracle": {
+    "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+    "whole_line": true,
+    "dark": "#3a3d4166",
+    "light": "#b4b4b44d",
+    "verified": true
+  },
+  "replacement_oracle": {
+    "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+    "cases": 66,
+    "verified": true
+  },
+  "workspace_checks": {
+    "explorer_visible": true,
+    "editor_endpoint": true,
+    "shortcut_banner_removed": true,
+    "shortcut_hint_visible": true,
+    "git_pane": true,
+    "editor_pane_recorded": true,
+    "external_open_in_existing_pane": true,
+    "shortcut_window_visible": true,
+    "shortcut_window_closed": true,
+    "editor_save_after_help": true,
+    "find_overlay_visible": true,
+    "find_scope_shortcut": true,
+    "preserve_case_and_replace_all_shortcuts": true
+  },
+  "audit": {
+    "baseline_files": 45,
+    "feature_checkpoints": 167,
+    "source_references": 54,
+    "ordered_patches": 47,
+    "implementation_paths": 36,
+    "applied_source_tree_verified": true,
+    "result": "PASS"
+  },
+  "result": "PASS"
+}

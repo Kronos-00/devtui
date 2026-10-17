@@ -14,6 +14,10 @@ Ctrl+F 打开当前编辑视图右上角的查找面板；Ctrl+H 展开替换行
 
 底边显示当前匹配序号、总数、操作说明或正则错误。开启的选项使用选中样式。查找默认是字面量、不区分大小写、不限制为完整词。全字匹配采用 VS Code 默认单词分隔符，并考虑匹配内容自身的边界字符；下划线和非英文标识符字符不是默认分隔符。
 
+按钮符号在点击区域内居中：单格符号与双格文字标签的左右各保留一个可点击空格，选项底色覆盖整个按钮；窄模式使用无额外留白的单格符号。
+
+“在选定内容中查找”启用后，正文增加独立的半透明范围背景，按 VS Code 的 `find-scope` 装饰方式覆盖涉及的整行。其深色/浅色默认值来自 `editor.findRangeHighlightBackground`；实际匹配边界由查找范围管理，背景不代替文本选择。继续拖动选择时，两层背景混合显示；语法文字颜色、匹配标记和诊断下划线保留。多个范围涉及同一行时只叠加一次，折行和空行也正确显示；关闭范围或面板后清除范围底色。
+
 ## 输入与操作
 
 - Enter / Shift+Enter：查找框中跳到下一个 / 上一个匹配，循环经过首尾。
@@ -61,3 +65,5 @@ VS Code 当前文件替换的边界规则也已保留：未参与匹配的可选
 node prototype/helix/tests/vscode_find_replace_oracle.mjs /path/to/reference-cache --fetch
 python prototype/helix/tests/find_widget_regression.py --binary /path/to/hx --runtime /path/to/runtime
 ```
+
+外观验证：`tests/vscode_find_presentation_oracle.mjs` 从固定上游源码读取整行装饰选项、CSS 颜色绑定与明暗主题 RGBA 默认值；`tests/find_presentation_regression.py` 用真实终端颜色和鼠标输入验证对称命中、范围背景、选区混合、语法颜色以及清理。最新结果见 [find-presentation-results.json](find-presentation-results.json)。

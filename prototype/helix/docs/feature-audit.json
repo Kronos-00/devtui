@@ -3453,7 +3453,7 @@
         {
           "id": "07-18",
           "feature": "查找与替换图标按钮",
-          "reference_logic": "框内和框外按钮保持独立命中区域，窄视图紧凑显示；Tab 可聚焦按钮",
+          "reference_logic": "框内外按钮的可见符号按终端格宽居中，左右点击留白对称；窄视图紧凑显示",
           "main_assessment": "按 VS Code 文档与固定源码补齐",
           "baseline_sources": [
             "config/nvim/lua/config/keymaps.lua",
@@ -3476,7 +3476,10 @@
           "verification": [
             "find_widget_regression.py:test_narrow_editor_all_actions_remain_clickable",
             "workspace_smoke.py",
-            "vscode_find_replace_oracle.mjs"
+            "vscode_find_replace_oracle.mjs",
+            "find_presentation_regression.py:test_option_labels_have_equal_click_padding",
+            "find_presentation_regression.py:test_previous_and_next_accept_both_sides_of_icon",
+            "find_presentation_regression.py:test_replace_buttons_accept_both_sides"
           ],
           "status": "implemented"
         },
@@ -3597,6 +3600,32 @@
             "find_widget_regression.py:test_editing_outside_widget_keeps_it_visible_and_updates_count",
             "workspace_smoke.py",
             "vscode_find_replace_oracle.mjs"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-23",
+          "feature": "独立查找范围背景与选区叠加",
+          "reference_logic": "按涉及的整行显示独立半透明范围背景；与普通选择混合并保留语法前景和其他装饰；范围清除后移除背景",
+          "main_assessment": "参考 VS Code find-scope 装饰、CSS 绑定及明暗默认颜色补齐",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "findDecorations",
+            "findWidgetCss",
+            "editorThemeColors"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/text_decorations/find_scope.rs",
+            "helix-term/src/ui/text_decorations.rs",
+            "helix-term/src/ui/document.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "find_presentation_regression.py",
+            "vscode_find_presentation_oracle.mjs",
+            "workspace_smoke.py"
           ],
           "status": "implemented"
         }
