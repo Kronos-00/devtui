@@ -240,6 +240,46 @@
       "sha256": "37e101d01c22e88a5e33588f2fcd1f4850b08597f8131b1966ed4788fe789e03",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/server/node/remoteFileSystemProviderServer.ts",
       "reviewed_behavior": "Remote server uses Node disk file provider"
+    },
+    {
+      "key": "contextMenuLayout",
+      "path": "src/vs/base/common/layout.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "b4c580ad6f71199a2af18aeae9e07272e455863fbf1a2483d3fe44bcf6727ff3",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/layout.ts",
+      "reviewed_behavior": "layout2d/layout: pointer anchors, below/above and horizontal flip/overlap"
+    },
+    {
+      "key": "layoutRange",
+      "path": "src/vs/base/common/range.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "bb80da92d56616343b1c5f54353c0aea48fe73555a3af90013d59fb0139a31a4",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/range.ts",
+      "reviewed_behavior": "range intersection used by upstream layout2d"
+    },
+    {
+      "key": "contextView",
+      "path": "src/vs/base/browser/ui/contextview/contextview.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "ed5f05a722bd47915cda0d155115cf7dada11a05aabac075d5fec79f7b957f79",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/browser/ui/contextview/contextview.ts",
+      "reviewed_behavior": "mouse anchor rectangle and context view placement"
+    },
+    {
+      "key": "editorContextMenu",
+      "path": "src/vs/editor/contrib/contextmenu/browser/contextmenu.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "9c04d55a1f4de6b54b4474668e99332a062cdf872f7a4373ae6fc1bc770cbdda",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/contextmenu/browser/contextmenu.ts",
+      "reviewed_behavior": "editor context menu uses mouse event as getAnchor"
+    },
+    {
+      "key": "contextMenuHandler",
+      "path": "src/vs/platform/contextview/browser/contextMenuHandler.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "0b2d64597b9ac66752ebc291b40270ff3b92459625373cf2c76c0ecfb046c20d",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/platform/contextview/browser/contextMenuHandler.ts",
+      "reviewed_behavior": "right mouse events can request a new context menu; ordinary outside clicks dismiss current menu"
     }
   ]
 }

@@ -1,5 +1,7 @@
 # main 额外功能 → VS Code 语义 → Helix 迁移审计
 
+右键菜单跟随鼠标及边缘定位的后续改进见 [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md)。
+
 删除行为与弹窗绘制的后续修复见 [DELETE_BEHAVIOR.md](DELETE_BEHAVIOR.md)。
 
 后续 Unicode 列选择复核发现并修复了原测试未覆盖的边界，见 [Unicode 列选择修复与验收](UNICODE_COLUMN_SELECTION.md)。原有验收是当时的测试结果，不代表覆盖了这些新增案例。

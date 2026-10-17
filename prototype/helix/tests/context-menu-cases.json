@@ -1,0 +1,282 @@
+[
+  {
+    "name": "explorer_top",
+    "kind": "explorer",
+    "anchor": [
+      5,
+      3
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      20,
+      8
+    ],
+    "expected": [
+      5,
+      4
+    ]
+  },
+  {
+    "name": "explorer_middle",
+    "kind": "explorer",
+    "anchor": [
+      21,
+      11
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      20,
+      8
+    ],
+    "expected": [
+      21,
+      12
+    ]
+  },
+  {
+    "name": "explorer_bottom",
+    "kind": "explorer",
+    "anchor": [
+      29,
+      25
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      20,
+      8
+    ],
+    "expected": [
+      29,
+      17
+    ]
+  },
+  {
+    "name": "editor_top",
+    "kind": "editor",
+    "anchor": [
+      48,
+      3
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      48,
+      4
+    ]
+  },
+  {
+    "name": "editor_middle",
+    "kind": "editor",
+    "anchor": [
+      90,
+      12
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      90,
+      13
+    ]
+  },
+  {
+    "name": "editor_bottom_right",
+    "kind": "editor",
+    "anchor": [
+      117,
+      26
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      95,
+      15
+    ]
+  },
+  {
+    "name": "editor_top_right",
+    "kind": "editor",
+    "anchor": [
+      118,
+      3
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      96,
+      4
+    ]
+  },
+  {
+    "name": "editor_bottom_left",
+    "kind": "editor",
+    "anchor": [
+      41,
+      27
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      41,
+      16
+    ]
+  },
+  {
+    "name": "selection_middle",
+    "kind": "selection",
+    "anchor": [
+      46,
+      6
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      13,
+      6
+    ],
+    "expected": [
+      46,
+      7
+    ]
+  },
+  {
+    "name": "selection_bottom",
+    "kind": "selection",
+    "anchor": [
+      77,
+      26
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      13,
+      6
+    ],
+    "expected": [
+      77,
+      20
+    ]
+  },
+  {
+    "name": "editor_resized",
+    "kind": "resize",
+    "anchor": [
+      118,
+      26
+    ],
+    "viewport": [
+      70,
+      18
+    ],
+    "menu": [
+      23,
+      11
+    ],
+    "expected": [
+      47,
+      6
+    ]
+  },
+  {
+    "name": "editor_short_viewport",
+    "kind": "short",
+    "anchor": [
+      55,
+      7
+    ],
+    "viewport": [
+      60,
+      10
+    ],
+    "menu": [
+      24,
+      10
+    ],
+    "expected": [
+      31,
+      0
+    ]
+  },
+  {
+    "name": "reopen_explorer",
+    "kind": "reopen_explorer",
+    "anchor": [
+      28,
+      20
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      20,
+      8
+    ],
+    "expected": [
+      28,
+      21
+    ]
+  },
+  {
+    "name": "reopen_across_editor_and_explorer",
+    "kind": "reopen_tree",
+    "anchor": [
+      5,
+      2
+    ],
+    "viewport": [
+      120,
+      30
+    ],
+    "menu": [
+      20,
+      8
+    ],
+    "expected": [
+      5,
+      3
+    ]
+  }
+]

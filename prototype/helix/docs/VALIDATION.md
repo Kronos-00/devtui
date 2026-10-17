@@ -1,5 +1,7 @@
 # Final migration acceptance
 
+The pointer-anchored context-menu update is recorded in [CONTEXT_MENU_PLACEMENT.md](CONTEXT_MENU_PLACEMENT.md).
+
 The subsequent permanent-delete and status-row correction is recorded in [DELETE_BEHAVIOR.md](DELETE_BEHAVIOR.md).
 
 This is the original migration acceptance snapshot. The subsequent Unicode column-selection correction and its installed-build evidence are recorded in [UNICODE_COLUMN_SELECTION.md](UNICODE_COLUMN_SELECTION.md).

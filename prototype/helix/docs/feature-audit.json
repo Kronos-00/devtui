@@ -999,15 +999,23 @@
           "reference_sources": [
             "explorerView",
             "listWidget",
-            "listService"
+            "listService",
+            "contextMenuLayout",
+            "contextView",
+            "editorContextMenu",
+            "contextMenuHandler"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
-            "helix-term/src/ui/editor.rs"
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/select.rs",
+            "helix-term/src/application.rs",
+            "helix-view/src/editor.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "context_menu_regression.py"
           ],
           "status": "implemented"
         },
@@ -1023,15 +1031,23 @@
           "reference_sources": [
             "explorerView",
             "listWidget",
-            "listService"
+            "listService",
+            "contextMenuLayout",
+            "contextView",
+            "editorContextMenu",
+            "contextMenuHandler"
           ],
           "helix_sources": [
             "helix-term/src/ui/devtui.rs",
-            "helix-term/src/ui/editor.rs"
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/select.rs",
+            "helix-term/src/application.rs",
+            "helix-view/src/editor.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "context_menu_regression.py"
           ],
           "status": "implemented"
         },
@@ -2209,16 +2225,24 @@
             "strings",
             "viewModelImpl",
             "cursorDeleteOperations",
-            "clipboardUtils"
+            "clipboardUtils",
+            "contextMenuLayout",
+            "contextView",
+            "editorContextMenu",
+            "contextMenuHandler"
           ],
           "helix_sources": [
             "helix-term/src/ui/editor.rs",
-            "helix-term/src/commands.rs"
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/select.rs",
+            "helix-term/src/application.rs",
+            "helix-view/src/editor.rs"
           ],
           "verification": [
             "terminal_regression.py",
             "strict_parity.py",
-            "column_selection_regression.py"
+            "column_selection_regression.py",
+            "context_menu_regression.py"
           ],
           "status": "implemented"
         },
@@ -3246,17 +3270,25 @@
             "fileCommands",
             "explorerView",
             "replaceService",
-            "viewModelImpl"
+            "viewModelImpl",
+            "contextMenuLayout",
+            "contextView",
+            "editorContextMenu",
+            "contextMenuHandler"
           ],
           "helix_sources": [
             "helix-term/src/commands.rs",
             "helix-term/src/ui/devtui.rs",
             "helix-term/src/ui/mod.rs",
-            "prototype/helix/config/config.toml"
+            "prototype/helix/config/config.toml",
+            "helix-term/src/ui/select.rs",
+            "helix-term/src/application.rs",
+            "helix-view/src/editor.rs"
           ],
           "verification": [
             "terminal_regression.py",
-            "strict_parity.py"
+            "strict_parity.py",
+            "context_menu_regression.py"
           ],
           "status": "implemented"
         }

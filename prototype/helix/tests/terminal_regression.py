@@ -108,6 +108,28 @@ class Terminal:
         self.mouse(button,x,y); self.mouse(button,x,y,True); self.drain(.08)
 
     def find(self, text: str, sidebar=False, exact=False):
+        if exact and not sidebar:
+            # A pointer-anchored menu can cover only part of a populated text
+            # row. Match its label within the rendered menu rectangle instead
+            # of requiring the entire terminal row to contain only that label.
+            for top in range(self.screen.lines):
+                for left in range(self.screen.columns):
+                    if self.screen.buffer[top][left].data != '┌':
+                        continue
+                    right = next((x for x in range(left+1, self.screen.columns)
+                                  if self.screen.buffer[top][x].data == '┐'), None)
+                    if right is None:
+                        continue
+                    bottom = next((y for y in range(top+1, self.screen.lines)
+                                   if self.screen.buffer[y][left].data == '└'
+                                   and self.screen.buffer[y][right].data == '┘'), None)
+                    if bottom is None:
+                        continue
+                    for y in range(bottom+1, self.screen.lines):
+                        cells = [self.screen.buffer[y][x].data for x in range(left, right+1)]
+                        if ''.join(cells).strip(' │┃') == text:
+                            offset = next(i for i, value in enumerate(cells) if value and not value.isspace())
+                            return left+offset, y
         for y, row in enumerate(self.screen.display):
             content = row[:32] if sidebar else row
             if exact:
