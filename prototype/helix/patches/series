@@ -30,3 +30,4 @@
 0030-caret-focus-and-context.patch
 0031-debug-launch-isolation.patch
 0032-duplicate-name-boundaries.patch
+0033-unicode-column-selection.patch
