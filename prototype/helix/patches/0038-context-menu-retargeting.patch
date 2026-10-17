@@ -1,0 +1,79 @@
+diff --git a/helix-term/src/ui/select.rs b/helix-term/src/ui/select.rs
+index 824834a..6d08335 100644
+--- a/helix-term/src/ui/select.rs
++++ b/helix-term/src/ui/select.rs
+@@ -2,13 +2,20 @@
+ 
+ use helix_core::Position;
+ 
+-use helix_view::{graphics::Rect, Editor};
++use helix_view::{
++    graphics::Rect,
++    input::{MouseButton, MouseEventKind},
++    Editor,
++};
+ use tui::{
+     buffer::Buffer as Surface,
+     widgets::{Block, Widget as _},
+ };
+ 
+-use crate::compositor::{Component, Context, Event, EventResult};
++use crate::{
++    compositor::{Component, Context, Event, EventResult},
++    key,
++};
+ 
+ use super::{menu::Item, Menu, PromptEvent, Text};
+ 
+@@ -16,6 +23,7 @@ pub struct Select<T: Item> {
+     message: Text,
+     options: Menu<T>,
+     anchor: Option<Position>,
++    rendered_area: Option<Rect>,
+ }
+ 
+ impl<T: Item> Select<T> {
+@@ -42,6 +50,7 @@ pub fn new<M, I, F>(message: M, options: I, data: T::Data, callback: F) -> Self
+             message,
+             options: menu,
+             anchor: None,
++            rendered_area: None,
+         }
+     }
+ 
+@@ -91,6 +100,26 @@ fn context_menu_area(viewport: Rect, anchor: Position, width: u16, height: u16)
+ 
+ impl<T: Item> Component for Select<T> {
+     fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
++        if self.anchor.is_some() {
++            if let Event::Mouse(mouse) = event {
++                let outside = self.rendered_area.is_some_and(|area| {
++                    mouse.column < area.x
++                        || mouse.column >= area.right()
++                        || mouse.row < area.y
++                        || mouse.row >= area.bottom()
++                });
++                if mouse.kind == MouseEventKind::Down(MouseButton::Right) && outside {
++                    // Dismiss this context menu, then let the same right press
++                    // reach the editor and enqueue a fresh context/anchor.
++                    // The compositor runs the close callback before it opens
++                    // the newly queued menu. Modal confirmations do not bubble.
++                    return match self.options.handle_event(&Event::Key(key!(Esc)), cx) {
++                        EventResult::Consumed(callback) => EventResult::Ignored(callback),
++                        result => result,
++                    };
++                }
++            }
++        }
+         self.options.handle_event(event, cx)
+     }
+ 
+@@ -143,6 +172,8 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+             }
+         };
+ 
++        self.rendered_area = Some(area);
++
+         // Message
+         let background = cx.editor.theme.get("ui.background");
+         let text = cx.editor.theme.get("ui.text");
