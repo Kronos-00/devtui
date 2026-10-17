@@ -1,6 +1,7 @@
 #!/usr/bin/env -S python3 -I -S
 """Start the terminal workspace without running another shell startup pass."""
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -8,7 +9,30 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Start the Helix edition with the inherited environment.")
 parser.add_argument("directory", nargs="?", default=os.getcwd(), help="project directory")
+parser.add_argument("--version", action="store_true", help="print the installed build fingerprint")
+parser.add_argument("--health", nargs="?", const="", metavar="LANGUAGE", help="check the installed editor/tool setup")
 args = parser.parse_args()
+home = Path(os.environ.get("HOME", str(Path.home())))
+prefix = home / ".local/opt/devtui/helix-prototype"
+if args.version:
+    try:
+        metadata = json.loads((prefix / "build-info.json").read_text())
+        print("devtui Helix " + metadata.get("patched_tree", "unknown"))
+        print("upstream " + metadata.get("upstream", "unknown"))
+        print("binary " + metadata.get("binary_sha256", "not recorded"))
+    except (OSError, ValueError) as error:
+        print(f"Build fingerprint unavailable: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    raise SystemExit(0)
+if args.health is not None:
+    env = os.environ.copy()
+    env["HELIX_RUNTIME"] = str(prefix / "runtime")
+    env["XDG_CONFIG_HOME"] = str(home / ".config/devtui-helix")
+    env["PATH"] = str(home / ".local/opt/devtui/helix-tools/bin") + os.pathsep + env.get("PATH", "")
+    command = [str(prefix / "bin/hx"), "--health"]
+    if args.health:
+        command.append(args.health)
+    os.execvpe(command[0], command, env)
 try:
     os.chdir(args.directory)
 except OSError as error:

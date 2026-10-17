@@ -9,7 +9,7 @@ if ! command -v rustup >/dev/null 2>&1; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
 fi
 # shellcheck disable=SC1090,SC1091
-source "$HOME/.cargo/env"
+if [ -f "${CARGO_HOME:-$HOME/.cargo}/env" ]; then source "${CARGO_HOME:-$HOME/.cargo}/env"; fi
 rustup toolchain install "$TOOLCHAIN" --profile minimal
 mkdir -p "$WORK" "$PREFIX/bin"
 # Never delete an interrupted or user-edited checkout. Each build owns a new one.
@@ -35,7 +35,7 @@ patches=root/'prototype/helix/patches'
 names=[n for n in (patches/'series').read_text().splitlines() if n and not n.startswith('#')]
 meta={'upstream':(root/'prototype/helix/HELIX_COMMIT').read_text().strip(),
       'patched_tree':subprocess.check_output(['git','-C',str(src),'write-tree'],text=True).strip(),
-      'rust':sys.argv[4], 'patches':{n:hashlib.sha256((patches/n).read_bytes()).hexdigest() for n in names}}
+      'rust':sys.argv[4], 'binary_sha256':hashlib.sha256((prefix/'bin/hx').read_bytes()).hexdigest(), 'patches':{n:hashlib.sha256((patches/n).read_bytes()).hexdigest() for n in names}}
 (prefix/'build-info.json').write_text(json.dumps(meta,indent=2)+'\n')
 PY
 printf 'Installed Helix; source retained at %s\n' "$SRC"
