@@ -144,14 +144,14 @@ class StrictParity(unittest.TestCase):
     def test_find_defaults_literal_case_insensitive_and_mouse_toggle(self):
         with tr.Terminal({'a.txt':'a.b A.B axb abé\n'},'a.txt') as t:
             t.editor_focus();t.send('\x06');t.send('a.b')
-            self.assertIn('2 matches',t.text);self.assertIn('[.*-]',t.text)
-            t.send('\r');self.assertIn('Find (',t.text)
-            t.click(2,29);self.assertIn('[Aa+]',t.text)
+            self.assertIn('2 matches',t.text);self.assertIn('┌─ Find',t.text)
+            t.send('\r');self.assertIn('┌─ Find',t.text)
+            t.click_text('Aa');self.assertIn('1 matches',t.text)
             t.send('\x1b');t.send('\x03');self.assertEqual(t.clipboard()[-1],'a.b')
 
     def test_in_file_replace_literal_dollar_and_regex_opt_in(self):
         with tr.Terminal({'a.txt':'foo.bar FOO.BAR fooXbar\n'},'a.txt') as t:
-            t.editor_focus();t.send('\x08');t.send('foo.bar\r');t.send('$1\r');t.send('\r',.3)
+            t.editor_focus();t.send('\x06');t.send('foo.bar');t.send('\x08');t.send('$1');t.click_text('⇉');t.send('\x1b')
             self.assertEqual((t.work/'a.txt').read_text(),'foo.bar FOO.BAR fooXbar\n')
             self.assertIn('$1 $1 fooXbar',t.text)
             t.command('w');self.assertEqual((t.work/'a.txt').read_text(),'$1 $1 fooXbar\n')
@@ -289,8 +289,9 @@ class StrictParity(unittest.TestCase):
     def test_overview_search_and_named_mark_navigation(self):
         data=''.join(f'LINE-{i:03d}\n' for i in range(1,161))
         with tr.Terminal({'long.txt':data},'long.txt') as t:
-            t.editor_focus();t.send('\x06');t.send('LINE-130\r');t.send('\x1b')
+            t.editor_focus();t.send('\x06');t.send('LINE-130\r')
             self.assertTrue(any(line[-2]=='s' for line in t.screen.display[:-2]), t.text)
+            t.send('\x1b');self.assertFalse(any(line[-2]=='s' for line in t.screen.display[:-2]),t.text)
             t.send(' msa');t.send('gg');t.send(' mga')
             self.assertIn('LINE-130',t.text)
             t.send('\x06');t.send('\x15');t.send('\x1b')

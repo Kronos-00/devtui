@@ -20,7 +20,12 @@ keybinds {
         }
     }
     normal {
-        unbind "Ctrl s" "Ctrl h" "Ctrl p"
+        unbind "Ctrl s" "Ctrl h" "Ctrl p" "Alt l" "Alt p"
+        // Find in Selection / Preserve Case reach the editor; Alt+Right
+        // remains available for workspace focus navigation.
+
+        // Keep modified Enter distinct when forwarding the Replace All key.
+        bind "Ctrl Alt Enter" { Write 27 91 49 51 59 55 117; }
 
         // Preserve Ctrl-Shift-Z as a distinct key through terminal/Zellij paths.
         bind "Ctrl Shift z" { Write 27 91 49 50 50 59 54 117; }

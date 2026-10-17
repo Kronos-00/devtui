@@ -217,6 +217,69 @@
       ]
     },
     {
+      "category": "导航与搜索",
+      "keys": "Alt+C / Alt+W / Alt+R",
+      "context": "查找与替换面板",
+      "description": "切换区分大小写、全字匹配和正则表达式",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Alt+L",
+      "context": "查找与替换面板",
+      "description": "切换在所选内容中查找，支持多选区",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Alt+P",
+      "context": "查找与替换面板",
+      "description": "切换替换时保留大小写",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Enter / Shift+Enter",
+      "context": "查找输入框",
+      "description": "跳到下一个或上一个匹配项",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Enter / Ctrl+Alt+Enter",
+      "context": "替换输入框",
+      "description": "替换当前匹配并前进，或一次替换全部匹配",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Tab / Shift+Tab",
+      "context": "查找与替换面板",
+      "description": "在输入框和操作按钮之间向前或向后移动焦点",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+Enter",
+      "context": "查找或替换输入框",
+      "description": "插入实际换行符，支持多行查找与替换",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "鼠标左键拖动 / 双击左边缘",
+      "context": "查找与替换面板",
+      "description": "调整面板宽度，或切换最大宽度与默认宽度",
+      "commands": []
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Esc / 鼠标点击 ×",
+      "context": "查找与替换面板",
+      "description": "关闭面板并返回编辑器",
+      "commands": []
+    },
+    {
       "category": "编辑与剪贴板",
       "keys": "Ctrl+Z",
       "context": "编辑器",

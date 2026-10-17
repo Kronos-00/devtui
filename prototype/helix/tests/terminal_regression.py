@@ -424,10 +424,8 @@ class MigrationTests(unittest.TestCase):
     def test_current_replace_preserves_unsaved_state(self):
         with Terminal({'a.txt':'foo foo\n'},'a.txt') as t:
             t.editor_focus();t.send('\x1bOP');t.send('devtui_current_replace\r',.2)
-            t.wait_for(lambda:'Search:' in t.text,'current replace prompt')
-            t.send('foo\r');t.send('bar\r',.25)
-            t.wait_for(lambda:'Replace All in File' in t.text,'current replace preview')
-            t.send('\r',.2)
+            t.wait_for(lambda:'Find / Replace' in t.text,'current replace widget')
+            t.send('foo\tbar');t.click_text('⇉');t.send('\x1b')
             self.assertEqual((t.work/'a.txt').read_text(),'foo foo\n')
             self.assertIn('bar bar',t.text)
             t.command('w');self.assertEqual((t.work/'a.txt').read_text(),'bar bar\n')
@@ -435,8 +433,8 @@ class MigrationTests(unittest.TestCase):
     def test_current_replace_in_untitled(self):
         with Terminal({}) as t:
             t.edit('foo foo');t.send('\x1bOP');t.send('devtui_current_replace\r',.2)
-            t.wait_for(lambda:'Search:' in t.text,'untitled current replace')
-            t.send('foo\r');t.send('bar\r',.25);t.send('\r',.2)
+            t.wait_for(lambda:'Find / Replace' in t.text,'untitled current replace')
+            t.send('foo\tbar');t.click_text('⇉');t.send('\x1b')
             t.command('wq');t.save_as(t.work/'replaced.txt')
             t.wait_for(lambda:(t.work/'replaced.txt').exists(),'replaced scratch saved')
             self.assertEqual((t.work/'replaced.txt').read_text(),'bar bar\n')
