@@ -1,0 +1,4380 @@
+{
+  "baseline_commit": "b10574bee0c85ef6ed51b620729d212760ee2520",
+  "vscode_commit": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+  "scope": "User-facing additions and explicit configuration in main; not every built-in Vim operation or every VS Code extension.",
+  "groups": [
+    {
+      "group": "工作区、会话与环境",
+      "features": [
+        {
+          "id": "01-01",
+          "feature": "指定目录启动",
+          "reference_logic": "工作目录由启动参数或调用者的当前目录决定",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-02",
+          "feature": "编辑器/Git/shell/横幅布局",
+          "reference_logic": "三个工作区域并列组合；布局不改变工具链",
+          "main_assessment": "devtui 的终端工作区约定，不是 VS Code 像素布局",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-03",
+          "feature": "宽屏自适应",
+          "reference_logic": "宽度达到阈值选择 wide 布局；异常尺寸有回退",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-04",
+          "feature": "完整退出",
+          "reference_logic": "Ctrl-Q 退出 Zellij 会话",
+          "main_assessment": "有意保留 devtui 会话快捷键",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-05",
+          "feature": "分离/恢复会话",
+          "reference_logic": "Zellij detach/attach 保留进程",
+          "main_assessment": "复用固定版本的终端复用器，不重写功能",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-06",
+          "feature": "导出的开发环境继承",
+          "reference_logic": "PATH、编译器、SDK、locale、代理和用户变量不被启动器改写",
+          "main_assessment": "修正 Bash 启动器可能读取 BASH_ENV 的漏洞",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-07",
+          "feature": "不重新执行 shell 初始化",
+          "reference_logic": "右下 shell 不读 rc/profile 或自动启用工具链",
+          "main_assessment": "Helix 启动器/终端 helper 使用隔离的 Python exec，最终 Bash --noprofile --norc -i",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-08",
+          "feature": "编辑区域不被关掉",
+          "reference_logic": "关闭文件不拆掉编辑器结构",
+          "main_assessment": "用户要求；类似 closeEmptyGroups=false 的保留工作区约定",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "01-09",
+          "feature": "Explorer 保持存在",
+          "reference_logic": "Esc/q 和打开其他文件不意外关闭目录树",
+          "main_assessment": "用户明确保留的固定侧栏约定，不声称 VS Code 不能隐藏侧栏",
+          "baseline_sources": [
+            "bin/devtui",
+            "bin/devtui-shell-pane",
+            "config/zellij/config.kdl.in",
+            "config/zellij/layouts/dev.kdl.in",
+            "config/zellij/layouts/dev-wide.kdl.in"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix",
+            "prototype/helix/bin/devtui-helix-shell-pane",
+            "prototype/helix/zellij"
+          ],
+          "verification": [
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "标签、Preview 与文档生命周期",
+      "features": [
+        {
+          "id": "02-01",
+          "feature": "单击 Preview",
+          "reference_logic": "只复用一个未固定预览文档",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-02",
+          "feature": "双击保持打开",
+          "reference_logic": "结束 Preview 状态，保持文档；不是 sticky 置顶",
+          "main_assessment": "pinned 与 sticky 必须区分；同时修正双击后编辑器焦点",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-03",
+          "feature": "编辑自动保持打开",
+          "reference_logic": "实际修改时 Preview 立即晋升，之后不再被替换",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-04",
+          "feature": "已固定文档不被 Preview 替换",
+          "reference_logic": "新 Preview 不复用固定标签",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-05",
+          "feature": "再次打开已有文档",
+          "reference_logic": "切换现有标签，不重复创建，不改变其他 Preview 状态",
+          "main_assessment": "修复旧迁移实现把另一个 Preview 一并固定的问题",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-06",
+          "feature": "Preview 样式",
+          "reference_logic": "可视上区分可复用预览与保持打开的标签",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-07",
+          "feature": "标签栏始终存在",
+          "reference_logic": "新增/关闭标签不造成首行布局跳动",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-08",
+          "feature": "单击切换标签",
+          "reference_logic": "命中真实已渲染标签，切换目标文档",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-09",
+          "feature": "关闭按钮始终可用",
+          "reference_logic": "dirty 圆点与关闭命中区域分开",
+          "main_assessment": "主分支通过末端几何补丁模拟；Helix 直接存储渲染命中矩形",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-10",
+          "feature": "未保存关闭三分支",
+          "reference_logic": "Save 成功后关闭；Don't Save 丢弃；Cancel 不变",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-11",
+          "feature": "保存失败保护",
+          "reference_logic": "失败保留文档与修改，取消延迟关闭状态",
+          "main_assessment": "修正后续一次普通保存意外关闭文档的问题",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-12",
+          "feature": "Untitled 参与关闭确认",
+          "reference_logic": "未命名修改也必须询问",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-13",
+          "feature": "Untitled 保存/另存",
+          "reference_logic": "Save As，路径确认一次 Enter 生效，取消不改文档",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-14",
+          "feature": "命名文档 Save As",
+          "reference_logic": "切换文档身份到新路径，而不只是写一份副本",
+          "main_assessment": "主分支 Ctrl-Shift-S 使用 :write path；Helix 按真正 Save As 纠正",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-15",
+          "feature": "覆盖确认",
+          "reference_logic": "覆盖已有目标必须确认，另一个 dirty 标签不能被静默覆盖",
+          "main_assessment": "补齐主分支和早期迁移缺少的安全边界",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-16",
+          "feature": "标签栏空白双击",
+          "reference_logic": "创建新 Untitled，不误触已有标签",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-17",
+          "feature": "关闭最后一个标签",
+          "reference_logic": "保留编辑区域与空文档",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-18",
+          "feature": "本地 q/quit/close",
+          "reference_logic": "当前文档关闭，dirty 时确认",
+          "main_assessment": "TUI 命令映射约定；避免主分支 QuitPre 异常控制流",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-19",
+          "feature": "强制 q!/quit!/close!",
+          "reference_logic": "丢弃当前文档，不删除工作区区域",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-20",
+          "feature": "wq/wq!",
+          "reference_logic": "保存成功才关闭；Untitled 先 Save As",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-21",
+          "feature": "x/xit/exit/ZZ/ZQ",
+          "reference_logic": "按是否修改选择保存关闭或丢弃关闭",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-22",
+          "feature": "qa/qall/wqa 等全局关闭",
+          "reference_logic": "不拆掉 devtui 编辑进程，完整退出通过 Ctrl-Q",
+          "main_assessment": "TUI 保留约定，不宣称是 VS Code 原生命令",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "02-23",
+          "feature": "标签溢出",
+          "reference_logic": "活动标签和关闭控件仍可达",
+          "main_assessment": "迁移额外修正，避免宽文件名挤掉当前标签",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_preview.lua",
+            "config/nvim/lua/config/devtui_tabs.lua",
+            "config/nvim/lua/config/devtui_regions.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "editorGroupModel",
+            "editorGroupView",
+            "multiEditorTabsControl"
+          ],
+          "helix_sources": [
+            "helix-view/src/editor.rs",
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/commands/typed.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "目录树、选择与尺寸",
+      "features": [
+        {
+          "id": "03-01",
+          "feature": "常驻目录树",
+          "reference_logic": "真实侧栏与真实编辑器并排，不是文件选择弹层",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-02",
+          "feature": "明确根节点",
+          "reference_logic": "首行是工作目录，用它执行根目录操作",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-03",
+          "feature": "普通单选",
+          "reference_logic": "单击 B 替代 A 的选择，而不是累加",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-04",
+          "feature": "Ctrl 单击多选",
+          "reference_logic": "切换该项并保留其他选择",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-05",
+          "feature": "Alt 单击多选别名",
+          "reference_logic": "只在树内作为 Ctrl 多选的等价入口",
+          "main_assessment": "为终端兼容保留的用户约定；不冒充 VS Code 默认 Alt-click",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-06",
+          "feature": "已选项右键",
+          "reference_logic": "保留当前多选，菜单动作作用于整组",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-07",
+          "feature": "未选项右键",
+          "reference_logic": "该项成为上下文目标，不误操作旧选择",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-08",
+          "feature": "跨区域首次点击",
+          "reference_logic": "Insert 模式或其他区域有焦点时，第一次点树即打开",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-09",
+          "feature": "单击保留树焦点",
+          "reference_logic": "Preview 后可继续导航树",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-10",
+          "feature": "双击移动编辑焦点",
+          "reference_logic": "文件保持打开且立即可按 i 编辑",
+          "main_assessment": "严格审计补齐早期迁移只固定但不转移焦点的问题",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-11",
+          "feature": "展开与折叠目录",
+          "reference_logic": "目录操作不创建文件标签",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-12",
+          "feature": "隐藏/忽略文件默认显示",
+          "reference_logic": "保持 devtui 既有设置",
+          "main_assessment": "配置选择，不是 VS Code 全局默认值",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-13",
+          "feature": "隐藏/忽略切换",
+          "reference_logic": "只改变树的可见性过滤",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-14",
+          "feature": "Explorer 聚焦快捷键",
+          "reference_logic": "存在则聚焦，不是 toggle-close",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-15",
+          "feature": "树轮滚动",
+          "reference_logic": "移动视口，不能被旧选择强行拉回",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-16",
+          "feature": "右侧宽度拖动",
+          "reference_logic": "同一次按住允许停顿、往返拖动",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-17",
+          "feature": "三字符热区",
+          "reference_logic": "便于终端命中边缘",
+          "main_assessment": "终端尺寸适配，不是 VS Code 像素值",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-18",
+          "feature": "最小树宽度",
+          "reference_logic": "最小 12 列，同时保留编辑器空间",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-19",
+          "feature": "宽度记忆",
+          "reference_logic": "重启后恢复侧栏宽度",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-20",
+          "feature": "根目录替代空白右键",
+          "reference_logic": "不重新加入用户已撤销的空白区右键逻辑",
+          "main_assessment": "保留明确要求的交互范围",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "03-21",
+          "feature": "键盘树导航",
+          "reference_logic": "上下移动选择；左右折叠/父项/展开/子项；Enter 打开文件",
+          "main_assessment": "迁移中补齐键盘上下文，原版来自 Snacks 原生树导航",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "explorerView",
+            "listWidget",
+            "listService"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "文件操作与路径剪贴板",
+      "features": [
+        {
+          "id": "04-01",
+          "feature": "根/目录新建文件",
+          "reference_logic": "在目标目录创建，打开并保持新文件",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-02",
+          "feature": "根/目录新建文件夹",
+          "reference_logic": "创建目录并展开/选中结果",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-03",
+          "feature": "嵌套相对路径新建",
+          "reference_logic": "创建父目录，禁止越出所选目录",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-04",
+          "feature": "已有名称保护",
+          "reference_logic": "新建不能清空原文件，Rename 不能静默覆盖",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-05",
+          "feature": "文件/文件夹复制",
+          "reference_logic": "存储独立的文件剪贴板，不混入文本剪贴板",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-06",
+          "feature": "目录粘贴",
+          "reference_logic": "有文件剪贴板才可用，禁用项不能执行",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-07",
+          "feature": "同目录重复命名",
+          "reference_logic": "name copy、name copy 2，扩展名保留",
+          "main_assessment": "严格审计纠正 copy 0、无空格/多空格后缀和大整数；旧饱和递增会卡住，现按 VS Code simple 命名策略并逐候选避免冲突",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView",
+            "uint"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "strict_parity.py:test_copy_name_zero_and_literal_suffix_match_vscode",
+            "strict_parity.py:test_copy_name_large_counter_never_stalls",
+            "strict_parity.py:test_duplicate_names_keep_extensions_and_advance_existing_copies"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-08",
+          "feature": "复制项自身粘贴",
+          "reference_logic": "在父目录生成副本，不嵌套复制自身",
+          "main_assessment": "按 VS Code 源码纠正原来一律拒绝自身目标的区别",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-09",
+          "feature": "子孙目录粘贴保护",
+          "reference_logic": "执行前拒绝源目录的子孙目标，防止递归",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-10",
+          "feature": "符号链接复制",
+          "reference_logic": "复制链接而非无限跟随循环",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-11",
+          "feature": "单个粘贴文件打开",
+          "reference_logic": "结果固定并揭示，保留树焦点",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-12",
+          "feature": "复制绝对路径",
+          "reference_logic": "写到系统剪贴板，不读取终端剪贴板",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-13",
+          "feature": "复制相对路径",
+          "reference_logic": "相对工作目录；根节点使用点号",
+          "main_assessment": "根节点点号沿用用户合同",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-14",
+          "feature": "多选路径复制",
+          "reference_logic": "按文档/列表次序换行分隔",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-15",
+          "feature": "多选复制/删除",
+          "reference_logic": "对整组操作，父子重复目标去重",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-16",
+          "feature": "删除确认",
+          "reference_logic": "确认后操作，dirty 文件有数据丢失警告",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-17",
+          "feature": "回收站优先",
+          "reference_logic": "能使用回收站时使用；失败须明确询问永久删除",
+          "main_assessment": "主分支永久删除；Helix 按 VS Code 默认安全逻辑改进",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-18",
+          "feature": "删除打开文件",
+          "reference_logic": "移除对应文档，保留编辑区，避免稍后保存又复活",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "04-19",
+          "feature": "Rename",
+          "reference_logic": "修改路径，更新已打开文件/子文件身份",
+          "main_assessment": "主分支自定义右键菜单未列 Rename；属原生树入口与迁移补全",
+          "baseline_sources": [
+            "config/nvim/lua/config/devtui_explorer_context.lua"
+          ],
+          "reference_sources": [
+            "fileActions",
+            "fileCommands",
+            "explorerView"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/devtui.rs",
+            "helix-view/src/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "鼠标文本选择与多光标",
+      "features": [
+        {
+          "id": "05-01",
+          "feature": "左键定位与拖选",
+          "reference_logic": "字符区定位，选区采用半开边界",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-02",
+          "feature": "普通复制保留选区",
+          "reference_logic": "Copy 不取消高亮",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-03",
+          "feature": "中键垂直光标",
+          "reference_logic": "每个经过行产生原生 caret",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-04",
+          "feature": "中键矩形选择",
+          "reference_logic": "左右/上下任意拖动方向一致",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-05",
+          "feature": "短行夹取",
+          "reference_logic": "零宽拖选夹取到 EOL",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-06",
+          "feature": "稀疏矩形",
+          "reference_logic": "真正到不了左边界的行跳过；等于边界保留 EOL caret",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-07",
+          "feature": "全短行后备",
+          "reference_logic": "所有行均到不了矩形时，每行 EOL 产生 caret",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-08",
+          "feature": "Insert 中中键",
+          "reference_logic": "不进入原生中键贴上路径，不请求 OSC52 读取",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-09",
+          "feature": "实时多光标输入",
+          "reference_logic": "每个按键当下更新全部 caret",
+          "main_assessment": "主分支插件在离开 Insert 后回放；Helix 原生事务消除这一差异",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-10",
+          "feature": "Insert 方向移动",
+          "reference_logic": "所有 caret 同步移动，不越界弹异常",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-11",
+          "feature": "选择上的方向键",
+          "reference_logic": "左右先收起到对应边界，不额外多走一格",
+          "main_assessment": "主分支折叠再移动的近似实现不是精确 VS Code 规则；迁移修正",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-12",
+          "feature": "多选右键 Copy/Cut/Delete",
+          "reference_logic": "按选区动作，不误开符号菜单",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-13",
+          "feature": "框选复制保留",
+          "reference_logic": "Copy 不改变原选区",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-14",
+          "feature": "稀疏复制",
+          "reference_logic": "不为真正跳过的行制造空白剪贴板行",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-15",
+          "feature": "按行分配粘贴",
+          "reference_logic": "行数等于 caret 数则逐行分配，否则各接收完整文本",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-16",
+          "feature": "粘贴替换选区",
+          "reference_logic": "一次 undo 事务替换，不在选区前插入",
+          "main_assessment": "本轮严格测试发现并修复",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-17",
+          "feature": "剪切后粘贴锚点",
+          "reference_logic": "剪切后是 caret，不误删下一个字符",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-18",
+          "feature": "上下添加光标",
+          "reference_logic": "保留其他 caret",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-19",
+          "feature": "匹配词增选",
+          "reference_logic": "第一次选词，下次增选后续匹配；全部匹配入口",
+          "main_assessment": "主分支第一次可能立即增选；迁移按 VS Code 纠正",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "05-20",
+          "feature": "Esc 收起额外光标",
+          "reference_logic": "Normal Esc 清除额外 caret，Insert Esc 先退出输入",
+          "main_assessment": "保留原 TUI 模态约定",
+          "baseline_sources": [
+            "config/nvim/lua/plugins/multicursor.lua",
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "cursorColumnSelection",
+            "cursorMoveOperations",
+            "cursorTypeOperations",
+            "cursorTypeEditOperations",
+            "clipboard",
+            "multicursor"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-term/src/commands.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "VS Code 风格快捷键与文本命令",
+      "features": [
+        {
+          "id": "06-01",
+          "feature": "Ctrl-S 保存",
+          "reference_logic": "命名文档保存，Untitled 弹出路径输入",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-02",
+          "feature": "Ctrl-Shift-S 另存",
+          "reference_logic": "Save As 真实切换文档路径",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-03",
+          "feature": "Ctrl-Z 撤销",
+          "reference_logic": "作用于合理事务，不破坏多光标",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-04",
+          "feature": "Ctrl-Y/Ctrl-Shift-Z 重做",
+          "reference_logic": "重做与引用导航不能冲突",
+          "main_assessment": "修复旧转发序列实际对应 Shift-F12，以及 CSI-u Shift 规范化",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-05",
+          "feature": "Ctrl-C 复制",
+          "reference_logic": "有明确选择复制选择，否则复制当前行",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-06",
+          "feature": "Ctrl-X 剪切",
+          "reference_logic": "选择或整行剪切，之后 caret 可直接粘贴",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-07",
+          "feature": "Ctrl-A 全选",
+          "reference_logic": "选择整个内容；输入替换，取消不修改",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-08",
+          "feature": "Ctrl-L 选择当前行",
+          "reference_logic": "行选择可以继续扩展",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-09",
+          "feature": "Ctrl-/ 注释",
+          "reference_logic": "根据语言对选择行切换行注释",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-10",
+          "feature": "Ctrl-Enter 插入下行",
+          "reference_logic": "进入新行输入",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-11",
+          "feature": "Ctrl-Shift-Enter 插入上行",
+          "reference_logic": "进入新行输入",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-12",
+          "feature": "Ctrl-Shift-K 删除行",
+          "reference_logic": "删除当前/选中行，维护编辑状态",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-13",
+          "feature": "快捷键多模式支持",
+          "reference_logic": "适用动作在 Normal/Insert/Select 都可触发",
+          "main_assessment": "不只配置 Normal 模式",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "06-14",
+          "feature": "Esc/命令前缀兼容",
+          "reference_logic": "保留 Helix 模态操作，不伪造无模式编辑器",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua"
+          ],
+          "reference_sources": [
+            "clipboard",
+            "multicursor",
+            "cursorTypeEditOperations",
+            "cursorMoveOperations"
+          ],
+          "helix_sources": [
+            "prototype/helix/config/config.toml",
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/editor.rs"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "查找、替换与导航",
+      "features": [
+        {
+          "id": "07-01",
+          "feature": "Ctrl-F 查找",
+          "reference_logic": "默认字面量、不区分大小写；可切换大小写/全词/正则",
+          "main_assessment": "主分支映射 Vim /，默认语义不同；已纠正",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-02",
+          "feature": "Find 正则错误",
+          "reference_logic": "不修改文档，显示错误可继续编辑",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-03",
+          "feature": "Ctrl-H 当前文件替换",
+          "reference_logic": "可预览并逐项/全部应用，结果仍 dirty",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-04",
+          "feature": "未命名文档替换",
+          "reference_logic": "不需要先保存",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-05",
+          "feature": "Ctrl-Shift-F 项目搜索",
+          "reference_logic": "以打开工作目录为范围",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-06",
+          "feature": "Ctrl-Shift-H 项目替换",
+          "reference_logic": "预览并按匹配/文件/全部应用；显式保存目标",
+          "main_assessment": "按 VS Code replaceService 修正早期迁移对于已打开文件的错误假设",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-07",
+          "feature": "字面量替换文本",
+          "reference_logic": "非正则模式中美元符号不当作捕获组",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-08",
+          "feature": "正则捕获替换",
+          "reference_logic": "显式正则模式支持捕获引用",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-09",
+          "feature": "Ctrl-P Quick Open",
+          "reference_logic": "限制打开工作目录，确认后真实编辑器获得焦点",
+          "main_assessment": "修复向上发现无关父 Git 仓库和保留旧树焦点的问题",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-10",
+          "feature": "Ctrl-Shift-P/F1 命令面板",
+          "reference_logic": "执行命令的后续 UI 回调不能丢失",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-11",
+          "feature": "Alt-G 行号跳转",
+          "reference_logic": "正整数校验，越界夹取",
+          "main_assessment": "Ctrl-G 被终端复用器使用，保留 Alt-G 适配",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-12",
+          "feature": "Ctrl-Shift-O 文件符号",
+          "reference_logic": "使用 LSP/语法树可用的符号",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-13",
+          "feature": "F2 Rename、F12 定义、Shift-F12 引用",
+          "reference_logic": "有语言服务能力才执行相应动作",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-14",
+          "feature": "Ctrl-. Code Action",
+          "reference_logic": "调用当前上下文的语言服务操作",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-15",
+          "feature": "F8/Shift-F8 诊断导航",
+          "reference_logic": "前后跳转诊断位置",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "07-16",
+          "feature": "编辑器符号右键菜单",
+          "reference_logic": "定义/声明/引用/实现/类型/Hover/Rename/Code Action 及键盘入口",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/keymaps.lua",
+            "config/nvim/lua/plugins/devtui-interaction.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "explorerView",
+            "replaceService",
+            "viewModelImpl"
+          ],
+          "helix_sources": [
+            "helix-term/src/commands.rs",
+            "helix-term/src/ui/devtui.rs",
+            "helix-term/src/ui/mod.rs",
+            "prototype/helix/config/config.toml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "外部文件、Git 与剪贴板传输",
+      "features": [
+        {
+          "id": "08-01",
+          "feature": "终端文件点击",
+          "reference_logic": "终端 Alt-click 文件位置发给当前编辑器，不新开独立实例",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-02",
+          "feature": "行号和列号",
+          "reference_logic": "path:line:column 与 path(line,column)，一基计数",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-03",
+          "feature": "Unicode 列位置",
+          "reference_logic": "外部列按 UTF-16 单位转换并在字符/EOL 边界夹取",
+          "main_assessment": "新增 Unicode 回归",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-04",
+          "feature": "相对和绝对路径",
+          "reference_logic": "支持常规相对、./、绝对、环境变量与用户目录形式",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-05",
+          "feature": "带空格/Unicode 路径",
+          "reference_logic": "引号和定位后缀分离，不把引号算入文件名",
+          "main_assessment": "本轮补齐 link 高亮与解析测试",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-06",
+          "feature": "工作区外文件",
+          "reference_logic": "在现有编辑区打开，不替换根目录树",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-07",
+          "feature": "编辑器聚焦",
+          "reference_logic": "外部导航聚焦已有 Zellij 编辑 pane",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-08",
+          "feature": "Lazygit 编辑入口",
+          "reference_logic": "e/open-at-line 复用运行实例",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-09",
+          "feature": "Git 暂存/差异/提交/分支/stash",
+          "reference_logic": "保留固定 Lazygit 版本与专用 pane",
+          "main_assessment": "第三方复用，不重新实现 Git；不在用户仓库做破坏性验收",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-10",
+          "feature": "编辑器内 Git 差异提示",
+          "reference_logic": "保留原生 Git gutter，当前行 blame 不默认弹出",
+          "main_assessment": "主分支显式关闭自动 blame",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-11",
+          "feature": "OSC52 写剪贴板",
+          "reference_logic": "Copy/Copy Path 只写，不读取终端剪贴板",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-12",
+          "feature": "终端粘贴入口",
+          "reference_logic": "使用 bracketed paste，从宿主获得纯文本",
+          "main_assessment": "终端协议不保证传递 VS Code 私有 HTML/列剪贴板元数据",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-13",
+          "feature": "鼠标修饰键转发",
+          "reference_logic": "树内 Ctrl/Alt 与 shell 文件跳转分域处理",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "08-14",
+          "feature": "IPC 边界保护",
+          "reference_logic": "私有端点权限、读取超时、限制长度、校验目标，滞留客户端不堵塞后续",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "bin/tui-nvim-open",
+            "patches/zellij-link-devtui.patch",
+            "patches/zellij-0.45.1-mouse-passthrough.patch",
+            "config/lazygit/config.yml.in",
+            "config/nvim/lua/config/options.lua",
+            "config/nvim/lua/plugins/tui-dev.lua"
+          ],
+          "reference_sources": [
+            "fileCommands",
+            "clipboard"
+          ],
+          "helix_sources": [
+            "prototype/helix/bin/devtui-helix-open",
+            "helix-term/src/application.rs",
+            "prototype/helix/zellij/link-paths.patch",
+            "prototype/helix/config/lazygit.yml"
+          ],
+          "verification": [
+            "terminal_regression.py",
+            "strict_parity.py",
+            "Zellij link native tests",
+            "deployment_regression.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "视觉、编辑器附加与语言集成",
+      "features": [
+        {
+          "id": "09-01",
+          "feature": "Markdown 原始标点",
+          "reference_logic": "源码视图不隐藏反引号与围栏",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-02",
+          "feature": "交互滚动条",
+          "reference_logic": "拖动 thumb 移动视口，不编辑内容",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-03",
+          "feature": "滚动条显隐",
+          "reference_logic": "命令可临时切换",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-04",
+          "feature": "滚动条搜索/诊断提示",
+          "reference_logic": "按文档位置显示概览标记",
+          "main_assessment": "严格读取 main 的 signs_on_startup 发现漏项后补齐",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-05",
+          "feature": "滚动条命名标记",
+          "reference_logic": "保留文档标记显示及设置/跳转/删除入口",
+          "main_assessment": "Vim 标记无 VS Code 核心等价；以命名导航标记保留用途，不导入 Shada",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-06",
+          "feature": "非活动条件编译区域",
+          "reference_logic": "接受语言服务通知并淡化范围",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-07",
+          "feature": "文件图标与字体",
+          "reference_logic": "树/标签使用 Nerd Font 图标；字体不随仓库分发",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-08",
+          "feature": "C/C++/CUDA 语言服务",
+          "reference_logic": "clangd 与项目编译数据库，不注入主机 SDK",
+          "main_assessment": "main 有安装声明与能力菜单，完整语言 extras 未显式导入；Helix 补齐通用配置",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-09",
+          "feature": "Source/Header 切换",
+          "reference_logic": "通过 clangd 对应请求执行",
+          "main_assessment": "主分支环境文档声明，Helix 增加通用入口",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-10",
+          "feature": "CMake 语言/格式化",
+          "reference_logic": "独立语言服务及格式化工具",
+          "main_assessment": "修正传递依赖升级导致服务无法启动，锁定兼容版本",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-11",
+          "feature": "Bash 语言/检查/格式化",
+          "reference_logic": "语言服务、ShellCheck、shfmt",
+          "main_assessment": "main 主要依赖环境安装；Helix 明确配置和部署",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-12",
+          "feature": "Python 语言/检查/格式化",
+          "reference_logic": "Pyright/Ruff，选定解释器用于语言服务",
+          "main_assessment": "main 安装声明不等于完整启用；Helix 提供可部署配置",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-13",
+          "feature": "Python 环境选择",
+          "reference_logic": "记忆工作区解释器，不修改右下 shell",
+          "main_assessment": "通用迁移补全，editor 专用环境与 shell 分开",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands",
+            "pythonDebugBase",
+            "pythonDebugLaunch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py",
+            "editor_debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-14",
+          "feature": "调试常用动作",
+          "reference_logic": "断点/启动/继续/暂停/单步/重启/停止/变量/栈",
+          "main_assessment": "main 的公共 extras 配置不完整；Helix 提供 DAP 集成并做真实进程测试",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands",
+            "pythonDebugBase",
+            "pythonDebugLaunch"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py",
+            "editor_debugger_regression.py"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "09-15",
+          "feature": "LSP/工具健康查看",
+          "reference_logic": "可检查实际加载与可执行程序",
+          "main_assessment": "依赖可用性和真实服务初始化分别验收",
+          "baseline_sources": [
+            "config/nvim/lua/config/autocmds.lua",
+            "config/nvim/lua/plugins/scrollbar.lua",
+            "config/nvim/lua/plugins/clangd-inactive.lua",
+            "config/nvim/lua/config/lazy.lua",
+            "scripts/install-mason-tools.sh",
+            "config/nvim/lazy-lock.json"
+          ],
+          "reference_sources": [
+            "decorationsOverviewRuler",
+            "goToCommands"
+          ],
+          "helix_sources": [
+            "helix-term/src/ui/editor.rs",
+            "helix-view/src/document.rs",
+            "helix-term/src/application.rs",
+            "helix-lsp",
+            "prototype/helix/config/languages.toml",
+            "prototype/helix/scripts/install-tools.sh"
+          ],
+          "verification": [
+            "strict_parity.py",
+            "terminal_regression.py",
+            "service_smoke.py",
+            "debugger_regression.py"
+          ],
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "group": "部署、复现与发布",
+      "features": [
+        {
+          "id": "10-01",
+          "feature": "固定依赖版本",
+          "reference_logic": "固定编辑器源码 revision、插件/工具版本与原生工具基线",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-02",
+          "feature": "补丁可复现",
+          "reference_logic": "增量顺序明确，干净基线可完整应用并核对源码树",
+          "main_assessment": "修复原累计 patch 与分步 patch 重复叠加导致安装失败",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-03",
+          "feature": "独立安装",
+          "reference_logic": "Helix 不覆盖 Neovim 的配置/启动器",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-04",
+          "feature": "配置备份",
+          "reference_logic": "替换前备份旧 Helix 设置",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-05",
+          "feature": "home 路径渲染",
+          "reference_logic": "模板在目标用户安装时展开，不写入当前机器地址",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-06",
+          "feature": "依赖隔离",
+          "reference_logic": "编辑器工具安装在私有前缀，不修改 shell 初始化文件",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-07",
+          "feature": "发布校验",
+          "reference_logic": "提交文件、文件名、提交信息不泄露本机环境",
+          "main_assessment": "主分支已有；迁移保留并核对行为",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-08",
+          "feature": "源码与运行版本一致",
+          "reference_logic": "原子替换二进制与构建指纹，验收安装后的程序",
+          "main_assessment": "恢复时已安装程序落后源码；本轮发布必须修正",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        },
+        {
+          "id": "10-09",
+          "feature": "回归可重跑",
+          "reference_logic": "终端交互、协议、真实调试、部署测试进入版本库",
+          "main_assessment": "main 未提供这一套可重跑测试；这是本轮新增的迁移验收保障",
+          "baseline_sources": [
+            "install.sh",
+            "uninstall.sh",
+            "versions.env",
+            "scripts/build-zellij.sh",
+            "scripts/install-system-deps-ubuntu.sh",
+            "scripts/install-mason-tools.sh",
+            "README.md",
+            "DEPLOYMENT.md"
+          ],
+          "reference_sources": [],
+          "helix_sources": [
+            "prototype/helix/install-prototype.sh",
+            "prototype/helix/scripts",
+            "prototype/helix/config/node-tools",
+            "prototype/helix/config/python-tools.lock.txt"
+          ],
+          "verification": [
+            "deployment_regression.py",
+            "clean patch tree verification",
+            "release build",
+            "public tree scan"
+          ],
+          "status": "implemented"
+        }
+      ]
+    }
+  ]
+}

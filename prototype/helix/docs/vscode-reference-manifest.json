@@ -1,0 +1,173 @@
+{
+  "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+  "sources": [
+    {
+      "key": "editorGroupModel",
+      "path": "src/vs/workbench/common/editor/editorGroupModel.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "c72776f936e0d9fd829905c5639b0de534937deb4246fb6ac46ecafced555165",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/common/editor/editorGroupModel.ts",
+      "reviewed_behavior": "preview vs pinned vs sticky; one preview slot and existing-editor reuse"
+    },
+    {
+      "key": "editorGroupView",
+      "path": "src/vs/workbench/browser/parts/editor/editorGroupView.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "0f98ed44f978911f0ee6070b98a94ea6feeea049b80e8d8b415cb0d62a88fd90",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/browser/parts/editor/editorGroupView.ts",
+      "reviewed_behavior": "dirty close Save / Do not Save / Cancel; failed saves do not close"
+    },
+    {
+      "key": "multiEditorTabsControl",
+      "path": "src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "809fd239226d14a0605fc47f75ebc36971e32893d32d46ca3add4a2dec01ba93",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts",
+      "reviewed_behavior": "tab pointer targets; blank-strip double-click and active-tab visibility"
+    },
+    {
+      "key": "fileActions",
+      "path": "src/vs/workbench/contrib/files/browser/fileActions.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "d62e3626b8ff42ae6d3f11f3bae6d8a34bceb98813121df609a0f4dab146cce1",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/fileActions.ts",
+      "reviewed_behavior": "create, paste, duplicate naming, source/descendant checks, reveal/open after operations"
+    },
+    {
+      "key": "fileCommands",
+      "path": "src/vs/workbench/contrib/files/browser/fileCommands.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "ca6bd640b85712a02fa40d91bd7291ce776d48797356ae99f0babac9a6cb1b09",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/fileCommands.ts",
+      "reviewed_behavior": "Explorer actions and context preconditions"
+    },
+    {
+      "key": "listWidget",
+      "path": "src/vs/base/browser/ui/list/listWidget.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "2d7801465f466d7a271b98f8e34b1136875a655284a7f93e2f4a5d77d1c4a7d6",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/browser/ui/list/listWidget.ts",
+      "reviewed_behavior": "plain, Ctrl and Shift selection; context target"
+    },
+    {
+      "key": "explorerView",
+      "path": "src/vs/workbench/contrib/files/browser/views/explorerView.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "004206b811b6d2c584be8cd9769d838bb202eb6431ed918f7b6aa89852ba2bfb",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/files/browser/views/explorerView.ts",
+      "reviewed_behavior": "open/preserveFocus/pinned and right-click selection routing"
+    },
+    {
+      "key": "cursorColumnSelection",
+      "path": "src/vs/editor/common/cursor/cursorColumnSelection.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "4c80acdbd72c53bc8495bede97cfd3f4a79af175ee88c6feb1316980f078b0ba",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorColumnSelection.ts",
+      "reviewed_behavior": "sparse rows, inclusive EOL boundary, reversed rectangles, all-EOL fallback"
+    },
+    {
+      "key": "cursorMoveOperations",
+      "path": "src/vs/editor/common/cursor/cursorMoveOperations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "5f9d930d83395050bbdddb84e8f2519a06f43700bbbb29a93cbb72bd552532f6",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorMoveOperations.ts",
+      "reviewed_behavior": "Left/Right collapse to boundary; vertical movement anchors"
+    },
+    {
+      "key": "cursorTypeOperations",
+      "path": "src/vs/editor/common/cursor/cursorTypeOperations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "f9fbd353741c6f08bbc2e37a0bacf44805a7148c6ad7aab02e96e3f841fbb41d",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorTypeOperations.ts",
+      "reviewed_behavior": "typing/cut/paste edit operation delegation"
+    },
+    {
+      "key": "multicursor",
+      "path": "src/vs/editor/contrib/multicursor/browser/multicursor.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "2fb374ce11c1e585468154aa5416e5ca435db0cf82c4194bb8cd42384e1ab3eb",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/multicursor/browser/multicursor.ts",
+      "reviewed_behavior": "first add-next-match selects word; later invocations add matches"
+    },
+    {
+      "key": "clipboard",
+      "path": "src/vs/editor/contrib/clipboard/browser/clipboard.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "d5e2c3395bb792e74a19d7fbf87f6b8cd1778f4bbe693310002f36f1c5677bb8",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/clipboard/browser/clipboard.ts",
+      "reviewed_behavior": "copy/cut dispatch and clipboard metadata"
+    },
+    {
+      "key": "replaceService",
+      "path": "src/vs/workbench/contrib/search/browser/replaceService.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "a45af07015adcb2e58ac4faac81425da0dcecb22cbce852123ac71b90c13d682",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/workbench/contrib/search/browser/replaceService.ts",
+      "reviewed_behavior": "explicit project replace saves target text files"
+    },
+    {
+      "key": "viewModelImpl",
+      "path": "src/vs/editor/common/viewModel/viewModelImpl.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "3689f786022e48730d6b449514d3d816ff1f34acbc85af2205f5885029f34e23",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/viewModel/viewModelImpl.ts",
+      "reviewed_behavior": "getPlainTextToCopy, empty-selection line copy, selection ordering"
+    },
+    {
+      "key": "cursorTypeEditOperations",
+      "path": "src/vs/editor/common/cursor/cursorTypeEditOperations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "b6911a6b0d560efe6a90fe24bd487b296d08259db003164eca0b9793d5dca30c",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/cursor/cursorTypeEditOperations.ts",
+      "reviewed_behavior": "PasteOperation spread vs full text, selection replacement, undo grouping"
+    },
+    {
+      "key": "decorationsOverviewRuler",
+      "path": "src/vs/editor/browser/viewParts/overviewRuler/decorationsOverviewRuler.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "a7421635199f80773a480072538d629f311ad9efdaf7305d2db580bbb148e01e",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/browser/viewParts/overviewRuler/decorationsOverviewRuler.ts",
+      "reviewed_behavior": "document-relative overview decorations without moving the cursor"
+    },
+    {
+      "key": "goToCommands",
+      "path": "src/vs/editor/contrib/gotoSymbol/browser/goToCommands.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "32a083116edb1d9bc5f9e14659847df72b7f2d5a645b91e85901ac75aeaac8f0",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/gotoSymbol/browser/goToCommands.ts",
+      "reviewed_behavior": "language capability preconditions for symbol navigation"
+    },
+    {
+      "key": "listService",
+      "path": "src/vs/platform/list/browser/listService.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "cdc81e193589c3a98ee309a55946e11aac8db0d0cb5901929490ad6c854cbd49",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/platform/list/browser/listService.ts",
+      "reviewed_behavior": "ResourceNavigator: double-click pins and transfers editor focus"
+    },
+    {
+      "key": "pythonDebugBase",
+      "repository": "microsoft/vscode-python-debugger",
+      "revision": "44a63c883fd325bebe0b6597f4696441a73127c2",
+      "path": "src/extension/debugger/configuration/resolvers/base.ts",
+      "url": "https://github.com/microsoft/vscode-python-debugger/blob/44a63c883fd325bebe0b6597f4696441a73127c2/src/extension/debugger/configuration/resolvers/base.ts",
+      "sha256": "63694c6b22089fa03b4a039fc4fbd9535e5e81ac70077923735f7de9d380332b"
+    },
+    {
+      "key": "pythonDebugLaunch",
+      "repository": "microsoft/vscode-python-debugger",
+      "revision": "44a63c883fd325bebe0b6597f4696441a73127c2",
+      "path": "src/extension/debugger/configuration/resolvers/launch.ts",
+      "url": "https://github.com/microsoft/vscode-python-debugger/blob/44a63c883fd325bebe0b6597f4696441a73127c2/src/extension/debugger/configuration/resolvers/launch.ts",
+      "sha256": "708a8e84f236614c4ef56d5f264b8cc558d57e0cd48acfbfd0a857d32f1ef1e6"
+    },
+    {
+      "key": "uint",
+      "path": "src/vs/base/common/uint.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "0b1102ade974b21bd46bd789027c2dd7959366202e9b87287b13be0a8cf3b05a",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/base/common/uint.ts",
+      "reviewed_behavior": "MAX_SAFE_SMALL_INTEGER limit used by duplicate filename increments"
+    }
+  ]
+}

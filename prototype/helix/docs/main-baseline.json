@@ -1,0 +1,185 @@
+{
+  "commit": "b10574bee0c85ef6ed51b620729d212760ee2520",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "1f54f9a8d9beb0d4c815a5b415abfd038fc81d9fb4d1c189c8d0cd53e2386d42"
+    },
+    {
+      "path": "DEPLOYMENT.md",
+      "sha256": "b10cc7b967fd980df54ca4e0816abb02ea17217a241f179ba52fc663f646ad3c"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "d5f5ac571571d84caea53ab33abf4782e1dbd26a56af9081cf4fea02d12d0799"
+    },
+    {
+      "path": "README.md",
+      "sha256": "7da036088d422e7ca0d8d6e9ab10f35aa238c349a1b23324ec0e10feb3777837"
+    },
+    {
+      "path": "bin/devtui",
+      "sha256": "ba240d261ddcea56da7885b9f680781cc53d8ff203329364792a5c279c8994b2"
+    },
+    {
+      "path": "bin/devtui-banner",
+      "sha256": "57d1b193d2335c4eb323b1a8063560427d01b597ff50578bbaea7e0317e292a6"
+    },
+    {
+      "path": "bin/devtui-editor-pane",
+      "sha256": "13e5da7145c66a298522ae7d497f37858668cc1d6cbfc0ed66e64e216d3f61fa"
+    },
+    {
+      "path": "bin/devtui-git-pane",
+      "sha256": "f2d7925bfe0ab020d524dde479acbee06f07afa7aff56888b045b3c126427633"
+    },
+    {
+      "path": "bin/devtui-shell-pane",
+      "sha256": "042615c0a28a50c9874f2c64892273370cf2c53c9a6d6862ba0b00f9aa81a17c"
+    },
+    {
+      "path": "bin/tui-doctor",
+      "sha256": "27612e56186cd1aa7400eae3f57e2c260966f555272ae0890e1f20612a4e965f"
+    },
+    {
+      "path": "bin/tui-nvim-open",
+      "sha256": "7b5c0b6a64f6c06d952b7b3e7dde8649d8df2d8b67bfb016fca10dc43d5d2f9e"
+    },
+    {
+      "path": "config/lazygit/config.yml.in",
+      "sha256": "98e46fa12775493cc9a8bdabe1b9ed97bd9498f13e55278906230589b55e780b"
+    },
+    {
+      "path": "config/nvim/.gitignore",
+      "sha256": "f284e46933d658c493bafc852fe1bb46f54e5dbe479c251a739139517d4683ec"
+    },
+    {
+      "path": "config/nvim/.neoconf.json",
+      "sha256": "1819a5b64b71521f214b374bdb3b4dd7531a2b91b881c0803e0029811da7f3e4"
+    },
+    {
+      "path": "config/nvim/init.lua",
+      "sha256": "3b2d6e9976a515b7c8df08ed7c7f61a5751e9c08a6ff5579d621b87312c9e2c6"
+    },
+    {
+      "path": "config/nvim/lazy-lock.json",
+      "sha256": "496890046a80a42c293eb07c72d1da07fc7e7c295a7d2f2c4fda493aa5d16eda"
+    },
+    {
+      "path": "config/nvim/lua/config/autocmds.lua",
+      "sha256": "ded63d1839f35baa7252c97192af678a558767697ffe6aea8d0d149cdcbc7b99"
+    },
+    {
+      "path": "config/nvim/lua/config/devtui_explorer_context.lua",
+      "sha256": "23a7bab22b19c8cb858500a56dbee50210fd1f46658fe553128c3f1c006d3411"
+    },
+    {
+      "path": "config/nvim/lua/config/devtui_preview.lua",
+      "sha256": "7eb95f7c3a5fc1356bb98bd3183efa78210b307a34e27e471ae48664699b082b"
+    },
+    {
+      "path": "config/nvim/lua/config/devtui_regions.lua",
+      "sha256": "370cb3983f5b4ec7e3c3d1ec0fbb36244d9863514e9e4cc407a0e7c0d2983cdd"
+    },
+    {
+      "path": "config/nvim/lua/config/devtui_tabs.lua",
+      "sha256": "1579cc8966058fd64004b0853e9a79d4dd343d30573360fdfe20232df73606c3"
+    },
+    {
+      "path": "config/nvim/lua/config/keymaps.lua",
+      "sha256": "3a9d23d33be8616f5408066c5652570d8bd0327a93e0b1784c4d6056bec44f21"
+    },
+    {
+      "path": "config/nvim/lua/config/lazy.lua",
+      "sha256": "14653a615b10689aa91915f45c284d07d5e7cb6c5f21fdbbf82c7664b9db4eb0"
+    },
+    {
+      "path": "config/nvim/lua/config/options.lua",
+      "sha256": "ff9960f561e0a0ad4db45481bd3b3c6012185cef8fa483b9ee2c41a8290c16db"
+    },
+    {
+      "path": "config/nvim/lua/plugins/clangd-inactive.lua",
+      "sha256": "3d5023b84462241524685735dd147d89133033480de26e4ca15dc35fbcc3bcc6"
+    },
+    {
+      "path": "config/nvim/lua/plugins/devtui-interaction.lua",
+      "sha256": "755ebe671b3f56835e59b3639ac3b5aace50fd79b0946adc865b445fbdb111b6"
+    },
+    {
+      "path": "config/nvim/lua/plugins/multicursor.lua",
+      "sha256": "faa2f718ca3ec71247afcf67bc4ea71e55af383ea80ca03c9f3dd86bec4ad217"
+    },
+    {
+      "path": "config/nvim/lua/plugins/scrollbar.lua",
+      "sha256": "538842149b3875620d402b2a5a81bd43e65fd669077d61392bf5e7dadb26b9fb"
+    },
+    {
+      "path": "config/nvim/lua/plugins/tui-dev.lua",
+      "sha256": "788ae228f164d6cb8f82c537553d1786a36ac10c77383caf572b09bb22236521"
+    },
+    {
+      "path": "config/nvim/stylua.toml",
+      "sha256": "59841fbcee7b707144c6a470e96e96e96062d7a59d2e45bac445984d863e1af2"
+    },
+    {
+      "path": "config/zellij/config.kdl.in",
+      "sha256": "9ccced0273d851f9e9eb79d3832b01e88aca673f4316799a26dc5b65f782460c"
+    },
+    {
+      "path": "config/zellij/layouts/dev-wide.kdl.in",
+      "sha256": "d4b069647fb34af068d67078e27e6a98dd619634a7a53c8b42e454595da21512"
+    },
+    {
+      "path": "config/zellij/layouts/dev.kdl.in",
+      "sha256": "0aa5dde077e9b40a024fbe21cb58942bb87c073c9aec9d5c9fb069a634f3548e"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "7408149386681c0a646e7c39ebef858a9769e9a6aa923ed450e3a59b88412d66"
+    },
+    {
+      "path": "docs/FEATURES.md",
+      "sha256": "b4c8470f55b7ec42eeea719a559c71ab31d57e03f409d59e4a403d62067b37ac"
+    },
+    {
+      "path": "docs/KEYBINDINGS.md",
+      "sha256": "5fc07e750ff8343193d2bcfb0fa47ca3f56751593c26d1f3378ac104f9bd06af"
+    },
+    {
+      "path": "examples/clangd-project.yaml",
+      "sha256": "9a6b4bb7857533a30741d396b9b64fac8d26acbd267e8faa25b384497ff55d80"
+    },
+    {
+      "path": "install.sh",
+      "sha256": "a1900a59487a38bacf1c498c19ef481859b5d3d733512a452a37924105dd9d22"
+    },
+    {
+      "path": "patches/zellij-0.45.1-mouse-passthrough.patch",
+      "sha256": "22358576364164747f3099231b628d76746d7830df3db41cdda37ce3a3b7b1a8"
+    },
+    {
+      "path": "patches/zellij-link-devtui.patch",
+      "sha256": "5ace78390d065e72fcf2007bdf6d8d4c6ca23d2652acbfd7ffad4923891b6df8"
+    },
+    {
+      "path": "scripts/build-zellij.sh",
+      "sha256": "f831a84b53f7e65c3306da8ffbb1b1e7707c7a74f60a0e74f109313f8f0f10c1"
+    },
+    {
+      "path": "scripts/install-mason-tools.sh",
+      "sha256": "4104c8c38a1c44e60e442cdcb7a434035cb68e1c1979ea9f2a6e752724a555e5"
+    },
+    {
+      "path": "scripts/install-system-deps-ubuntu.sh",
+      "sha256": "11cb191c120eff46c5f1cfd3fc8d625a726734a836ef6c96547f570536e8f6fb"
+    },
+    {
+      "path": "uninstall.sh",
+      "sha256": "8cd150c2a2727b56a81646725c20df245fa78c0dc5c4a09130e357caaafa5784"
+    },
+    {
+      "path": "versions.env",
+      "sha256": "1decbf7489a43240e77975c38424ef16967bec5b463ee11dc1e80539f0ea5fe5"
+    }
+  ]
+}

@@ -64,3 +64,5 @@ build must apply `patches/series` exactly once and match the audited tree.
 The workspace smoke test starts and stops only its own disposable named Zellij session. It checks the installed layout, banner, Git pane and navigation helper. It does not automatically grant terminal-link plugin permissions or claim to emulate a host mouse Alt-click.
 
 The editor-debugger suite additionally exercises F9/F5 and debug menu controls inside Helix, checks that the editor retains its terminal foreground group, and verifies the selected virtual environment is used by the debuggee.
+
+To additionally verify an applied source checkout against `HELIX_TREE`, run `audit_manifest.py --source /path/to/applied/helix`. This checks implementation paths, patch order inventory and named regression references, not merely whether a checklist file exists.

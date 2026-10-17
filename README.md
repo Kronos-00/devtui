@@ -79,8 +79,6 @@ The Neovim area contains the Explorer and the protected editor display region. C
 
 See [LICENSE](LICENSE).
 
-## Experimental Helix prototype
+## Helix migration branch
 
-The `helix-prototype` branch contains a side-by-side Helix edition. It does not replace the normal `devtui` launcher. The portable, user-visible features that were added to the Neovim edition have been migrated into a pinned Helix fork, including native real-time multiple selections, persistent Explorer, Preview/Pinned editors, dirty-close/Save As behavior, editor/Explorer mouse interactions, running-editor IPC, scrollbar, inactive-region rendering, VS Code-style shortcuts/search/replace, and portable language/debug integration.
-
-See [`prototype/helix/README.md`](prototype/helix/README.md), [`prototype/helix/docs/PARITY.md`](prototype/helix/docs/PARITY.md), and [`prototype/helix/docs/MIGRATION.md`](prototype/helix/docs/MIGRATION.md).
+This branch also contains the audited, side-by-side Helix edition. It does not change the normal Neovim launcher. Read [Helix deployment](prototype/helix/docs/DEPLOYMENT.md), the [160-point baseline audit](prototype/helix/docs/MAIN_FEATURE_AUDIT.md), and [acceptance results](prototype/helix/docs/VALIDATION.md). Start the edition with `devtui-helix`; do not confuse a config-only update with installing the new editor binary.
