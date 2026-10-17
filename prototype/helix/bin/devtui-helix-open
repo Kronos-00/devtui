@@ -17,7 +17,7 @@ focus_editor() {
 
 if [ -n "${DEVTUI_HELIX_SOCKET:-}" ] && [ -S "$DEVTUI_HELIX_SOCKET" ]; then
   focus_editor
-  python3 - "$DEVTUI_HELIX_SOCKET" "$file" "$line" "$column" <<'PY'
+  python3 -I -S - "$DEVTUI_HELIX_SOCKET" "$file" "$line" "$column" <<'PY'
 import json, socket, sys
 sock_path, path, line, column = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 payload = json.dumps({"path": path, "line": line, "column": column}) + "\n"
