@@ -1,0 +1,196 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 9677b5d..8df873a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -951,6 +951,16 @@ dependencies = [
+  "syn 1.0.96",
+ ]
+ 
++[[package]]
++name = "devtui-shortcuts"
++version = "0.1.0"
++dependencies = [
++ "serde",
++ "serde_json",
++ "unicode-width 0.2.2",
++ "zellij-tile",
++]
++
+ [[package]]
+ name = "dialoguer"
+ version = "0.11.0"
+diff --git a/Cargo.toml b/Cargo.toml
+index b587f6f..f986e33 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -42,6 +42,7 @@ vte = { workspace = true }
+ 
+ [workspace]
+ members = [
++    "default-plugins/devtui-shortcuts",
+     "default-plugins/compact-bar",
+     "default-plugins/status-bar",
+     "default-plugins/strider",
+diff --git a/zellij-server/src/panes/floating_panes/mod.rs b/zellij-server/src/panes/floating_panes/mod.rs
+index bf6b98c..f386e4b 100644
+--- a/zellij-server/src/panes/floating_panes/mod.rs
++++ b/zellij-server/src/panes/floating_panes/mod.rs
+@@ -177,7 +177,10 @@ impl FloatingPanes {
+                 .collect()
+         }
+     }
+-    pub fn add_pane(&mut self, pane_id: PaneId, pane: Box<dyn Pane>) {
++    pub fn add_pane(&mut self, pane_id: PaneId, mut pane: Box<dyn Pane>) {
++        if pane.current_title() == crate::ui::pane_boundaries_frame::DEVTUI_SHORTCUTS_TITLE {
++            pane.set_pinned(true);
++        }
+         self.desired_pane_positions
+             .insert(pane_id, pane.position_and_size());
+         self.panes.insert(pane_id, pane);
+@@ -1770,6 +1773,13 @@ impl FloatingPanes {
+                 _ => Ordering::Equal,
+             }
+         });
++        // Help remains above other floating panes, even when another pane gains focus.
++        if let Some(index) = self.z_indices.iter().position(|id| {
++            self.panes.get(id).is_some_and(|pane| pane.current_title() == crate::ui::pane_boundaries_frame::DEVTUI_SHORTCUTS_TITLE)
++        }) {
++            let id = self.z_indices.remove(index);
++            self.z_indices.push(id);
++        }
+     }
+     fn pane_id_is_pinned(&self, pane_id: &PaneId) -> bool {
+         self.panes
+diff --git a/zellij-server/src/tab/mouse_handler.rs b/zellij-server/src/tab/mouse_handler.rs
+index 4095479..0c90095 100644
+--- a/zellij-server/src/tab/mouse_handler.rs
++++ b/zellij-server/src/tab/mouse_handler.rs
+@@ -101,6 +101,7 @@ impl MouseEffect {
+ 
+ #[derive(Debug, Clone, PartialEq)]
+ enum MouseAction {
++    CloseShortcuts { pane_id: PaneId },
+     GroupToggle(PaneId),
+     GroupAdd(PaneId),
+     Ungroup,
+@@ -233,6 +234,7 @@ struct MouseEventContext {
+     selecting_with_mouse: bool,
+     pane_being_moved: bool,
+     clicked_pane: Option<ClickedPaneDetails>,
++    shortcuts_frame: Option<PaneGeom>,
+     advanced_mouse_actions: bool,
+     pinned_selectable: Option<PaneId>,
+     pinned_unselectable: Option<PaneId>,
+@@ -450,6 +452,10 @@ impl MouseHandler {
+             )
+         });
+ 
++        let shortcuts_frame = clicked_pane.as_ref().filter(|details| details.is_floating && details.on_frame)
++            .and_then(|details| tab.get_pane_with_id(details.pane_id))
++            .filter(|pane| pane.current_title() == crate::ui::pane_boundaries_frame::DEVTUI_SHORTCUTS_TITLE)
++            .map(|pane| pane.position_and_size());
+         let (pinned_selectable, pinned_unselectable) = if !floating_visible {
+             let selectable = tab
+                 .floating_panes
+@@ -474,6 +480,7 @@ impl MouseHandler {
+             selecting_with_mouse: tab.selecting_with_mouse_in_pane.is_some(),
+             pane_being_moved: tab.floating_panes.pane_is_being_moved_with_mouse(),
+             clicked_pane,
++            shortcuts_frame,
+             advanced_mouse_actions: tab.advanced_mouse_actions,
+             pinned_selectable,
+             pinned_unselectable,
+@@ -728,6 +735,10 @@ impl MouseHandler {
+         }
+ 
+         match action {
++            MouseAction::CloseShortcuts { pane_id } => {
++                tab.senders.send_to_screen(ScreenInstruction::ClosePane(pane_id, Some(client_id), None, None)).with_context(err_context)?;
++                Ok(MouseEffect::state_changed())
++            },
+             MouseAction::GroupToggle(pane_id) => {
+                 if let Some(pane) = tab.get_pane_with_id_mut(pane_id) {
+                     let relative_position = pane.relative_position(&event.position);
+@@ -1514,6 +1525,26 @@ impl MouseHandler {
+                 .unwrap_or(false);
+ 
+             if details.on_frame {
++                if let Some(geometry) = &ctx.shortcuts_frame {
++                    let right = geometry.x + geometry.cols.as_usize();
++                    let button_length = if geometry.cols.as_usize() >= 7 { 5 } else { 3 };
++                    if event.position.line() == geometry.y as isize
++                        && event.position.column() >= right.saturating_sub(button_length + 1)
++                        && event.position.column() < right.saturating_sub(1) {
++                        return Ok(MouseAction::CloseShortcuts { pane_id: details.pane_id });
++                    }
++                    let title_end = geometry.x + crate::ui::pane_boundaries_frame::DEVTUI_SHORTCUTS_TITLE.len() + 4;
++                    let on_title = event.position.line() == geometry.y as isize
++                        && event.position.column() >= geometry.x + 2
++                        && event.position.column() < title_end.min(right.saturating_sub(6));
++                    if on_title {
++                        return Ok(MouseAction::StartMovingFloatingPane { position: event.position });
++                    }
++                    if let Some(edge) = details.edge {
++                        return Ok(MouseAction::StartResize { pane_id: details.pane_id, edge, is_floating: true, position: event.position });
++                    }
++                    return Ok(MouseAction::NoAction);
++                }
+                 if details.frame_intercepted {
+                     return Ok(MouseAction::FrameIntercepted {
+                         pane_id: details.pane_id,
+@@ -1972,6 +2003,7 @@ mod tests {
+             selecting_with_mouse: false,
+             pane_being_moved: false,
+             clicked_pane: None,
++            shortcuts_frame: None,
+             advanced_mouse_actions: true,
+             pinned_selectable: None,
+             pinned_unselectable: None,
+diff --git a/zellij-server/src/ui/pane_boundaries_frame.rs b/zellij-server/src/ui/pane_boundaries_frame.rs
+index 16ba305..68f5ed4 100644
+--- a/zellij-server/src/ui/pane_boundaries_frame.rs
++++ b/zellij-server/src/ui/pane_boundaries_frame.rs
+@@ -102,6 +102,8 @@ pub struct FrameParams {
+     pub guest_choice_indicator: Option<GuestChoiceIndicator>,
+ }
+ 
++pub const DEVTUI_SHORTCUTS_TITLE: &str = "devtui Keyboard Shortcuts (F4)";
++
+ #[derive(Default, PartialEq)]
+ pub struct PaneFrame {
+     pub geom: Viewport,
+@@ -229,6 +231,12 @@ impl PaneFrame {
+         &self,
+         max_length: usize,
+     ) -> Option<(Vec<TerminalCharacter>, usize)> {
++        // The dedicated help window has a close button instead of pin controls.
++        if self.is_floating && self.title == DEVTUI_SHORTCUTS_TITLE {
++            return if max_length >= 5 {
++                Some((foreground_color(" [x] ", self.color), 5))
++            } else { None };
++        }
+         // string and length because of color
+         let has_scroll = self.scroll_position.0 > 0 || self.scroll_position.1 > 0;
+         if has_scroll && self.is_selectable {
+@@ -756,6 +764,13 @@ impl PaneFrame {
+     fn render_title(&self) -> Result<Vec<TerminalCharacter>> {
+         let total_title_length = self.geom.cols.saturating_sub(2); // 2 for the left and right corners
+ 
++        if self.is_floating && self.title == DEVTUI_SHORTCUTS_TITLE && total_title_length >= 3 {
++            let button = if total_title_length >= 5 { " [x] " } else { "[x]" };
++            let button_length = button.len();
++            let (left, left_length) = self.render_title_left_side(total_title_length.saturating_sub(button_length))
++                .unwrap_or((vec![], 0));
++            return Ok(self.two_part_title_line(left, &left_length, foreground_color(button, self.color), &button_length));
++        }
+         self.render_title_middle(total_title_length)
+             .map(|(middle, middle_length)| self.title_line_with_middle(middle, &middle_length))
+             .or_else(|| Some(self.title_line_without_middle()))
+@@ -1256,6 +1271,7 @@ impl PaneFrame {
+         Ok(res)
+     }
+     pub fn clicked_on_pinned(&mut self, position: Position) -> bool {
++        if self.title == DEVTUI_SHORTCUTS_TITLE { return false; }
+         if self.is_floating {
+             // TODO: this is not entirely accurate because our relative position calculation in
+             // itself isn't - when that is fixed, we should adjust this as well

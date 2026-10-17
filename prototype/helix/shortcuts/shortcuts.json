@@ -1,0 +1,1107 @@
+{
+  "schema_version": 1,
+  "title": "默认快捷键速查",
+  "entries": [
+    {
+      "category": "浮窗操作",
+      "keys": "F4",
+      "context": "工作区",
+      "description": "打开或关闭唯一的快捷键速查浮窗",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "Esc",
+      "context": "速查浮窗",
+      "description": "关闭快捷键速查浮窗",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "鼠标左键点击 [x]",
+      "context": "浮窗标题右侧",
+      "description": "关闭快捷键速查浮窗",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "鼠标左键拖动标题",
+      "context": "速查浮窗",
+      "description": "移动窗口，保持在工作区可见范围内",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "鼠标左键拖动边缘或四角",
+      "context": "速查浮窗",
+      "description": "调整窗口宽度和高度，内容自动换行与分栏",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "鼠标滚轮 / Up / Down",
+      "context": "速查浮窗",
+      "description": "向上或向下滚动快捷键列表",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "PageUp / PageDown",
+      "context": "速查浮窗",
+      "description": "按当前显示高度向前或向后翻页",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "Home / End",
+      "context": "速查浮窗",
+      "description": "跳到快捷键列表的开头或结尾",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "/",
+      "context": "速查浮窗",
+      "description": "输入文字搜索快捷键、功能说明或使用场景",
+      "commands": []
+    },
+    {
+      "category": "浮窗操作",
+      "keys": "Ctrl+U",
+      "context": "速查浮窗",
+      "description": "清除搜索文字并显示全部快捷键",
+      "commands": []
+    },
+    {
+      "category": "文件与会话",
+      "keys": "Ctrl+S",
+      "context": "编辑器",
+      "description": "保存当前文件",
+      "commands": [
+        ":write"
+      ]
+    },
+    {
+      "category": "文件与会话",
+      "keys": "Ctrl+Shift+S",
+      "context": "编辑器",
+      "description": "选择新路径，将当前文件另存为",
+      "commands": [
+        "devtui_save_as"
+      ]
+    },
+    {
+      "category": "文件与会话",
+      "keys": "Z → Z",
+      "context": "编辑器 · 普通模式",
+      "description": "退出编辑器；有未保存内容时先确认保存",
+      "commands": [
+        ":exit"
+      ]
+    },
+    {
+      "category": "文件与会话",
+      "keys": "Z → Q",
+      "context": "编辑器 · 普通模式",
+      "description": "放弃当前视图的未保存修改并关闭",
+      "commands": [
+        ":quit!"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+F",
+      "context": "编辑器",
+      "description": "在当前文件中查找文本",
+      "commands": [
+        "devtui_find"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+H",
+      "context": "编辑器",
+      "description": "打开当前文件的查找与替换",
+      "commands": [
+        "devtui_current_replace"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+P",
+      "context": "编辑器",
+      "description": "按文件名快速查找并打开项目文件",
+      "commands": [
+        "file_picker"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+Shift+F",
+      "context": "编辑器",
+      "description": "在项目文件中搜索文本",
+      "commands": [
+        "global_search"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+Shift+H",
+      "context": "编辑器",
+      "description": "在整个项目中查找并替换文本",
+      "commands": [
+        "devtui_project_replace"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+Shift+P",
+      "context": "编辑器",
+      "description": "打开命令面板，搜索并执行编辑器命令",
+      "commands": [
+        "command_palette"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Ctrl+Shift+E",
+      "context": "编辑器",
+      "description": "将焦点切换到项目文件树",
+      "commands": [
+        "file_explorer"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Alt+G",
+      "context": "编辑器 · 普通模式 / 插入模式",
+      "description": "输入行号或行列位置并跳转",
+      "commands": [
+        "devtui_goto_line_prompt"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "F1",
+      "context": "编辑器",
+      "description": "打开命令面板，搜索并执行编辑器命令",
+      "commands": [
+        "command_palette"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Space → m → s",
+      "context": "编辑器 · 普通模式",
+      "description": "为当前位置设置一个命名导航标记",
+      "commands": [
+        "devtui_set_mark"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Space → m → g",
+      "context": "编辑器 · 普通模式",
+      "description": "选择并跳转到已命名的导航标记",
+      "commands": [
+        "devtui_goto_mark"
+      ]
+    },
+    {
+      "category": "导航与搜索",
+      "keys": "Space → m → d",
+      "context": "编辑器 · 普通模式",
+      "description": "删除已命名的导航标记",
+      "commands": [
+        "devtui_delete_mark"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Z",
+      "context": "编辑器",
+      "description": "撤销上一次编辑事务",
+      "commands": [
+        "undo"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Y",
+      "context": "编辑器",
+      "description": "重做上一次撤销的修改",
+      "commands": [
+        "redo"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Shift+Z",
+      "context": "编辑器",
+      "description": "重做上一次撤销的修改",
+      "commands": [
+        "redo"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+C",
+      "context": "编辑器",
+      "description": "复制选区；没有显式选区时复制整行，包括换行符",
+      "commands": [
+        "devtui_copy_to_clipboard"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+X",
+      "context": "编辑器",
+      "description": "剪切选区；没有显式选区时剪切当前行",
+      "commands": [
+        "devtui_cut_to_clipboard"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Enter",
+      "context": "编辑器 · 普通模式",
+      "description": "在当前行下方插入新行",
+      "commands": [
+        "open_below"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Shift+Enter",
+      "context": "编辑器 · 普通模式",
+      "description": "在当前行上方插入新行",
+      "commands": [
+        "open_above"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Shift+K",
+      "context": "编辑器 · 普通模式",
+      "description": "选择当前整行，继续按下时扩展到下一行；删除当前选择",
+      "commands": [
+        "extend_line",
+        "delete_selection"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+/",
+      "context": "编辑器",
+      "description": "为当前行或选区添加或取消注释",
+      "commands": [
+        "toggle_comments"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+_",
+      "context": "编辑器",
+      "description": "为当前行或选区添加或取消注释",
+      "commands": [
+        "toggle_comments"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Enter",
+      "context": "编辑器 · 插入模式 / 选择模式",
+      "description": "回到普通模式；在当前行下方插入新行",
+      "commands": [
+        "normal_mode",
+        "open_below"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Shift+Enter",
+      "context": "编辑器 · 插入模式 / 选择模式",
+      "description": "回到普通模式；在当前行上方插入新行",
+      "commands": [
+        "normal_mode",
+        "open_above"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Ctrl+Shift+K",
+      "context": "编辑器 · 选择模式",
+      "description": "回到普通模式；选择当前整行，继续按下时扩展到下一行；删除当前选择",
+      "commands": [
+        "normal_mode",
+        "extend_line",
+        "delete_selection"
+      ]
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "鼠标右键 → Paste",
+      "context": "编辑器",
+      "description": "替换选区或在光标处粘贴；可用内容取决于剪贴板提供者",
+      "commands": []
+    },
+    {
+      "category": "编辑与剪贴板",
+      "keys": "Backspace / Delete",
+      "context": "编辑器 · 插入模式",
+      "description": "删除光标前后的字符；存在显式选区时删除选区",
+      "commands": []
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Esc",
+      "context": "编辑器 · 普通模式",
+      "description": "取消额外光标或选择，并回到普通模式",
+      "commands": [
+        "devtui_clear_selections"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+A",
+      "context": "编辑器",
+      "description": "选择当前文件的全部内容",
+      "commands": [
+        "select_all"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+L",
+      "context": "编辑器",
+      "description": "选择当前整行，继续按下时扩展到下一行",
+      "commands": [
+        "extend_line"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+D",
+      "context": "编辑器",
+      "description": "选择当前词，再次按下时增加下一个匹配位置",
+      "commands": [
+        "devtui_add_next_occurrence"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+Shift+L",
+      "context": "编辑器",
+      "description": "同时选择当前词或选区的所有匹配位置",
+      "commands": [
+        "devtui_add_all_occurrences"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+F2",
+      "context": "编辑器",
+      "description": "同时选择当前词或选区的所有匹配位置",
+      "commands": [
+        "devtui_add_all_occurrences"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+Up",
+      "context": "编辑器",
+      "description": "在上一行增加一个对应的选择或光标",
+      "commands": [
+        "copy_selection_on_prev_line"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Ctrl+Down",
+      "context": "编辑器",
+      "description": "在下一行增加一个对应的选择或光标",
+      "commands": [
+        "copy_selection_on_next_line"
+      ]
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Left / Right / Up / Down",
+      "context": "编辑器",
+      "description": "移动光标；显式选区按方向收拢或移动",
+      "commands": []
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Shift+Left / Shift+Right / Shift+Up / Shift+Down",
+      "context": "编辑器",
+      "description": "按字符或显示行扩展当前选择",
+      "commands": []
+    },
+    {
+      "category": "选择与多光标",
+      "keys": "Home / End",
+      "context": "编辑器",
+      "description": "移动到当前行的开头或结尾",
+      "commands": []
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Ctrl+Shift+O",
+      "context": "编辑器",
+      "description": "按名称查找当前文件中的符号",
+      "commands": [
+        "lsp_or_syntax_symbol_picker"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Ctrl+.",
+      "context": "编辑器",
+      "description": "显示当前位置可用的代码操作或修复建议",
+      "commands": [
+        "code_action"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "F2",
+      "context": "编辑器",
+      "description": "通过语言服务重命名当前符号及其引用",
+      "commands": [
+        "rename_symbol"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "F12",
+      "context": "编辑器",
+      "description": "跳转到光标处符号的定义",
+      "commands": [
+        "goto_definition"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Shift+F12",
+      "context": "编辑器",
+      "description": "查看光标处符号的引用",
+      "commands": [
+        "goto_reference"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "F8",
+      "context": "编辑器",
+      "description": "跳转到下一条诊断",
+      "commands": [
+        "goto_next_diag"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Shift+F8",
+      "context": "编辑器",
+      "description": "跳转到上一条诊断",
+      "commands": [
+        "goto_prev_diag"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Space → c → h",
+      "context": "编辑器 · 普通模式",
+      "description": "在 C/C++ 源文件和对应头文件之间切换",
+      "commands": [
+        "switch_source_header"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Space → c → i",
+      "context": "编辑器 · 普通模式",
+      "description": "查看语言服务、C/C++ 配置来源、编译器和配置警告",
+      "commands": [
+        "devtui_lsp_info"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Space → c → v",
+      "context": "编辑器 · 普通模式",
+      "description": "选择项目使用的 Python 解释器或虚拟环境",
+      "commands": [
+        "devtui_python_venv"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "Space → c → x",
+      "context": "编辑器 · 普通模式",
+      "description": "打开统一编辑区菜单，包含导航、剪贴板和格式化操作",
+      "commands": [
+        "devtui_symbol_context_menu"
+      ]
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "鼠标右键 → Format Document",
+      "context": "编辑器",
+      "description": "使用当前语言的格式化工具整理整个文件",
+      "commands": []
+    },
+    {
+      "category": "语言与诊断",
+      "keys": "选择文本 → 鼠标右键 → Format Selection",
+      "context": "编辑器",
+      "description": "格式化所选语法区域；提供者可能同时整理附近代码",
+      "commands": []
+    },
+    {
+      "category": "语言与诊断",
+      "keys": ":lsp-restart",
+      "context": "编辑器命令行",
+      "description": "重新读取项目配置并重启当前文件的语言服务",
+      "commands": []
+    },
+    {
+      "category": "调试",
+      "keys": "Ctrl+Shift+D",
+      "context": "编辑器",
+      "description": "打开调试菜单，查看可用的调试操作",
+      "commands": [
+        "devtui_debug_menu"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "F5",
+      "context": "编辑器",
+      "description": "启动调试，或继续运行已暂停的调试程序",
+      "commands": [
+        "devtui_debug_start_or_continue"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "F6",
+      "context": "编辑器",
+      "description": "暂停正在运行的调试程序",
+      "commands": [
+        "dap_pause"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "F9",
+      "context": "编辑器",
+      "description": "添加或移除当前行的断点",
+      "commands": [
+        "dap_toggle_breakpoint"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "F10",
+      "context": "编辑器",
+      "description": "单步执行下一行，不进入函数内部",
+      "commands": [
+        "dap_next"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "F11",
+      "context": "编辑器",
+      "description": "单步进入当前函数调用",
+      "commands": [
+        "dap_step_in"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Shift+F11",
+      "context": "编辑器",
+      "description": "运行到当前函数返回",
+      "commands": [
+        "dap_step_out"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Shift+F5",
+      "context": "编辑器",
+      "description": "终止当前调试会话",
+      "commands": [
+        "dap_terminate"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Ctrl+Shift+F5",
+      "context": "编辑器",
+      "description": "重新启动当前调试会话",
+      "commands": [
+        "dap_restart"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → b",
+      "context": "编辑器 · 普通模式",
+      "description": "添加或移除当前行的断点",
+      "commands": [
+        "dap_toggle_breakpoint"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → c",
+      "context": "编辑器 · 普通模式",
+      "description": "继续运行已暂停的调试程序",
+      "commands": [
+        "dap_continue"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → i",
+      "context": "编辑器 · 普通模式",
+      "description": "单步进入当前函数调用",
+      "commands": [
+        "dap_step_in"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → O",
+      "context": "编辑器 · 普通模式",
+      "description": "单步执行下一行，不进入函数内部",
+      "commands": [
+        "dap_next"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → o",
+      "context": "编辑器 · 普通模式",
+      "description": "运行到当前函数返回",
+      "commands": [
+        "dap_step_out"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → u",
+      "context": "编辑器 · 普通模式",
+      "description": "打开调试菜单，查看可用的调试操作",
+      "commands": [
+        "devtui_debug_menu"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → v",
+      "context": "编辑器 · 普通模式",
+      "description": "查看当前调试栈帧中的变量",
+      "commands": [
+        "dap_variables"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → s",
+      "context": "编辑器 · 普通模式",
+      "description": "选择调试调用栈中的栈帧",
+      "commands": [
+        "dap_switch_stack_frame"
+      ]
+    },
+    {
+      "category": "调试",
+      "keys": "Space → d → t",
+      "context": "编辑器 · 普通模式",
+      "description": "终止当前调试会话",
+      "commands": [
+        "dap_terminate"
+      ]
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "鼠标左键拖动",
+      "context": "编辑器",
+      "description": "从拖动起点到终点选择文本",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "鼠标双击 / 双击后拖动",
+      "context": "编辑器",
+      "description": "选择当前单词；继续拖动时按完整单词扩展选择",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "鼠标中键拖动",
+      "context": "编辑器",
+      "description": "按显示列建立矩形选区和多个编辑光标",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "鼠标右键",
+      "context": "编辑器",
+      "description": "打开统一菜单；格式化操作按当前语言服务能力启用",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "鼠标单击 / 双击文件",
+      "context": "文件树",
+      "description": "单击预览文件；双击固定标签并聚焦编辑区",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Ctrl+鼠标左键 / Alt+鼠标左键",
+      "context": "文件树",
+      "description": "增加或取消一个文件选择",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Shift+鼠标左键",
+      "context": "文件树",
+      "description": "选择从锚点到点击位置的一段连续文件",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Up / Down / Home / End",
+      "context": "文件树",
+      "description": "移动文件树中的当前项目",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Left / Right",
+      "context": "文件树",
+      "description": "折叠、展开目录或预览文件",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Enter",
+      "context": "文件树",
+      "description": "打开当前文件并切换到编辑区",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "F2",
+      "context": "文件树",
+      "description": "重命名当前文件或目录",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Delete",
+      "context": "文件树",
+      "description": "确认后永久删除选中的文件或目录",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Ctrl+C / Ctrl+V",
+      "context": "文件树",
+      "description": "复制或粘贴选中的文件与目录",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Shift+F10 / 鼠标右键",
+      "context": "文件树",
+      "description": "打开当前文件或多选文件的操作菜单",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Shift+H / Shift+I",
+      "context": "文件树",
+      "description": "切换隐藏文件或忽略文件的显示",
+      "commands": []
+    },
+    {
+      "category": "鼠标与文件树",
+      "keys": "Ctrl+A",
+      "context": "文件树",
+      "description": "选择当前文件树中显示的所有非根项目",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+Left / Alt+Right / Alt+Up / Alt+Down",
+      "context": "Zellij 普通模式",
+      "description": "将焦点移动到相邻工作区面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+o → d",
+      "context": "工作区",
+      "description": "从当前工作区会话分离，程序继续运行",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+q",
+      "context": "工作区",
+      "description": "退出当前工作区会话",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+g",
+      "context": "Zellij",
+      "description": "进入或退出锁定模式，让其他按键直接传给当前应用",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+鼠标左键点击路径",
+      "context": "Git 或 shell 输出",
+      "description": "将终端中高亮的文件路径交给现有编辑器打开",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "终端粘贴",
+      "context": "编辑器",
+      "description": "通过终端粘贴文本；默认剪贴板提供者不能读取外部剪贴板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+N",
+      "context": "Zellij 非锁定模式",
+      "description": "在当前工作区中新增一个面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+F",
+      "context": "Zellij 非锁定模式",
+      "description": "显示或隐藏普通浮动面板；置顶速查窗口继续显示",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+= / Alt+-",
+      "context": "Zellij 非锁定模式",
+      "description": "增大或缩小当前面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+I / Alt+O",
+      "context": "Zellij 非锁定模式",
+      "description": "将当前工作区标签向左或向右移动",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Alt+[ / Alt+]",
+      "context": "Zellij 非锁定模式",
+      "description": "切换到前一个或下一个面板布局",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+N → Left / Right / Up / Down",
+      "context": "Zellij 普通模式",
+      "description": "进入调整大小模式，沿指定边缘增大当前面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+N → Shift+H / Shift+J / Shift+K / Shift+L",
+      "context": "Zellij 普通模式",
+      "description": "进入调整大小模式，从左、下、上、右缩小当前面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+T → n / x",
+      "context": "Zellij 普通模式",
+      "description": "新建或关闭一个工作区标签",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+T → Left / Right",
+      "context": "Zellij 普通模式",
+      "description": "切换到前一个或下一个工作区标签",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+T → 1 … 9",
+      "context": "Zellij 普通模式",
+      "description": "切换到指定编号的工作区标签",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+O → Ctrl+P → f",
+      "context": "Zellij 普通模式",
+      "description": "进入面板模式，将当前面板全屏显示或恢复布局",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+O → Ctrl+P → d / r",
+      "context": "Zellij 普通模式",
+      "description": "在当前面板下方或右侧新建面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+O → Ctrl+P → x",
+      "context": "Zellij 普通模式",
+      "description": "关闭当前面板",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+O → Ctrl+P → e",
+      "context": "Zellij 普通模式",
+      "description": "在平铺和浮动面板之间切换",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Ctrl+O → Ctrl+S",
+      "context": "Zellij 普通模式",
+      "description": "进入当前终端面板的历史输出滚动模式",
+      "commands": []
+    },
+    {
+      "category": "工作区与终端",
+      "keys": "Esc / Enter",
+      "context": "Zellij 调整大小、面板或标签模式",
+      "description": "退出当前管理模式，回到普通模式",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "Ctrl+Shift+K",
+      "context": "编辑器 · 插入模式",
+      "description": "回到普通模式；选择当前整行，继续按下时扩展到下一行；删除当前选择；进入插入模式以输入文本",
+      "commands": [
+        "normal_mode",
+        "extend_line",
+        "delete_selection",
+        "insert_mode"
+      ]
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "i / a",
+      "context": "编辑器 · 普通模式",
+      "description": "在光标前或后进入插入模式",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "v",
+      "context": "编辑器 · 普通模式",
+      "description": "进入选择模式，以移动操作扩展选区",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "h / j / k / l",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "分别向左、下、上、右移动光标或选择边界",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "w / b",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "按单词向前或向后移动",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "g → g / Shift+G",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "跳转到文件开头或结尾",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": ":",
+      "context": "编辑器 · 普通模式",
+      "description": "输入编辑器命令，例如保存、退出或重启语言服务",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "d / c",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "删除选择；或删除选择后进入插入模式",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "y / p / Shift+P",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "复制到内部寄存器，或在选择后方、前方粘贴内部寄存器",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "= / > / <",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "格式化选择、增加缩进或减少缩进",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "m → m",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "跳转到匹配的括号",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "g → n / g → p",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "切换到下一个或上一个已打开的文件",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "Space → b",
+      "context": "编辑器 · 普通模式",
+      "description": "从已打开文件列表中选择文件",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "Ctrl+W → s / v",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "在编辑区中水平或垂直分割视图",
+      "commands": []
+    },
+    {
+      "category": "Helix 模式",
+      "keys": "Ctrl+W → q",
+      "context": "编辑器 · 普通或选择模式",
+      "description": "关闭当前编辑区分割视图",
+      "commands": []
+    }
+  ]
+}

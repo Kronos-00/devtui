@@ -1,0 +1,8 @@
+{
+  "repository": "microsoft/terminal",
+  "revision": "9fd41b2baec77d25b8cfb584070d5998eab7df81",
+  "path": "src/cascadia/TerminalSettingsModel/defaults.json",
+  "url": "https://raw.githubusercontent.com/microsoft/terminal/9fd41b2baec77d25b8cfb584070d5998eab7df81/src/cascadia/TerminalSettingsModel/defaults.json",
+  "sha256": "5b8f30150cfc7604f72673556e56865e1cb7002ab456adb66b676c1941d1aa62",
+  "plain_f4_bound": false
+}
