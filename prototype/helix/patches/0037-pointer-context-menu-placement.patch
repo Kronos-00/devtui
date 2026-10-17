@@ -1,0 +1,264 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index ee98073..c44a5a4 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -843,6 +843,7 @@ fn process_devtui_requests(&mut self) -> bool {
+                     is_dir,
+                     is_root,
+                     selection,
++                    anchor,
+                 } => {
+                     let select = crate::ui::devtui::explorer_context_select(
+                         root,
+@@ -851,7 +852,7 @@ fn process_devtui_requests(&mut self) -> bool {
+                         is_root,
+                         selection,
+                         self.editor.devtui.explorer_clipboard.iter().any(|path| std::fs::symlink_metadata(path).is_ok()),
+-                    );
++                    ).position(anchor);
+                     self.compositor.push(Box::new(select));
+                     pushed = true;
+                 }
+@@ -874,9 +875,9 @@ fn process_devtui_requests(&mut self) -> bool {
+                     self.compositor.push(Box::new(prompt));
+                     pushed = true;
+                 }
+-                DevTuiRequest::SymbolContext => {
++                DevTuiRequest::SymbolContext { anchor } => {
+                     self.compositor
+-                        .push(Box::new(crate::ui::devtui::symbol_context_select(&self.editor)));
++                        .push(Box::new(crate::ui::devtui::symbol_context_select(&self.editor).position(anchor)));
+                     pushed = true;
+                 }
+                 DevTuiRequest::SymbolAction(name) => {
+@@ -901,9 +902,9 @@ fn process_devtui_requests(&mut self) -> bool {
+                     self.execute_devtui_command(command, None, None);
+                     pushed = true;
+                 }
+-                DevTuiRequest::SelectionContext => {
++                DevTuiRequest::SelectionContext { anchor } => {
+                     self.compositor
+-                        .push(Box::new(crate::ui::devtui::selection_context_select()));
++                        .push(Box::new(crate::ui::devtui::selection_context_select().position(anchor)));
+                     pushed = true;
+                 }
+                 DevTuiRequest::SelectionAction(name) => {
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index fa2986c..b3c5aed 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -5206,7 +5206,7 @@ fn devtui_symbol_context_menu(cx: &mut Context) {
+     cx.editor
+         .devtui
+         .requests
+-        .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++        .push_back(helix_view::editor::DevTuiRequest::SymbolContext { anchor: None });
+ }
+ 
+ fn yank_to_clipboard(cx: &mut Context) {
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index ef57c49..64249d1 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1545,6 +1545,7 @@ fn handle_explorer_key(&mut self, event: KeyEvent, editor: &mut Editor) -> bool
+                         is_dir: row.is_dir,
+                         is_root: row.path == self.explorer.root,
+                         selection,
++                        anchor: None,
+                     });
+             }
+             return true;
+@@ -1659,6 +1660,7 @@ fn handle_explorer_mouse(
+                                     is_dir: row.is_dir,
+                                     is_root: row.path == self.explorer.root,
+                                     selection,
++                                    anchor: Some(Position::new(event.row as usize, event.column as usize)),
+                                 },
+                             );
+                         }
+@@ -2026,14 +2028,18 @@ fn handle_mouse_event(
+                         editor
+                             .devtui
+                             .requests
+-                            .push_back(helix_view::editor::DevTuiRequest::SelectionContext);
++                            .push_back(helix_view::editor::DevTuiRequest::SelectionContext {
++                                anchor: Some(Position::new(row as usize, column as usize)),
++                            });
+                     } else {
+                         doc_mut!(editor, &doc_id)
+                             .set_selection(view_id, Selection::point(pos));
+                         editor
+                             .devtui
+                             .requests
+-                            .push_back(helix_view::editor::DevTuiRequest::SymbolContext);
++                            .push_back(helix_view::editor::DevTuiRequest::SymbolContext {
++                                anchor: Some(Position::new(row as usize, column as usize)),
++                            });
+                     }
+                     return EventResult::Consumed(None);
+                 }
+diff --git a/helix-term/src/ui/select.rs b/helix-term/src/ui/select.rs
+index a3c3dff..824834a 100644
+--- a/helix-term/src/ui/select.rs
++++ b/helix-term/src/ui/select.rs
+@@ -1,5 +1,7 @@
+ use std::borrow::Cow;
+ 
++use helix_core::Position;
++
+ use helix_view::{graphics::Rect, Editor};
+ use tui::{
+     buffer::Buffer as Surface,
+@@ -13,6 +15,7 @@
+ pub struct Select<T: Item> {
+     message: Text,
+     options: Menu<T>,
++    anchor: Option<Position>,
+ }
+ 
+ impl<T: Item> Select<T> {
+@@ -38,8 +41,52 @@ pub fn new<M, I, F>(message: M, options: I, data: T::Data, callback: F) -> Self
+         Self {
+             message,
+             options: menu,
++            anchor: None,
+         }
+     }
++
++    /// Position a context menu at a terminal-cell anchor. Dialogs without an
++    /// anchor retain their centered layout.
++    pub fn position(mut self, anchor: Option<Position>) -> Self {
++        self.anchor = anchor;
++        self
++    }
++}
++
++/// VS Code's default vertical layout: below first, above if needed, then
++/// overlap within the viewport. Horizontal alignment flips to the left edge
++/// of the anchor when the preferred right-hand placement does not fit.
++fn context_menu_area(viewport: Rect, anchor: Position, width: u16, height: u16) -> Rect {
++    let width = width.min(viewport.width);
++    let height = height.min(viewport.height);
++    let row = anchor
++        .row
++        .saturating_sub(viewport.y as usize)
++        .min(viewport.height.saturating_sub(1) as usize) as u16;
++    let col = anchor
++        .col
++        .saturating_sub(viewport.x as usize)
++        .min(viewport.width.saturating_sub(1) as usize) as u16;
++    let below = row.saturating_add(1).min(viewport.height);
++    let y = if height <= viewport.height.saturating_sub(below) {
++        below
++    } else if height <= row {
++        row - height
++    } else {
++        viewport.height.saturating_sub(height)
++    };
++    // If vertical overlap is unavoidable, place beside the clicked cell.
++    let overlaps = y <= row && row < y.saturating_add(height);
++    let after = col + u16::from(overlaps);
++    let before = col + u16::from(!overlaps);
++    let x = if width <= viewport.width.saturating_sub(after) {
++        after
++    } else if width <= before {
++        before - width
++    } else {
++        viewport.width.saturating_sub(width)
++    };
++    Rect::new(viewport.x + x, viewport.y + y, width, height)
+ }
+ 
+ impl<T: Item> Component for Select<T> {
+@@ -66,37 +113,49 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+         //
+         //
+ 
+-        // Limit the text width to 80% of the screen or 80 columns, whichever is
+-        // smaller.
+-        let max_width = 80.min(((area.width as u32) * 80u32 / 100) as u16);
++        if area.width == 0 || area.height == 0 {
++            return;
++        }
++        // Reserve room for the title border and at least one scrollable item.
++        // Very short terminals show only the menu rather than an empty list.
++        let max_width = 80.min(((area.width as u32) * 80u32 / 100) as u16).max(1);
+         let (message_width, message_height) =
+             super::text::required_size(&self.message.contents, max_width);
++        let header_height = if area.height >= 3 {
++            (message_height + 2).min(area.height - 1)
++        } else {
++            0
++        };
+         let (menu_width, menu_height) = self
+             .options
+-            .required_size((max_width, area.height))
++            .required_size((max_width, area.height - header_height))
+             .unwrap();
+-        // + 2 for borders and another + 2 for horizontal padding
+         let width = (message_width + 4).max(menu_width).min(area.width);
+-        let height = (message_height + 2 + menu_height).min(area.height);
+-        let area = Rect {
+-            x: area.x + area.width.saturating_sub(width) / 2,
+-            y: area.y + area.height.saturating_sub(height) / 2,
+-            width,
+-            height,
++        let height = header_height + menu_height;
++        let area = if let Some(anchor) = self.anchor {
++            context_menu_area(area, anchor, width, height)
++        } else {
++            Rect {
++                x: area.x + area.width.saturating_sub(width) / 2,
++                y: area.y + area.height.saturating_sub(height) / 2,
++                width,
++                height,
++            }
+         };
+ 
+         // Message
+         let background = cx.editor.theme.get("ui.background");
+         let text = cx.editor.theme.get("ui.text");
+-        let message_box = area.with_height(message_height + 2);
+-        surface.clear_with(message_box, background.patch(text));
+-        BLOCK.render(message_box, surface);
+-        // Add horizontal padding so the message isn't too close to the border.
+-        let message_area = BLOCK.inner(message_box).clip_left(1).clip_right(1);
+-        self.message.render(message_area, surface, cx);
++        if header_height > 0 {
++            let message_box = area.with_height(header_height);
++            surface.clear_with(message_box, background.patch(text));
++            BLOCK.render(message_box, surface);
++            let message_area = BLOCK.inner(message_box).clip_left(1).clip_right(1);
++            self.message.render(message_area, surface, cx);
++        }
+ 
+         // Options menu
+-        let menu_area = area.clip_top(message_height + 2);
++        let menu_area = area.clip_top(header_height);
+         self.options.render(menu_area, surface, cx);
+     }
+ }
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index fca6259..4b78b34 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1294,6 +1294,7 @@ pub enum DevTuiRequest {
+         is_dir: bool,
+         is_root: bool,
+         selection: Vec<PathBuf>,
++        anchor: Option<Position>,
+     },
+     ExplorerCreate {
+         directory: PathBuf,
+@@ -1305,9 +1306,9 @@ pub enum DevTuiRequest {
+     ExplorerRename {
+         path: PathBuf,
+     },
+-    SymbolContext,
++    SymbolContext { anchor: Option<Position> },
+     SymbolAction(&'static str),
+-    SelectionContext,
++    SelectionContext { anchor: Option<Position> },
+     SelectionAction(&'static str),
+     DebugAction(&'static str),
+     OpenPath {
