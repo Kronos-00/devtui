@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "validated_date_utc": "2026-10-17",
+  "code_revision": "1cba5e402ca53d7125f3c2cf2ebb7d934fb385d5",
+  "baseline": {
+    "commit": "b10574bee0c85ef6ed51b620729d212760ee2520",
+    "files": 45
+  },
+  "feature_checkpoints": 160,
+  "reference_revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+  "verified_reference_files": 21,
+  "build": {
+    "upstream": "ba40e547426b0f9896c8bdc699a4ab11f2b37dbc",
+    "patched_tree": "9d038c3072a7d71ab177e8228ba92b97eaa6eed6",
+    "rust": "1.95.0",
+    "binary_sha256": "87d69c3fc2cc2068454078ac96e22fb9d501a1a78e07148216acdc1729340aa5",
+    "patches": {
+      "0001-mouse-foundation.patch": "de0b7ad71fcde81c089562dcb77e6bc5280f3601125db254b9493589ab2eaa96",
+      "0002-editor-lifecycle.patch": "123409485e3156a39d8abc7d34aff2e4d19c12886422f0d7f5b4c9782a72fb38",
+      "0003-persistent-explorer.patch": "5da602891c219ed314875b95412b547fa3a8f41de4ec1f3bc10dca16feeb388b",
+      "0004-explorer-file-actions.patch": "58ae08cbd56e3d155478fb294b69031776479e6ab4ae55efd3d7400cbf1989de",
+      "0005-preview-promotion.patch": "d06c5c4874e51d97360ed69be5d19c5502c2ef869d57ce6ca01b43e8fe440a02",
+      "0006-editor-context-ipc.patch": "6534d34a8ba51193b2381d9894693eb88c3bde8dffcbddc9b089b04661bb9885",
+      "0007-ipc-editor-focus.patch": "0b2356a6688210d17fff31cb612ef2a4172ab86562b06f274254ed477b3946b8",
+      "0008-column-selection.patch": "8632b17672a6b6fa95ff01bfcd5415fab21a4b1c258c667ae54e138a8755a901",
+      "0009-editor-scrollbar.patch": "fe84f6e8b2cfd7feca3eafc1195418bbdf601542e2e75a4c60f125e17615f82d",
+      "0010-inactive-regions.patch": "4e0c34a9a997dcbdee483580321d455f93b03ab15e5ca1df121521a59b7c3411",
+      "0011-shortcut-actions.patch": "eb669001caae68d908599de769194c1a21aae6cabedb1ce363f46122b80c41f8",
+      "0012-project-replace.patch": "795eb59c2807e8de3cab9f73025ec88d7972c3ea1026d649c5fc4addd4121017",
+      "0013-editing-shortcuts.patch": "2f609c9427a7e563db927f5c1135ac82febfbaeee5ab9f1ae835a6ca26d0a239",
+      "0014-column-clipboard.patch": "8101c58a8c41b6365e59ab01a0dd10024f57409572ff9acfd01ba5041dbd8f54",
+      "0015-explorer-keyboard.patch": "2d23d50e5c4fa6670d86c0cae249ee9edac96c9c73cb2ee7fd1af2acd2628c29",
+      "0016-language-debug-integration.patch": "aed5149eeab4afed7fd5d4f325817883c25e534255e17ec16666573452ce9543",
+      "0017-save-as-confirmation.patch": "889089d9cb1365a29207d22c0c07da0f023902f452a1260b315b56de4a6ed3a1",
+      "0018-menu-pointer-actions.patch": "9e849c390e75569a75ea4f40444fc67031d67debf2f9ece1822914bccefa2aff",
+      "0019-explorer-filesystem-safety.patch": "19917f197cde21257f44d164afb6a147eba7d36fb34020443a84f19c29942ea6",
+      "0020-save-as-safety.patch": "b3f514d507848702512d890d23fa909d33412469b93f44fccee90df89928baa8",
+      "0021-ipc-request-safety.patch": "ffb36bf3247d3267a7ab1c7ed57f7974144c35d5cea3115c9cfe8993b93758ae",
+      "0022-navigation-parity.patch": "f578133ee38bb2b71bf41bd74855ef7e1a60cc9f76f003fa635ac6d7e6a6bb19",
+      "0023-command-dispatch-and-replace.patch": "8a6d7e7bda0de754e11b379a49738eedcc3909c53711eaf55b5a1c20e90b28bf",
+      "0024-explorer-workflow-parity.patch": "8b8da31c504aed096a40358f2242ba685a3ac6d65c1747d967f34c16c89ccdec",
+      "0025-explicit-selection-editing.patch": "68f285fcaeb70af28f9d2d4df5dd945f1055a72d7cdd490492b19232777abdec",
+      "0026-find-replace-semantics.patch": "aaa217c111cb505580540035f07cb07dcb612320a98cd5dadb5cb286b7ce24fb",
+      "0027-navigation-and-key-routing.patch": "2fc763be1e1799b2e59af854f27873c65d25564bbe40bd265ceb2f1c56f66e91",
+      "0028-paste-replacement-transactions.patch": "1b0aec78943408ff4090dca580a9b841bf1c7c4e24548f6988f7e066c7b37a70",
+      "0029-overview-annotations.patch": "751e218d042015a613b4c9541a8a5a6a85c444773c23638a5e041253049c572e",
+      "0030-caret-focus-and-context.patch": "cfd048c6bbcbc8aa98864a666ea07eabc2f54e7667da5ed598944ba06ca2a9b0",
+      "0031-debug-launch-isolation.patch": "4756f31d94f36fb7c4c3da3fcba9600fa72cfbf86124ae6348261f01fd3386fa",
+      "0032-duplicate-name-boundaries.patch": "7d29f9e479c1f50e796f25e696e43c80eb8bcb8ec9fa5c61ebdbf4ee6c19b188"
+    }
+  },
+  "release_validation": {
+    "fresh_upstream_patch_application": "PASS",
+    "canonical_source_tree_check": "PASS",
+    "locked_release_build": "PASS",
+    "installed_binary_matches_tested_binary": "PASS",
+    "neovim_configuration_and_launcher_unchanged": "PASS",
+    "neovim_files_checked": 46
+  },
+  "unittest_suites": {
+    "terminal_regression.py": {
+      "result": "PASS",
+      "tests": 31,
+      "seconds": 46.055,
+      "passed_test_methods": [
+        "test_active_tab_visible_when_overflowing",
+        "test_blank_tab_strip_creates_untitled",
+        "test_close_glyph_remains_clickable_when_dirty",
+        "test_copy_on_self_duplicates_beside_folder",
+        "test_create_existing_does_not_truncate",
+        "test_current_replace_in_untitled",
+        "test_current_replace_preserves_unsaved_state",
+        "test_existing_pinned_tab_does_not_pin_other_preview",
+        "test_explorer_modifiers_and_path_copy",
+        "test_explorer_wheel_does_not_reset_viewport",
+        "test_external_ipc_preserves_editor_and_tree",
+        "test_failed_save_does_not_close_on_later_manual_save",
+        "test_incomplete_ipc_request_cannot_block_following_client",
+        "test_live_multicursor_before_escape",
+        "test_markdown_source_and_symbol_menu",
+        "test_middle_from_insert_no_clipboard_query",
+        "test_mouse_close_dialog_cancel_and_discard",
+        "test_mouse_file_menu_copy_paste",
+        "test_normal_escape_clears_additional_carets",
+        "test_palette_debug_menu_and_interpreter_prompt",
+        "test_preview_pinning_and_single_click_after_insert",
+        "test_project_replace",
+        "test_quit_command_families",
+        "test_recursive_paste_is_rejected_before_creation",
+        "test_rename_collision_does_not_overwrite",
+        "test_resize_reverse_pause_and_minimum",
+        "test_save_as_overwrite_cancel_then_confirm",
+        "test_scrollbar_drags_without_editing_document",
+        "test_sparse_column_copy_and_spread_paste",
+        "test_symlink_copy_does_not_follow_cycle",
+        "test_untitled_wq_and_cancel"
+      ]
+    },
+    "strict_parity.py": {
+      "result": "PASS",
+      "tests": 38,
+      "seconds": 51.291,
+      "passed_test_methods": [
+        "test_ZZ_ZQ_and_full_quit_aliases",
+        "test_all_short_rows_fallback_and_boundary_navigation",
+        "test_clangd_definition_navigation_in_editor",
+        "test_copy_after_keyboard_motion_copies_line_not_block_cursor",
+        "test_copy_name_large_counter_never_stalls",
+        "test_copy_name_zero_and_literal_suffix_match_vscode",
+        "test_ctrl_d_first_selects_word_second_adds_occurrence",
+        "test_ctrl_d_in_insert_selects_current_word",
+        "test_ctrl_z_undoes_pending_insert_transaction",
+        "test_cut_selection_then_terminal_paste",
+        "test_delete_dirty_document_warns_and_does_not_resurrect_file",
+        "test_double_click_and_keyboard_open_focus_editor",
+        "test_duplicate_names_keep_extensions_and_advance_existing_copies",
+        "test_empty_file_clipboard_cannot_activate_paste",
+        "test_external_open_dismisses_transient_picker",
+        "test_external_utf16_column",
+        "test_find_defaults_literal_case_insensitive_and_mouse_toggle",
+        "test_find_whole_word_option",
+        "test_in_file_replace_literal_dollar_and_regex_opt_in",
+        "test_invalid_regex_does_not_modify_document",
+        "test_mouse_dirty_save_and_named_save_as",
+        "test_new_file_opens_pinned_and_nested_parent_is_revealed",
+        "test_new_file_rejects_parent_escape",
+        "test_new_folder_and_hidden_toggle",
+        "test_overview_search_and_named_mark_navigation",
+        "test_paste_replacement_undo_is_single_transaction",
+        "test_pasted_single_file_opens_pinned_without_losing_tree",
+        "test_plain_drag_is_half_open_and_copy_preserves_selection",
+        "test_project_replace_saves_explicitly_even_open_documents",
+        "test_quick_open_from_tree_focus_accepts_immediate_edit",
+        "test_rectangle_left_and_right_collapse_exactly_to_boundary",
+        "test_rectangle_typing_replaces_instead_of_inserting_before",
+        "test_redo_terminal_bridge_is_not_reference_key",
+        "test_reverse_rectangle_and_mismatch_paste",
+        "test_root_path_clipboard",
+        "test_shift_selection_and_context_preserve_group",
+        "test_symbol_actions_without_provider_are_disabled",
+        "test_tree_left_right_preserve_keyboard_context"
+      ]
+    },
+    "deployment_regression.py": {
+      "result": "PASS",
+      "tests": 6,
+      "seconds": 0.893,
+      "passed_test_methods": [
+        "test_banner_stays_alive_without_keystrokes",
+        "test_install_isolated_and_backed_up",
+        "test_launcher_scope_and_environment",
+        "test_navigation_client_ignores_project_python_startup",
+        "test_shell_keeps_exported_development_environment",
+        "test_shell_scripts_parse"
+      ]
+    },
+    "language_editor_regression.py": {
+      "result": "PASS",
+      "tests": 1,
+      "seconds": 2.336,
+      "passed_test_methods": [
+        "test_clangd_definition_rename_and_overview_diagnostic"
+      ]
+    },
+    "editor_debugger_regression.py": {
+      "result": "PASS",
+      "tests": 2,
+      "seconds": 9.582,
+      "passed_test_methods": [
+        "test_f5_python_fallback_variables_step_and_continue",
+        "test_selected_environment_is_used_by_debuggee"
+      ]
+    }
+  },
+  "unittest_count": 78,
+  "protocol_and_workspace_checks": {
+    "service_smoke.py": {
+      "clangd": {
+        "initialize": "PASS",
+        "inactive_regions": "PASS"
+      },
+      "pyright": {
+        "initialize": "PASS"
+      },
+      "bash": {
+        "initialize": "PASS"
+      },
+      "cmake": {
+        "initialize": "PASS"
+      },
+      "ruff": {
+        "initialize": "PASS"
+      },
+      "debugpy-adapter": {
+        "initialize": "PASS"
+      },
+      "lldb-dap": {
+        "initialize": "PASS"
+      },
+      "cmake-isolation": {
+        "initialize": "PASS",
+        "isolated_runtime": "PASS"
+      },
+      "debugpy-isolation": {
+        "initialize": "PASS",
+        "isolated_runtime": "PASS"
+      }
+    },
+    "debugger_regression.py": {
+      "debugpy-adapter": {
+        "breakpoint": "PASS",
+        "launch_and_stop": "PASS",
+        "call_stack": "PASS",
+        "variables": "PASS",
+        "step_over": "PASS",
+        "continue_and_terminate": "PASS"
+      },
+      "lldb-dap": {
+        "breakpoint": "PASS",
+        "launch_and_stop": "PASS",
+        "call_stack": "PASS",
+        "variables": "PASS",
+        "step_over": "PASS",
+        "continue_and_terminate": "PASS"
+      }
+    },
+    "workspace_smoke.py": {
+      "explorer_visible": true,
+      "editor_endpoint": true,
+      "shortcut_banner_visible": true,
+      "git_pane": true,
+      "editor_pane_recorded": true,
+      "external_open_in_existing_pane": true
+    },
+    "audit_manifest.py": {
+      "baseline_files": 45,
+      "feature_checkpoints": 160,
+      "source_references": 21,
+      "ordered_patches": 32,
+      "implementation_paths": 22,
+      "applied_source_tree_verified": true,
+      "result": "PASS"
+    }
+  },
+  "terminal_link": {
+    "unit_tests": 15,
+    "result": "PASS",
+    "fingerprint": {
+      "zellij_version": "0.45.1",
+      "binary_sha256": "08d5ab5ba56c76bccbce6b4ab2669640347cda60eb3a8a5f427e4661db03e85c",
+      "patches": {
+        "patches/zellij-link-devtui.patch": "5ace78390d065e72fcf2007bdf6d8d4c6ca23d2652acbfd7ffad4923891b6df8",
+        "prototype/helix/zellij/link-paths.patch": "0e3172ccb1b7479f9cf88bc3e536579bcd6cd59ec22a1edd324ff620152a5255"
+      }
+    }
+  },
+  "test_source_sha256": {
+    "audit_manifest.py": "a6e87297fbbf2c2cb137f933ee1daf8dec4d16822ede026fe731ecf3ce149793",
+    "debugger_regression.py": "83b408cd0d80e57ca990badcbb6bc48101400d50d1a481a13958714460ecee35",
+    "deployment_regression.py": "687a95b3deb77e808b3e7482c6635c8641fc1982be0d045b5f032e841e1758ae",
+    "editor_debugger_regression.py": "4619d30dd55d959e2b8744b95b87c79df59819f69dc1315ac8314a5daebf272f",
+    "language_editor_regression.py": "f0cb724519dea4f8470b5089e018523d987daf122a452bbdb698153036ac9e1e",
+    "service_smoke.py": "01e55346b8dc3be2793359ea7ec0d91f7ab7dd770110719809f79dd55a834a9d",
+    "strict_parity.py": "2a4afe96d49b6d397231282f8cfc83695e7dcc47cae8f54232df1056a8fdc9a3",
+    "terminal_regression.py": "da9ba2f6b4bd8d29be9563c695f955f8e6342c35cf05c5cd27328b72a424cb3f",
+    "workspace_smoke.py": "f4d8285ac0cbb01df6cb810cf0a49059df51746faf7d60eb1b524a8830d1dd12"
+  },
+  "independent_regression": {
+    "issue": "Duplicate name counter and exact suffix semantics",
+    "old_binary": "FAIL: four suffix subcases",
+    "fixed_release": "PASS: ten subcases across three new tests",
+    "reference_symbols": [
+      "incrementFileName",
+      "MAX_SAFE_SMALL_INTEGER"
+    ]
+  },
+  "evidence_boundary": [
+    "160 checklist entries are not 160 independent terminal tests.",
+    "Linux PTYs do not certify Windows Terminal host key routing or clipboard permissions.",
+    "Protocol and sample-process debugging do not certify arbitrary project builds or device-specific debugging.",
+    "The migrated scope is the portable custom Neovim main additions, not all VS Code features, extensions or Vim internals."
+  ]
+}
