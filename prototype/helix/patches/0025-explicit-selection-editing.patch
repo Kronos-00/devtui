@@ -1,0 +1,256 @@
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index d7c11ab..1632936 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -742,6 +742,7 @@ fn no_op(_cx: &mut Context) {}
+ 
+ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movement) {
+     let count = cx.count();
++    cx.editor.devtui.explicit_selection = behaviour == Movement::Extend;
+     let (view, doc) = current!(cx.editor);
+     let text = doc.text().slice(..);
+     let text_fmt = doc.text_format(view.inner_area(doc).width, None);
+@@ -765,8 +766,9 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
+ use helix_core::movement::{move_horizontally, move_vertically};
+ 
+ fn devtui_plain_cursor_move(cx: &mut Context, dir: Direction, vertical: bool) -> bool {
+-    if !cx.editor.devtui.column_selection_active { return false; }
++    if !cx.editor.devtui.column_selection_active && !cx.editor.devtui.explicit_selection { return false; }
+     cx.editor.devtui.column_selection_active = false;
++    cx.editor.devtui.explicit_selection = false;
+     let count = cx.count();
+     let (view, doc) = current!(cx.editor);
+     let text = doc.text().slice(..);
+@@ -814,6 +816,7 @@ fn move_line_down(cx: &mut Context) {
+ }
+ 
+ fn move_visual_line_up(cx: &mut Context) {
++    if devtui_plain_cursor_move(cx, Direction::Backward, true) { return; }
+     move_impl(
+         cx,
+         move_vertically_visual,
+@@ -823,6 +826,7 @@ fn move_visual_line_up(cx: &mut Context) {
+ }
+ 
+ fn move_visual_line_down(cx: &mut Context) {
++    if devtui_plain_cursor_move(cx, Direction::Forward, true) { return; }
+     move_impl(
+         cx,
+         move_vertically_visual,
+@@ -2230,6 +2234,7 @@ fn copy_selection_on_next_line(cx: &mut Context) {
+ }
+ 
+ fn select_all(cx: &mut Context) {
++    cx.editor.devtui.explicit_selection = true;
+     let (view, doc) = current!(cx.editor);
+ 
+     let end = doc.text().len_chars();
+@@ -2843,6 +2848,7 @@ enum Extend {
+ }
+ 
+ fn extend_line(cx: &mut Context) {
++    cx.editor.devtui.explicit_selection = true;
+     let (view, doc) = current_ref!(cx.editor);
+     let extend = match doc.selection(view.id).primary().direction() {
+         Direction::Forward => Extend::Below,
+@@ -3160,6 +3166,19 @@ fn ensure_selections_forward(cx: &mut Context) {
+     doc.set_selection(view.id, selection);
+ }
+ 
++pub(crate) fn devtui_replace_explicit_selection(cx: &mut Context) -> bool {
++    if !cx.editor.devtui.explicit_selection && !cx.editor.devtui.column_selection_active { return false; }
++    let (view, doc) = current!(cx.editor);
++    let selection = doc.selection(view.id).clone();
++    if selection.ranges().iter().all(Range::is_empty) { return false; }
++    let tx = Transaction::change(doc.text(), selection.ranges().iter().filter(|range| !range.is_empty()).map(|range| (range.from(), range.to(), None)));
++    doc.apply(&tx, view.id);
++    let selection = doc.selection(view.id).clone().transform(|range| Range::point(range.from()));
++    doc.set_selection(view.id, selection);
++    cx.editor.devtui.explicit_selection = false;
++    true
++}
++
+ fn enter_insert_mode(cx: &mut Context) {
+     cx.editor.mode = Mode::Insert;
+ }
+@@ -4012,6 +4031,7 @@ fn open_above(cx: &mut Context) {
+ fn devtui_clear_selections(cx: &mut Context) {
+     cx.editor.enter_normal_mode();
+     cx.editor.devtui.column_selection_active = false;
++    cx.editor.devtui.explicit_selection = false;
+     collapse_selection(cx);
+     keep_primary_selection(cx);
+ }
+@@ -4896,9 +4916,12 @@ fn yank(cx: &mut Context) {
+ fn devtui_line_selection_if_empty(editor: &Editor) -> Option<Selection> {
+     let (view, doc) = current_ref!(editor);
+     let current = doc.selection(view.id);
+-    if current.ranges().iter().any(|range| !range.is_empty()) {
+-        return None;
+-    }
++    let explicit = editor.devtui.explicit_selection || editor.devtui.column_selection_active || editor.mode == Mode::Select;
++    let text = doc.text().slice(..);
++    if current.ranges().iter().any(|range| {
++        if explicit || editor.mode == Mode::Insert { !range.is_empty() }
++        else { range.len() > graphemes::next_grapheme_boundary(text, range.from()) - range.from() }
++    }) { return None; }
+ 
+     let text = doc.text().slice(..);
+     let mut ranges = SmallVec::with_capacity(current.len());
+@@ -5013,38 +5036,33 @@ fn devtui_python_venv(cx: &mut Context) {
+     cx.push_layer(Box::new(prompt));
+ }
+ 
+-fn devtui_prepare_occurrence_selection(editor: &mut Editor) {
+-    if editor.mode != Mode::Normal {
+-        return;
+-    }
+-
++fn devtui_prepare_occurrence_selection(editor: &mut Editor) -> bool {
++    let deliberate = editor.devtui.explicit_selection || editor.devtui.column_selection_active || editor.mode == Mode::Select;
+     let (view, doc) = current!(editor);
+     let current = doc.selection(view.id).clone();
+-    if current.len() != 1 || current.primary().len() > 1 {
+-        return;
+-    }
+-
+     let text = doc.text().slice(..);
+-    let word = textobject::textobject_word(
+-        text,
+-        current.primary(),
+-        textobject::TextObject::Inside,
+-        1,
+-        false,
+-    );
+-    if !word.is_empty() {
+-        doc.set_selection(view.id, Selection::new(SmallVec::from_vec(vec![word]), 0));
+-    }
++    let empty = |range: &Range| range.is_empty() || (!deliberate && range.len() <= graphemes::next_grapheme_boundary(text, range.from()) - range.from());
++    if !current.ranges().iter().any(empty) { return false; }
++    let selection = current.transform(|range| {
++        if empty(&range) {
++            textobject::textobject_word(text, Range::point(range.cursor(text)), textobject::TextObject::Inside, 1, false)
++        } else { range }
++    });
++    doc.set_selection(view.id, selection);
++    editor.devtui.explicit_selection = true;
++    true
+ }
+ 
+ fn devtui_add_next_occurrence(cx: &mut Context) {
+-    devtui_prepare_occurrence_selection(cx.editor);
++    if devtui_prepare_occurrence_selection(cx.editor) { return; }
+     search_selection_detect_word_boundaries(cx);
+     extend_search_next(cx);
++    cx.editor.devtui.explicit_selection = true;
+ }
+ 
+ fn devtui_add_all_occurrences(cx: &mut Context) {
+     devtui_prepare_occurrence_selection(cx.editor);
++    cx.editor.devtui.explicit_selection = true;
+     search_selection_detect_word_boundaries(cx);
+ 
+     let register = cx.register.unwrap_or('/');
+diff --git a/helix-term/src/commands/typed.rs b/helix-term/src/commands/typed.rs
+index da01ddb..e6a2306 100644
+--- a/helix-term/src/commands/typed.rs
++++ b/helix-term/src/commands/typed.rs
+@@ -3256,7 +3256,7 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "write-quit-all",
+-        aliases: &["wqa", "xa"],
++        aliases: &["wqa", "xa", "wqall", "xall"],
+         doc: "Write changes from all buffers to disk and close all views.",
+         fun: write_all_quit,
+         completer: CommandCompleter::none(),
+@@ -3268,7 +3268,7 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "write-quit-all!",
+-        aliases: &["wqa!", "xa!"],
++        aliases: &["wqa!", "xa!", "wqall!", "xall!"],
+         doc: "Forcefully write changes from all buffers to disk, creating necessary subdirectories, and close all views (ignoring unsaved changes).",
+         fun: force_write_all_quit,
+         completer: CommandCompleter::none(),
+@@ -3280,7 +3280,7 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit-all",
+-        aliases: &["qa"],
++        aliases: &["qa", "qall"],
+         doc: "Close all views.",
+         fun: quit_all,
+         completer: CommandCompleter::none(),
+@@ -3291,7 +3291,7 @@ fn noop(_cx: &mut compositor::Context, _args: Args, _event: PromptEvent) -> anyh
+     },
+     TypableCommand {
+         name: "quit-all!",
+-        aliases: &["qa!"],
++        aliases: &["qa!", "qall!"],
+         doc: "Force close all views ignoring unsaved changes.",
+         fun: force_quit_all,
+         completer: CommandCompleter::none(),
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index bff8fac..000cfcb 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -1170,6 +1170,11 @@ fn handle_keymap_event(
+     }
+ 
+     fn insert_mode(&mut self, cx: &mut commands::Context, event: KeyEvent) {
++        if !event.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
++            && matches!(event.code, KeyCode::Char(_) | KeyCode::Enter | KeyCode::Tab | KeyCode::Backspace | KeyCode::Delete) {
++            let replaced = commands::devtui_replace_explicit_selection(cx);
++            if replaced && matches!(event.code, KeyCode::Backspace | KeyCode::Delete) { return; }
++        }
+         if let Some(keyresult) = self.handle_keymap_event(Mode::Insert, cx, event) {
+             match keyresult {
+                 KeymapResult::NotFound => {
+@@ -1926,8 +1931,8 @@ fn handle_mouse_event(
+                     if modifiers == KeyModifiers::ALT {
+                         let selection = doc.selection(view_id).clone();
+                         doc.set_selection(view_id, selection.push(Range::point(pos)));
+-                    } else if editor.mode == Mode::Select {
+-                        // Discards non-primary selections for consistent UX with normal mode
++                    } else if modifiers.contains(KeyModifiers::SHIFT) {
++                        // Shift-click extends the current caret selection.
+                         let primary = doc.selection(view_id).primary().put_cursor(
+                             doc.text().slice(..),
+                             pos,
+@@ -1937,6 +1942,9 @@ fn handle_mouse_event(
+                         doc.set_selection(view_id, Selection::single(primary.anchor, primary.head));
+                     } else {
+                         doc.set_selection(view_id, Selection::point(pos));
++                        editor.mouse_down_range = Some(Range::point(pos));
++                        editor.devtui.explicit_selection = false;
++                        editor.devtui.column_selection_active = false;
+                     }
+ 
+                     if view_id != prev_view_id {
+@@ -1979,9 +1987,11 @@ fn handle_mouse_event(
+ 
+                 let mut selection = doc.selection(view.id).clone();
+                 let primary = selection.primary_mut();
+-                *primary = primary.put_cursor(doc.text().slice(..), pos, true);
++                let anchor = cxt.editor.mouse_down_range.map_or(primary.anchor, |range| range.anchor);
++                *primary = Range::new(anchor, pos);
+                 doc.set_selection(view.id, selection);
+                 let view_id = view.id;
++                cxt.editor.devtui.explicit_selection = true;
+                 cxt.editor.ensure_cursor_in_view(view_id);
+                 EventResult::Consumed(None)
+             }
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 52e07cc..6ba3b60 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1347,6 +1347,8 @@ pub struct DevTuiState {
+     /// The current multi-selection was created by devtui's middle-drag column gesture.
+     /// Clipboard operations use this to omit sparse rows exactly like VS Code.
+     pub column_selection_active: bool,
++    /// Distinguish deliberate selections from the modal one-character cursor.
++    pub explicit_selection: bool,
+     /// Reveal a created/renamed item without disturbing the workspace root.
+     pub explorer_reveal: Option<PathBuf>,
+     /// UI requests produced by editor/command code and consumed by helix-term.

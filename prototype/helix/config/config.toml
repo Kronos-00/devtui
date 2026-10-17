@@ -190,3 +190,6 @@ F10 = "dap_next"
 F11 = "dap_step_in"
 S-F11 = "dap_step_out"
 S-F5 = "dap_terminate"
+[keys.normal.Z]
+Z = ":exit"
+Q = ":quit!"
