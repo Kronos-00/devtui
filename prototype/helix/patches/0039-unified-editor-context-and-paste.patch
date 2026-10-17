@@ -1,0 +1,538 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index c44a5a4..8dfa6e9 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -875,12 +875,12 @@ fn process_devtui_requests(&mut self) -> bool {
+                     self.compositor.push(Box::new(prompt));
+                     pushed = true;
+                 }
+-                DevTuiRequest::SymbolContext { anchor } => {
++                DevTuiRequest::EditorContext { anchor } => {
+                     self.compositor
+-                        .push(Box::new(crate::ui::devtui::symbol_context_select(&self.editor).position(anchor)));
++                        .push(Box::new(crate::ui::devtui::editor_context_select(&self.editor).position(anchor)));
+                     pushed = true;
+                 }
+-                DevTuiRequest::SymbolAction(name) => {
++                DevTuiRequest::EditorAction(name) => {
+                     let command = match name {
+                         "goto_definition" => crate::commands::MappableCommand::goto_definition,
+                         "goto_declaration" => crate::commands::MappableCommand::goto_declaration,
+@@ -894,6 +894,10 @@ fn process_devtui_requests(&mut self) -> bool {
+                         "hover" => crate::commands::MappableCommand::hover,
+                         "rename_symbol" => crate::commands::MappableCommand::rename_symbol,
+                         "code_action" => crate::commands::MappableCommand::code_action,
++                        "devtui_copy_to_clipboard" => crate::commands::MappableCommand::devtui_copy_to_clipboard,
++                        "devtui_cut_to_clipboard" => crate::commands::MappableCommand::devtui_cut_to_clipboard,
++                        "devtui_paste_from_clipboard" => crate::commands::MappableCommand::devtui_paste_from_clipboard,
++                        "delete_selection_noyank" => crate::commands::MappableCommand::delete_selection_noyank,
+                         _ => {
+                             self.editor.set_error(format!("Unknown editor context action: {name}"));
+                             continue;
+@@ -902,39 +906,6 @@ fn process_devtui_requests(&mut self) -> bool {
+                     self.execute_devtui_command(command, None, None);
+                     pushed = true;
+                 }
+-                DevTuiRequest::SelectionContext { anchor } => {
+-                    self.compositor
+-                        .push(Box::new(crate::ui::devtui::selection_context_select().position(anchor)));
+-                    pushed = true;
+-                }
+-                DevTuiRequest::SelectionAction(name) => {
+-                    let mut cx = crate::commands::Context {
+-                        register: None,
+-                        count: None,
+-                        editor: &mut self.editor,
+-                        callback: Vec::new(),
+-                        on_next_key_callback: None,
+-                        jobs: &mut self.jobs,
+-                    };
+-                    match name {
+-                        "copy" => {
+-                            crate::commands::MappableCommand::devtui_copy_to_clipboard
+-                                .execute(&mut cx);
+-                        }
+-                        "cut" => {
+-                            crate::commands::MappableCommand::devtui_cut_to_clipboard
+-                                .execute(&mut cx);
+-                        }
+-                        "delete" => {
+-                            crate::commands::MappableCommand::delete_selection_noyank
+-                                .execute(&mut cx);
+-                        }
+-                        _ => {
+-                            cx.editor
+-                                .set_error(format!("Unknown selection context action: {name}"));
+-                        }
+-                    }
+-                }
+                 DevTuiRequest::DebugAction(name) => {
+                     let command = match name {
+                         "start_or_continue" => {
+diff --git a/helix-term/src/commands.rs b/helix-term/src/commands.rs
+index b3c5aed..a32986b 100644
+--- a/helix-term/src/commands.rs
++++ b/helix-term/src/commands.rs
+@@ -494,6 +494,7 @@ pub fn doc(&self) -> &str {
+         devtui_clear_selections, "Collapse selections and keep the primary cursor",
+         devtui_copy_to_clipboard, "VS Code-style copy: selection or whole current line",
+         devtui_cut_to_clipboard, "VS Code-style cut: selection or whole current line",
++        devtui_paste_from_clipboard, "Paste clipboard text, replacing explicit selections",
+         devtui_save_as, "Open Save As for the current buffer",
+         devtui_find, "Find text with case, word and regular-expression controls",
+         devtui_current_replace, "Open VS Code-style Replace in current file",
+@@ -4987,7 +4988,20 @@ fn devtui_line_selection_if_empty(editor: &Editor) -> Option<Selection> {
+     Some(Selection::new(ranges, current.primary_index()))
+ }
+ 
+-fn devtui_yank_filtered_to_clipboard(editor: &mut Editor) {
++pub(crate) fn devtui_has_selection(editor: &Editor) -> bool {
++    if let Some(selection) = devtui_logical_column_selection(editor) {
++        return selection.ranges().iter().any(|range| !range.is_empty());
++    }
++    let (view, doc) = current_ref!(editor);
++    let explicit = editor.devtui.explicit_selection || editor.mode == Mode::Select;
++    let text = doc.text().slice(..);
++    doc.selection(view.id).ranges().iter().any(|range| {
++        if explicit { !range.is_empty() }
++        else { range.len() > graphemes::next_grapheme_boundary(text, range.from()) - range.from() }
++    })
++}
++
++fn devtui_yank_filtered_to_clipboard(editor: &mut Editor, whole_lines: bool) {
+     let logical = devtui_logical_column_selection(editor);
+     let (view, doc) = current!(editor);
+     let text = doc.text().slice(..);
+@@ -4999,7 +5013,7 @@ fn devtui_yank_filtered_to_clipboard(editor: &mut Editor) {
+         .ranges()
+     {
+         let line = text.char_to_line(range.from());
+-        if editor.devtui.column_selection_active && range.is_empty() {
++        if whole_lines || (editor.devtui.column_selection_active && range.is_empty()) {
+             // VS Code's default emptySelectionClipboard copies the whole line
+             // for participating EOL carets, including in a mixed rectangle.
+             // Rows outside the rectangle were already removed by hit testing.
+@@ -5019,42 +5033,59 @@ fn devtui_yank_filtered_to_clipboard(editor: &mut Editor) {
+     }
+ 
+     let selections = values.len();
++    let linewise = whole_lines.then(|| values.join(helix_core::NATIVE_LINE_ENDING.as_str()));
+     match editor.registers.write('+', values) {
+-        Ok(_) => editor.set_status(format!(
+-            "copied {selections} selection{}",
+-            if selections == 1 { "" } else { "s" }
+-        )),
++        Ok(_) => {
++            editor.devtui.clipboard_linewise = linewise;
++            editor.set_status(format!("copied {selections} selection{}", if selections == 1 { "" } else { "s" }));
++        }
+         Err(err) => editor.set_error(err.to_string()),
+     }
+ }
+ 
+ fn devtui_copy_to_clipboard(cx: &mut Context) {
+-    if cx.editor.devtui.column_selection_active {
+-        devtui_yank_filtered_to_clipboard(cx.editor);
++    let whole_lines = !cx.editor.devtui.column_selection_active
++        && devtui_line_selection_if_empty(cx.editor).is_some();
++    devtui_yank_filtered_to_clipboard(cx.editor, whole_lines);
++}
++
++fn devtui_paste_from_clipboard(cx: &mut Context) {
++    let contents = cx.editor.registers.read('+', cx.editor)
++        .map(|values| values.map(Cow::into_owned).collect::<Vec<_>>().join(helix_core::NATIVE_LINE_ENDING.as_str()))
++        .unwrap_or_default();
++    if contents.is_empty() {
++        cx.editor.set_status("Clipboard is empty or unavailable; use terminal Paste for external text");
+         return;
+     }
+-    let line_selection = devtui_line_selection_if_empty(cx.editor);
+-    let original = if let Some(selection) = line_selection {
++    let linewise = cx.editor.devtui.clipboard_linewise.as_deref() == Some(contents.as_str())
++        && contents.find('\n') == Some(contents.len() - 1)
++        && !devtui_has_selection(cx.editor) && !cx.editor.devtui.column_selection_active;
++    if linewise {
++        let count = cx.count();
+         let (view, doc) = current!(cx.editor);
+-        let original = doc.selection(view.id).clone();
+-        doc.set_selection(view.id, selection);
+-        Some(original)
++        doc.append_changes_to_history(view);
++        let text = doc.text().slice(..);
++        let carets = doc.selection(view.id).clone().transform(|range| Range::point(range.cursor(text)));
++        let value = Tendril::from(LINE_ENDING_REGEX.replace_all(&contents, doc.line_ending.as_str()).repeat(count));
++        let transaction = Transaction::change_by_selection(doc.text(), &carets, |range| {
++            let start = text.line_to_char(text.char_to_line(range.head));
++            (start, start, Some(value.clone()))
++        });
++        let mapped = carets.map(transaction.changes());
++        doc.apply(&transaction.with_selection(mapped), view.id);
++        doc.append_changes_to_history(view);
++        cx.editor.devtui.explicit_selection = false;
++        exit_select_mode(cx);
+     } else {
+-        None
+-    };
+-
+-    devtui_yank_filtered_to_clipboard(cx.editor);
+-
+-    if let Some(original) = original {
+-        let (view, doc) = current!(cx.editor);
+-        doc.set_selection(view.id, original);
++        paste_bracketed_value(cx, contents);
+     }
+ }
+ 
+ fn devtui_cut_to_clipboard(cx: &mut Context) {
++    let whole_lines = !cx.editor.devtui.column_selection_active && devtui_line_selection_if_empty(cx.editor).is_some();
+     if cx.editor.devtui.column_selection_active {
+         let logical = devtui_logical_column_selection(cx.editor).unwrap();
+-        devtui_yank_filtered_to_clipboard(cx.editor);
++        devtui_yank_filtered_to_clipboard(cx.editor, whole_lines);
+         let (view, doc) = current!(cx.editor);
+         let text = doc.text().slice(..);
+         let current = &logical;
+@@ -5085,7 +5116,7 @@ fn devtui_cut_to_clipboard(cx: &mut Context) {
+             let (view, doc) = current!(cx.editor);
+             doc.set_selection(view.id, selection);
+         }
+-        devtui_yank_filtered_to_clipboard(cx.editor);
++        devtui_yank_filtered_to_clipboard(cx.editor, whole_lines);
+     }
+     delete_selection_impl(cx, Operation::Delete, YankAction::NoYank);
+     // Deletion may leave a modal one-character range. It is a caret, not a
+@@ -5206,7 +5237,7 @@ fn devtui_symbol_context_menu(cx: &mut Context) {
+     cx.editor
+         .devtui
+         .requests
+-        .push_back(helix_view::editor::DevTuiRequest::SymbolContext { anchor: None });
++        .push_back(helix_view::editor::DevTuiRequest::EditorContext { anchor: None });
+ }
+ 
+ fn yank_to_clipboard(cx: &mut Context) {
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index ec5f932..4366513 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -63,7 +63,7 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+ }
+ 
+ #[derive(Clone, Copy, Debug)]
+-pub enum SymbolContextAction {
++pub enum EditorContextAction {
+     GoToDefinition,
+     GoToDeclaration,
+     GoToReferences,
+@@ -72,9 +72,13 @@ pub enum SymbolContextAction {
+     Hover,
+     Rename,
+     CodeAction,
++    Cut,
++    Copy,
++    Paste,
++    Delete,
+ }
+ 
+-impl Item for SymbolContextAction {
++impl Item for EditorContextAction {
+     type Data = ();
+ 
+     fn format(&self, _data: &Self::Data) -> Row<'_> {
+@@ -87,12 +91,16 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+             Self::Hover => "Show Hover",
+             Self::Rename => "Rename Symbol",
+             Self::CodeAction => "Code Action",
++            Self::Cut => "Cut",
++            Self::Copy => "Copy",
++            Self::Paste => "Paste",
++            Self::Delete => "Delete",
+         }
+         .into()
+     }
+ }
+ 
+-impl SymbolContextAction {
++impl EditorContextAction {
+     fn command(self) -> &'static str {
+         match self {
+             Self::GoToDefinition => "goto_definition",
+@@ -103,36 +111,10 @@ fn command(self) -> &'static str {
+             Self::Hover => "hover",
+             Self::Rename => "rename_symbol",
+             Self::CodeAction => "code_action",
+-        }
+-    }
+-}
+-
+-#[derive(Clone, Copy, Debug)]
+-pub enum SelectionContextAction {
+-    Copy,
+-    Cut,
+-    Delete,
+-}
+-
+-impl Item for SelectionContextAction {
+-    type Data = ();
+-
+-    fn format(&self, _data: &Self::Data) -> Row<'_> {
+-        match self {
+-            Self::Copy => "Copy",
+-            Self::Cut => "Cut",
+-            Self::Delete => "Delete",
+-        }
+-        .into()
+-    }
+-}
+-
+-impl SelectionContextAction {
+-    fn command(self) -> &'static str {
+-        match self {
+-            Self::Copy => "copy",
+-            Self::Cut => "cut",
+-            Self::Delete => "delete",
++            Self::Cut => "devtui_cut_to_clipboard",
++            Self::Copy => "devtui_copy_to_clipboard",
++            Self::Paste => "devtui_paste_from_clipboard",
++            Self::Delete => "delete_selection_noyank",
+         }
+     }
+ }
+@@ -215,71 +197,57 @@ pub fn debug_action_select() -> Select<DebugAction> {
+     )
+ }
+ 
+-pub fn selection_context_select() -> Select<SelectionContextAction> {
+-    Select::new(
+-        "Selection",
+-        [
+-            SelectionContextAction::Copy,
+-            SelectionContextAction::Cut,
+-            SelectionContextAction::Delete,
+-        ],
+-        (),
+-        |editor, action, event| {
+-            if event == PromptEvent::Validate {
+-                editor
+-                    .devtui
+-                    .requests
+-                    .push_back(DevTuiRequest::SelectionAction(action.command()));
+-            }
+-        },
+-    )
+-}
+-
+-pub struct SymbolContextItem {
+-    action: SymbolContextAction,
++pub struct EditorContextItem {
++    action: EditorContextAction,
+     enabled: bool,
+ }
+-impl Item for SymbolContextItem {
++impl Item for EditorContextItem {
+     type Data = ();
+     fn format(&self, data: &()) -> Row<'_> { self.action.format(data) }
+     fn enabled(&self) -> bool { self.enabled }
+ }
+ 
+-pub fn symbol_context_select(editor: &Editor) -> Select<SymbolContextItem> {
++pub fn editor_context_select(editor: &Editor) -> Select<EditorContextItem> {
+     use helix_core::syntax::config::LanguageServerFeature as Feature;
+     let doc = editor.document(editor.tree.get(editor.tree.focus).doc);
+     let enabled = |action| {
+         let feature = match action {
+-            SymbolContextAction::GoToDefinition => Feature::GotoDefinition,
+-            SymbolContextAction::GoToDeclaration => Feature::GotoDeclaration,
+-            SymbolContextAction::GoToReferences => Feature::GotoReference,
+-            SymbolContextAction::GoToTypeDefinition => Feature::GotoTypeDefinition,
+-            SymbolContextAction::GoToImplementation => Feature::GotoImplementation,
+-            SymbolContextAction::Hover => Feature::Hover,
+-            SymbolContextAction::Rename => Feature::RenameSymbol,
+-            SymbolContextAction::CodeAction => Feature::CodeAction,
++            EditorContextAction::GoToDefinition => Feature::GotoDefinition,
++            EditorContextAction::GoToDeclaration => Feature::GotoDeclaration,
++            EditorContextAction::GoToReferences => Feature::GotoReference,
++            EditorContextAction::GoToTypeDefinition => Feature::GotoTypeDefinition,
++            EditorContextAction::GoToImplementation => Feature::GotoImplementation,
++            EditorContextAction::Hover => Feature::Hover,
++            EditorContextAction::Rename => Feature::RenameSymbol,
++            EditorContextAction::CodeAction => Feature::CodeAction,
++            EditorContextAction::Copy | EditorContextAction::Cut | EditorContextAction::Paste => return true,
++            EditorContextAction::Delete => return crate::commands::devtui_has_selection(editor),
+         };
+         doc.is_some_and(|doc| doc.language_servers_with_feature(feature).next().is_some())
+     };
+     Select::new(
+         "Editor",
+         [
+-            SymbolContextAction::GoToDefinition,
+-            SymbolContextAction::GoToDeclaration,
+-            SymbolContextAction::GoToReferences,
+-            SymbolContextAction::GoToTypeDefinition,
+-            SymbolContextAction::GoToImplementation,
+-            SymbolContextAction::Hover,
+-            SymbolContextAction::Rename,
+-            SymbolContextAction::CodeAction,
+-        ].into_iter().map(|action| SymbolContextItem { action, enabled: enabled(action) }),
++            EditorContextAction::GoToDefinition,
++            EditorContextAction::GoToDeclaration,
++            EditorContextAction::GoToReferences,
++            EditorContextAction::GoToTypeDefinition,
++            EditorContextAction::GoToImplementation,
++            EditorContextAction::Hover,
++            EditorContextAction::Rename,
++            EditorContextAction::CodeAction,
++            EditorContextAction::Cut,
++            EditorContextAction::Copy,
++            EditorContextAction::Paste,
++            EditorContextAction::Delete,
++        ].into_iter().map(|action| EditorContextItem { action, enabled: enabled(action) }),
+         (),
+         |editor, item, event| {
+             if event == PromptEvent::Validate {
+                 editor
+                     .devtui
+                     .requests
+-                    .push_back(DevTuiRequest::SymbolAction(item.action.command()));
++                    .push_back(DevTuiRequest::EditorAction(item.action.command()));
+             }
+         },
+     )
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 64249d1..eccc172 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -2019,28 +2019,21 @@ fn handle_mouse_event(
+                         .map(|doc| {
+                             let selection = doc.selection(view_id);
+                             selection.ranges().iter().any(|range| {
+-                                !range.is_empty() && pos >= range.from() && pos < range.to()
++                                (commands::devtui_has_selection(editor) || editor.devtui.column_selection_active)
++                                    && pos >= range.from() && pos <= range.to()
+                             })
+                         })
+                         .unwrap_or(false);
+ 
+-                    if preserve_selection {
+-                        editor
+-                            .devtui
+-                            .requests
+-                            .push_back(helix_view::editor::DevTuiRequest::SelectionContext {
+-                                anchor: Some(Position::new(row as usize, column as usize)),
+-                            });
+-                    } else {
+-                        doc_mut!(editor, &doc_id)
+-                            .set_selection(view_id, Selection::point(pos));
+-                        editor
+-                            .devtui
+-                            .requests
+-                            .push_back(helix_view::editor::DevTuiRequest::SymbolContext {
+-                                anchor: Some(Position::new(row as usize, column as usize)),
+-                            });
++                    if !preserve_selection {
++                        doc_mut!(editor, &doc_id).set_selection(view_id, Selection::point(pos));
++                        editor.devtui.explicit_selection = false;
++                        editor.devtui.column_selection_active = false;
++                        editor.devtui.column_selection = None;
+                     }
++                    editor.devtui.requests.push_back(helix_view::editor::DevTuiRequest::EditorContext {
++                        anchor: Some(Position::new(row as usize, column as usize)),
++                    });
+                     return EventResult::Consumed(None);
+                 }
+                 EventResult::Ignored(None)
+diff --git a/helix-term/src/ui/menu.rs b/helix-term/src/ui/menu.rs
+index e6d71d4..7709de2 100644
+--- a/helix-term/src/ui/menu.rs
++++ b/helix-term/src/ui/menu.rs
+@@ -37,6 +37,7 @@ pub struct Menu<T: Item> {
+     size: (u16, u16),
+     viewport: (u16, u16),
+     recalculate: bool,
++    max_height: usize,
+     auto_close: bool,
+     mouse_area: Option<Rect>,
+     mouse_pressed: Option<usize>,
+@@ -64,12 +65,21 @@ pub fn new(
+             size: (0, 0),
+             viewport: (0, 0),
+             recalculate: true,
++            max_height: 10,
+             auto_close: false,
+             mouse_area: None,
+             mouse_pressed: None,
+         }
+     }
+ 
++    /// Completion menus default to ten rows; explicit choice menus can use
++    /// the whole available viewport before they need to scroll.
++    pub fn max_height(mut self, height: usize) -> Self {
++        self.max_height = height;
++        self.recalculate = true;
++        self
++    }
++
+     pub fn reset_cursor(&mut self) {
+         self.cursor = None;
+         self.scroll = 0;
+@@ -159,7 +169,7 @@ fn recalculate_size(&mut self, viewport: (u16, u16)) {
+             acc
+         });
+ 
+-        let height = self.matches.len().min(10).min(viewport.1 as usize);
++        let height = self.matches.len().min(self.max_height).min(viewport.1 as usize);
+         // do all the matches fit on a single screen?
+         let fits = self.matches.len() <= height;
+ 
+diff --git a/helix-term/src/ui/select.rs b/helix-term/src/ui/select.rs
+index 6d08335..5353664 100644
+--- a/helix-term/src/ui/select.rs
++++ b/helix-term/src/ui/select.rs
+@@ -42,7 +42,8 @@ pub fn new<M, I, F>(message: M, options: I, data: T::Data, callback: F) -> Self
+             let option = &option.unwrap();
+             callback(editor, option, event)
+         })
+-        .auto_close(true);
++        .auto_close(true)
++        .max_height(usize::MAX);
+         // Select the first option by default.
+         menu.move_down();
+ 
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index 4b78b34..832c747 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1306,10 +1306,8 @@ pub enum DevTuiRequest {
+     ExplorerRename {
+         path: PathBuf,
+     },
+-    SymbolContext { anchor: Option<Position> },
+-    SymbolAction(&'static str),
+-    SelectionContext { anchor: Option<Position> },
+-    SelectionAction(&'static str),
++    EditorContext { anchor: Option<Position> },
++    EditorAction(&'static str),
+     DebugAction(&'static str),
+     OpenPath {
+         path: PathBuf,
+@@ -1351,6 +1349,8 @@ pub struct DevTuiState {
+     pub column_selection: Option<(DocumentId, ViewId, Selection)>,
+     /// Distinguish deliberate selections from the modal one-character cursor.
+     pub explicit_selection: bool,
++    /// Text last copied from empty selections, for linewise Paste metadata.
++    pub clipboard_linewise: Option<String>,
+     /// VS Code defaults: literal, case-insensitive, not whole-word.
+     pub find_regex: bool,
+     pub find_match_case: bool,
+diff --git a/helix-view/src/register.rs b/helix-view/src/register.rs
+index b2bb53a..46a40a7 100644
+--- a/helix-view/src/register.rs
++++ b/helix-view/src/register.rs
+@@ -277,7 +277,7 @@ fn contents_are_saved(saved_values: &[String], mut contents: &str) -> bool {
+         }
+     }
+ 
+-    true
++    contents.is_empty()
+ }
+ 
+ // This is a wrapper of an iterator that is both double ended and exact size,
