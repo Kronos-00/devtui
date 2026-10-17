@@ -20,6 +20,11 @@ if args.version:
         print("devtui Helix " + metadata.get("patched_tree", "unknown"))
         print("upstream " + metadata.get("upstream", "unknown"))
         print("binary " + metadata.get("binary_sha256", "not recorded"))
+        workspace_info = prefix / "workspace-build-info.json"
+        if workspace_info.is_file():
+            workspace = json.loads(workspace_info.read_text())
+            print("workspace " + workspace.get("binary_sha256", "not recorded"))
+            print("shortcuts " + workspace.get("shortcuts_plugin_sha256", "not recorded"))
     except (OSError, ValueError) as error:
         print(f"Build fingerprint unavailable: {error}", file=sys.stderr)
         raise SystemExit(1)
@@ -51,7 +56,12 @@ if columns < 20:
     columns = shutil.get_terminal_size(fallback=(120, 30)).columns
 home = Path(os.environ.get("HOME", str(Path.home())))
 layout = home / ".config/zellij/layouts" / ("dev-helix-wide.kdl" if columns >= 240 else "dev-helix.kdl")
-command = ["zellij", "--config", str(home / ".config/devtui-helix/zellij.kdl"), "--layout", str(layout)]
+workspace_binary = prefix / "bin/zellij"
+command = [str(workspace_binary) if workspace_binary.is_file() else "zellij"]
+workspace_assets = prefix / "share/zellij"
+if workspace_binary.is_file() and workspace_assets.is_dir():
+    command += ["--data-dir", str(workspace_assets)]
+command += ["--config", str(home / ".config/devtui-helix/zellij.kdl"), "--layout", str(layout)]
 try:
     os.execvp(command[0], command)
 except OSError as error:

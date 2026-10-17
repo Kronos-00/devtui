@@ -1,13 +1,10 @@
 layout {
     tab name="helix-prototype" focus=true {
-        pane split_direction="horizontal" {
-            pane name="shortcuts" size=3 borderless=true command="__HOME__/.local/bin/devtui-helix-banner"
-            pane split_direction="vertical" {
-                pane name="editor" size="62%" command="__HOME__/.local/bin/devtui-helix-editor-pane" focus=true
-                pane split_direction="horizontal" {
-                    pane name="git" size="58%" command="__HOME__/.local/bin/devtui-helix-git-pane"
-                    pane name="shell" command="__HOME__/.local/bin/devtui-helix-shell-pane"
-                }
+        pane split_direction="vertical" {
+            pane name="editor · F4 shortcuts" size="62%" command="__HOME__/.local/bin/devtui-helix-editor-pane" focus=true
+            pane split_direction="horizontal" {
+                pane name="git" size="58%" command="__HOME__/.local/bin/devtui-helix-git-pane"
+                pane name="shell" command="__HOME__/.local/bin/devtui-helix-shell-pane"
             }
         }
     }

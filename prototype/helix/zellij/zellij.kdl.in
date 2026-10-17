@@ -9,6 +9,16 @@ load_plugins {
 }
 
 keybinds {
+    shared {
+        bind "F4" {
+            SwitchToMode "Normal"
+            MessagePlugin "file:__HOME__/.local/share/devtui/devtui-shortcuts.wasm" {
+                name "toggle-shortcuts"
+                title "devtui Keyboard Shortcuts (F4)"
+                floating true
+            }
+        }
+    }
     normal {
         unbind "Ctrl s" "Ctrl h" "Ctrl p"
 

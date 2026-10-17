@@ -14,7 +14,7 @@ elif [ $# -gt 0 ]; then
 fi
 BACKUP="$HOME/.local/state/devtui/helix-backup-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$BACKUP"
-for path in .config/devtui-helix .config/zellij/layouts/dev-helix.kdl .config/zellij/layouts/dev-helix-wide.kdl; do
+for path in .config/devtui-helix .config/zellij/layouts/dev-helix.kdl .config/zellij/layouts/dev-helix-wide.kdl .local/bin/devtui-helix-banner; do
   if [ -e "$HOME/$path" ]; then
     mkdir -p "$BACKUP/$(dirname "$path")"
     cp -a "$HOME/$path" "$BACKUP/$path"
@@ -22,7 +22,7 @@ for path in .config/devtui-helix .config/zellij/layouts/dev-helix.kdl .config/ze
 done
 mkdir -p "$HOME/.local/bin" "$HOME/.config/devtui-helix/helix" "$HOME/.config/zellij/layouts"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix" "$HOME/.local/bin/devtui-helix"
-install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-banner" "$HOME/.local/bin/devtui-helix-banner"
+rm -f "$HOME/.local/bin/devtui-helix-banner"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-editor-pane" "$HOME/.local/bin/devtui-helix-editor-pane"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-git-pane" "$HOME/.local/bin/devtui-helix-git-pane"
 install -m 0755 "$ROOT/prototype/helix/bin/devtui-helix-open" "$HOME/.local/bin/devtui-helix-open"
@@ -44,6 +44,7 @@ for src,dst in [
 PY
 if [ "$CONFIG_ONLY" -eq 0 ]; then
   "$ROOT/prototype/helix/scripts/build-helix.sh"
+  "$ROOT/prototype/helix/scripts/build-workspace.sh"
   "$ROOT/prototype/helix/scripts/build-link-plugin.sh"
   "$ROOT/prototype/helix/scripts/install-tools.sh"
 fi
