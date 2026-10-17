@@ -1,0 +1,324 @@
+diff --git a/helix-term/src/application.rs b/helix-term/src/application.rs
+index b62f65b..ba28681 100644
+--- a/helix-term/src/application.rs
++++ b/helix-term/src/application.rs
+@@ -850,6 +850,7 @@ fn process_devtui_requests(&mut self) -> bool {
+                         is_dir,
+                         is_root,
+                         selection,
++                        self.editor.devtui.explorer_clipboard.iter().any(|path| std::fs::symlink_metadata(path).is_ok()),
+                     );
+                     self.compositor.push(Box::new(select));
+                     pushed = true;
+@@ -863,10 +864,16 @@ fn process_devtui_requests(&mut self) -> bool {
+                     if paths.is_empty() {
+                         continue;
+                     }
+-                    let select = crate::ui::devtui::explorer_delete_select(paths);
++                    let select = crate::ui::devtui::explorer_delete_select(&self.editor, paths, false);
+                     self.compositor.push(Box::new(select));
+                     pushed = true;
+                 }
++                DevTuiRequest::ExplorerDeletePermanent { paths } => {
++                    if !paths.is_empty() {
++                        self.compositor.push(Box::new(crate::ui::devtui::explorer_delete_select(&self.editor, paths, true)));
++                        pushed = true;
++                    }
++                }
+                 DevTuiRequest::ExplorerRename { path } => {
+                     let prompt =
+                         crate::ui::devtui::explorer_rename_prompt(&self.editor, path);
+diff --git a/helix-term/src/ui/devtui.rs b/helix-term/src/ui/devtui.rs
+index 2ed8e02..96c4ba2 100644
+--- a/helix-term/src/ui/devtui.rs
++++ b/helix-term/src/ui/devtui.rs
+@@ -847,6 +847,7 @@ pub enum ExplorerAction {
+     NewFile,
+     NewFolder,
+     Paste,
++    PasteUnavailable,
+     Copy,
+     CopyPath,
+     CopyRelativePath,
+@@ -856,12 +857,13 @@ pub enum ExplorerAction {
+ 
+ impl Item for ExplorerAction {
+     type Data = ();
++    fn enabled(&self) -> bool { !matches!(self, Self::PasteUnavailable) }
+ 
+     fn format(&self, _data: &Self::Data) -> Row<'_> {
+         match self {
+             Self::NewFile => "New File",
+             Self::NewFolder => "New Folder",
+-            Self::Paste => "Paste",
++            Self::Paste | Self::PasteUnavailable => "Paste",
+             Self::Copy => "Copy",
+             Self::CopyPath => "Copy Path",
+             Self::CopyRelativePath => "Copy Relative Path",
+@@ -875,6 +877,7 @@ fn format(&self, _data: &Self::Data) -> Row<'_> {
+ #[derive(Clone, Copy, Debug, Default)]
+ pub enum DeleteChoice {
+     #[default]
++    Trash,
+     Delete,
+     Cancel,
+ }
+@@ -884,7 +887,8 @@ impl Item for DeleteChoice {
+ 
+     fn format(&self, _data: &Self::Data) -> Row<'_> {
+         match self {
+-            Self::Delete => "Delete",
++            Self::Trash => "Move to Trash",
++            Self::Delete => "Delete Permanently",
+             Self::Cancel => "Cancel",
+         }
+         .into()
+@@ -1050,13 +1054,14 @@ pub fn explorer_context_select(
+     is_dir: bool,
+     is_root: bool,
+     selection: Vec<PathBuf>,
++    can_paste: bool,
+ ) -> Select<ExplorerAction> {
+     let mut actions = Vec::new();
+     if is_dir {
+         actions.extend([
+             ExplorerAction::NewFile,
+             ExplorerAction::NewFolder,
+-            ExplorerAction::Paste,
++            if can_paste { ExplorerAction::Paste } else { ExplorerAction::PasteUnavailable },
+         ]);
+     }
+     if !is_root {
+@@ -1091,6 +1096,7 @@ pub fn explorer_context_select(
+                 });
+             }
+             ExplorerAction::Paste => paste_explorer_clipboard(editor, &target),
++            ExplorerAction::PasteUnavailable => {},
+             ExplorerAction::Copy => {
+                 editor.devtui.explorer_clipboard = distinct_paths(selection.clone());
+             }
+@@ -1129,9 +1135,20 @@ pub fn explorer_create_prompt(directory: PathBuf, is_dir: bool) -> Prompt {
+             if name.is_empty() {
+                 return;
+             }
+-            let path = directory.join(name);
++            let path = helix_stdx::path::normalize(directory.join(name));
++            if Path::new(name).is_absolute() || path == directory || !path.starts_with(&directory) {
++                cx.editor.set_error("Enter a relative name inside the selected folder");
++                return;
++            }
+             if let Err(err) = cx.editor.create_path(&path, is_dir) {
+                 cx.editor.set_error(err.to_string());
++                return;
++            }
++            cx.editor.devtui.explorer_reveal = Some(path.clone());
++            if !is_dir {
++                if let Err(err) = cx.editor.devtui_open_pinned(&path) {
++                    cx.editor.set_error(err.to_string());
++                } else { cx.editor.devtui.focus_editor_requested = true; }
+             }
+         },
+     )
+@@ -1159,48 +1176,51 @@ pub fn explorer_rename_prompt(editor: &Editor, path: PathBuf) -> Prompt {
+                 .parent()
+                 .map(|parent| parent.join(name))
+                 .unwrap_or_else(|| PathBuf::from(name));
++            let destination = helix_stdx::path::normalize(destination);
++            if Path::new(name).is_absolute()
++                || path.parent().is_none_or(|parent| destination == parent || !destination.starts_with(parent)) {
++                cx.editor.set_error("Enter a relative name inside the selected folder");
++                return;
++            }
+             if destination != path && fs::symlink_metadata(&destination).is_ok() {
+                 cx.editor.set_error("A file or folder with that name already exists");
+                 return;
+             }
+             if let Err(err) = cx.editor.move_path(&path, &destination) {
+                 cx.editor.set_error(err.to_string());
+-            }
++            } else { cx.editor.devtui.explorer_reveal = Some(destination); }
+         },
+     )
+     .with_line(current_name, editor)
+ }
+ 
+-pub fn explorer_delete_select(paths: Vec<PathBuf>) -> Select<DeleteChoice> {
+-    let count = paths.len();
+-    let title = if count == 1 {
+-        format!(
+-            "Delete {}?",
+-            paths[0]
+-                .file_name()
+-                .and_then(|name| name.to_str())
+-                .unwrap_or("item")
+-        )
+-    } else {
+-        format!("Delete {count} selected items?")
+-    };
+-
+-    Select::new(
+-        title,
+-        [DeleteChoice::Delete, DeleteChoice::Cancel],
+-        (),
+-        move |editor, choice, event| {
+-            if event != PromptEvent::Validate || !matches!(choice, DeleteChoice::Delete) {
+-                return;
+-            }
+-            for path in &paths {
+-                if let Err(err) = editor.delete_path(path, true) {
+-                    editor.set_error(err.to_string());
++pub fn explorer_delete_select(editor: &Editor, paths: Vec<PathBuf>, permanent: bool) -> Select<DeleteChoice> {
++    let dirty = editor.documents().filter(|doc| doc.is_modified() && doc.path().is_some_and(|name| paths.iter().any(|p| name == p || (p.is_dir() && name.starts_with(p))))).count();
++    let description = if paths.len() == 1 {
++        paths[0].file_name().unwrap_or_default().to_string_lossy().into_owned()
++    } else { format!("{} selected items", paths.len()) };
++    let warning = if dirty > 0 { format!(" ({dirty} file(s) have unsaved changes which will be lost)") } else { String::new() };
++    let title = if permanent {
++        format!("Trash unavailable. Permanently delete {description}?{warning}")
++    } else { format!("Move {description} to Trash?{warning}") };
++    Select::new(title,
++        [if permanent { DeleteChoice::Delete } else { DeleteChoice::Trash }, DeleteChoice::Cancel],
++        (), move |editor, choice, event| {
++            if event != PromptEvent::Validate || matches!(choice, DeleteChoice::Cancel) { return; }
++            for (index, path) in paths.iter().enumerate() {
++                let affected: Vec<_> = editor.documents().filter(|doc| doc.path().is_some_and(|name| name == path || (path.is_dir() && name.starts_with(path)))).map(|doc| doc.id()).collect();
++                if let Err(err) = editor.devtui_delete_path(path, true, !permanent) {
++                    editor.set_error(format!("Delete failed: {err}"));
++                    if !permanent {
++                        editor.devtui.requests.push_back(DevTuiRequest::ExplorerDeletePermanent { paths: paths[index..].to_vec() });
++                    }
+                     break;
+                 }
++                // Close only documents belonging to a successfully deleted entry.
++                for id in affected { let _ = editor.close_document(id, true); }
++                editor.devtui.explorer_clipboard.retain(|entry| entry != path && !entry.starts_with(path));
+             }
+-        },
+-    )
++        })
+ }
+ 
+ #[derive(Clone, Debug)]
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index 37ad8e9..bff8fac 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -2109,6 +2109,18 @@ fn handle_event(
+             self.explorer.focused = false;
+         }
+         context.editor.devtui_promote_modified_preview();
++        if let Some(path) = context.editor.devtui.explorer_reveal.take() {
++            for parent in path.ancestors().skip(1) {
++                if parent.starts_with(&self.explorer.root) {
++                    self.explorer.expanded.insert(parent.to_path_buf());
++                }
++            }
++            self.explorer.rebuild();
++            if let Some(index) = self.explorer.rows.iter().position(|row| row.path == path) {
++                self.explorer.select_single(index);
++                self.explorer.follow_selection = true;
++            }
++        }
+ 
+         if let Event::Key(key) = event {
+             if self.handle_explorer_key(*key, context.editor) {
+diff --git a/helix-term/src/ui/menu.rs b/helix-term/src/ui/menu.rs
+index fea8aa9..e6d71d4 100644
+--- a/helix-term/src/ui/menu.rs
++++ b/helix-term/src/ui/menu.rs
+@@ -14,6 +14,8 @@ pub trait Item: Sync + Send + 'static {
+     type Data: Sync + Send + 'static;
+ 
+     fn format(&self, data: &Self::Data) -> Row<'_>;
++
++    fn enabled(&self) -> bool { true }
+ }
+ 
+ pub type MenuCallback<T> = Box<dyn Fn(&mut Editor, Option<&T>, MenuEvent)>;
+@@ -268,6 +270,9 @@ fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
+                         if let Some(pressed) = self.mouse_pressed.take() {
+                             if index == Some(pressed) {
+                                 self.cursor = Some(pressed);
++                                if self.selection().is_some_and(|item| !item.enabled()) {
++                                    return EventResult::Consumed(None);
++                                }
+                                 (self.callback_fn)(cx.editor, self.selection(), MenuEvent::Validate);
+                                 return EventResult::Consumed(close_fn);
+                             }
+@@ -340,6 +345,7 @@ fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
+             }
+             key!(Enter) => {
+                 if let Some(selection) = self.selection() {
++                    if !selection.enabled() { return EventResult::Consumed(None); }
+                     (self.callback_fn)(cx.editor, Some(selection), MenuEvent::Validate);
+                     return EventResult::Consumed(close_fn);
+                 } else {
+@@ -406,7 +412,10 @@ fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+ 
+         let rows = options
+             .iter()
+-            .map(|option| option.format(&self.editor_data));
++            .map(|option| {
++                let row = option.format(&self.editor_data);
++                if option.enabled() { row } else { row.style(style.add_modifier(helix_view::graphics::Modifier::DIM)) }
++            });
+         let table = Table::new(rows)
+             .style(style)
+             .highlight_style(selected)
+diff --git a/helix-view/src/editor.rs b/helix-view/src/editor.rs
+index a344d22..52e07cc 100644
+--- a/helix-view/src/editor.rs
++++ b/helix-view/src/editor.rs
+@@ -1302,6 +1302,7 @@ pub enum DevTuiRequest {
+     ExplorerDelete {
+         paths: Vec<PathBuf>,
+     },
++    ExplorerDeletePermanent { paths: Vec<PathBuf> },
+     ExplorerRename {
+         path: PathBuf,
+     },
+@@ -1346,6 +1347,8 @@ pub struct DevTuiState {
+     /// The current multi-selection was created by devtui's middle-drag column gesture.
+     /// Clipboard operations use this to omit sparse rows exactly like VS Code.
+     pub column_selection_active: bool,
++    /// Reveal a created/renamed item without disturbing the workspace root.
++    pub explorer_reveal: Option<PathBuf>,
+     /// UI requests produced by editor/command code and consumed by helix-term.
+     pub requests: VecDeque<DevTuiRequest>,
+ }
+@@ -1819,6 +1822,10 @@ pub fn create_path(&mut self, path: &Path, is_dir: bool) -> io::Result<()> {
+     }
+ 
+     pub fn delete_path(&mut self, path: &Path, recursive: bool) -> io::Result<()> {
++        self.devtui_delete_path(path, recursive, false)
++    }
++
++    pub fn devtui_delete_path(&mut self, path: &Path, recursive: bool, use_trash: bool) -> io::Result<()> {
+         let path = canonicalize(path);
+         let is_dir = path.is_dir();
+         let language_servers: Vec<_> = self
+@@ -1843,7 +1850,14 @@ pub fn delete_path(&mut self, path: &Path, recursive: bool) -> io::Result<()> {
+             }
+         }
+ 
+-        if is_dir {
++        if use_trash {
++            // GIO implements platform trash semantics without a shell or SDK setup.
++            // Never silently fall back to permanent deletion.
++            let result = std::process::Command::new("gio").arg("trash").arg("--").arg(&path).output()?;
++            if !result.status.success() {
++                return Err(io::Error::other(String::from_utf8_lossy(&result.stderr).into_owned()));
++            }
++        } else if is_dir {
+             if recursive {
+                 fs::remove_dir_all(&path)?;
+             } else {
+@@ -2234,7 +2248,7 @@ pub fn devtui_open_pinned(
+         path: &Path,
+     ) -> Result<DocumentId, DocumentOpenError> {
+         self.devtui_promote_modified_preview();
+-        let id = self.devtui_open_preview(path)?;
++        let id = self.open(path, Action::Replace)?;
+         if self.devtui.preview_document == Some(id) {
+             self.devtui.preview_document = None;
+         }
