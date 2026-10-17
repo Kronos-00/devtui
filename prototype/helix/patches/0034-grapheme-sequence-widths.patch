@@ -1,0 +1,90 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 8868036..cb5f9e6 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1543,7 +1543,7 @@ dependencies = [
+  "tree-house",
+  "unicode-general-category",
+  "unicode-segmentation",
+- "unicode-width 0.1.12",
++ "unicode-width",
+ ]
+ 
+ [[package]]
+@@ -2801,7 +2801,7 @@ checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
+ dependencies = [
+  "smawk",
+  "unicode-linebreak",
+- "unicode-width 0.2.0",
++ "unicode-width",
+ ]
+ 
+ [[package]]
+@@ -3029,12 +3029,6 @@ version = "1.13.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
+ 
+-[[package]]
+-name = "unicode-width"
+-version = "0.1.12"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "68f5e5f3158ecfd4b8ff6fe086db7c8467a2dfdac97fe420f2b7c4aa97af66d6"
+-
+ [[package]]
+ name = "unicode-width"
+ version = "0.2.0"
+diff --git a/helix-core/Cargo.toml b/helix-core/Cargo.toml
+index 220c188..c8bd655 100644
+--- a/helix-core/Cargo.toml
++++ b/helix-core/Cargo.toml
+@@ -24,12 +24,9 @@ ropey.workspace = true
+ smallvec = "1.15"
+ smartstring = "1.0.1"
+ unicode-segmentation.workspace = true
+-# unicode-width is changing width definitions
+-# that both break our logic and disagree with common
+-# width definitions in terminals, we need to replace it.
+-# For now lets lock the version to avoid rendering glitches
+-# when installing without `--locked`
+-unicode-width = "=0.1.12"
++# Pin the sequence-aware width definitions used by both rendering and pointer
++# hit testing (including emoji ZWJ, modifier and flag graphemes).
++unicode-width = "=0.2.0"
+ unicode-general-category = "1.1"
+ slotmap.workspace = true
+ tree-house.workspace = true
+diff --git a/helix-core/src/graphemes.rs b/helix-core/src/graphemes.rs
+index 6ec9d97..65392ab 100644
+--- a/helix-core/src/graphemes.rs
++++ b/helix-core/src/graphemes.rs
+@@ -113,8 +113,6 @@ pub fn grapheme_width(g: &str) -> usize {
+         // We use max(1) here because all grapeheme clusters--even illformed
+         // ones--should have at least some width so they can be edited
+         // properly.
+-        // TODO properly handle unicode width for all codepoints
+-        // example of where unicode width is currently wrong: 🤦🏼‍♂️ (taken from https://hsivonen.fi/string-length/)
+         UnicodeWidthStr::width(g).max(1)
+     }
+ }
+@@ -339,3 +337,21 @@ fn clone(&self) -> Self {
+         self.deref().to_owned().into()
+     }
+ }
++
++#[cfg(test)]
++mod devtui_width_tests {
++    use super::grapheme_width;
++
++    #[test]
++    fn complex_emoji_occupy_one_wide_grapheme() {
++        for text in ["😀", "👩‍💻", "👍🏽", "🇨🇳", "👨‍👩‍👧‍👦", "🤦🏼‍♂️"] {
++            assert_eq!(grapheme_width(text), 2, "{text}");
++        }
++        for text in ["中", "日", "한", "，"] {
++            assert_eq!(grapheme_width(text), 2, "{text}");
++        }
++        for text in ["a", "é", "e\u{301}", "o\u{308}"] {
++            assert_eq!(grapheme_width(text), 1, "{text}");
++        }
++    }
++}
