@@ -1,0 +1,223 @@
+diff --git a/helix-term/src/ui/document.rs b/helix-term/src/ui/document.rs
+index 68d1482..56e68a4 100644
+--- a/helix-term/src/ui/document.rs
++++ b/helix-term/src/ui/document.rs
+@@ -8,7 +8,7 @@
+ use helix_core::{visual_offset_from_block, Position, RopeSlice};
+ use helix_stdx::rope::RopeSliceExt;
+ use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
+-use helix_view::graphics::Rect;
++use helix_view::graphics::{Color, Rect};
+ use helix_view::theme::Style;
+ use helix_view::view::ViewPosition;
+ use helix_view::{Document, Theme};
+@@ -452,6 +452,17 @@ pub fn set_style(&mut self, mut area: Rect, style: Style) {
+         self.surface.set_style(area, style);
+     }
+ 
++    /// Composite a line decoration over already rendered backgrounds while
++    /// retaining glyphs, foregrounds, cursor modifiers and diagnostic underlines.
++    pub fn map_line_background(&mut self, visual_line: u16, mut map: impl FnMut(Color) -> Color) {
++        let Some(row) = visual_line.checked_sub(self.offset.row as u16) else { return; };
++        if row >= self.viewport.height { return; }
++        let y = self.viewport.y + row;
++        for x in self.viewport.x..self.viewport.right() {
++            if let Some(cell) = self.surface.get_mut(x, y) { cell.bg = map(cell.bg); }
++        }
++    }
++
+     #[allow(clippy::too_many_arguments)]
+     pub fn set_string_truncated(
+         &mut self,
+diff --git a/helix-term/src/ui/editor.rs b/helix-term/src/ui/editor.rs
+index f54e50e..c6cb404 100644
+--- a/helix-term/src/ui/editor.rs
++++ b/helix-term/src/ui/editor.rs
+@@ -459,6 +459,9 @@ pub fn render_view(
+             .diagnostics_handler
+             .show_cursorline_diagnostics(doc, view.id);
+         let inline_diagnostic_config = config.inline_diagnostics.prepare(width, enable_cursor_line);
++        if let Some(scope) = text_decorations::FindScope::new(doc, theme) {
++            decorations.add_decoration(scope);
++        }
+         decorations.add_decoration(InlineDiagnostics::new(
+             doc,
+             theme,
+diff --git a/helix-term/src/ui/text_decorations.rs b/helix-term/src/ui/text_decorations.rs
+index 7aef472..7229779 100644
+--- a/helix-term/src/ui/text_decorations.rs
++++ b/helix-term/src/ui/text_decorations.rs
+@@ -7,8 +7,10 @@
+ use crate::ui::document::{LinePos, TextRenderer};
+ 
+ pub use diagnostics::InlineDiagnostics;
++pub use find_scope::FindScope;
+ 
+ mod diagnostics;
++mod find_scope;
+ 
+ /// Decorations are the primary mechanism for extending the text rendering.
+ ///
+diff --git a/helix-term/src/ui/text_decorations/find_scope.rs b/helix-term/src/ui/text_decorations/find_scope.rs
+new file mode 100644
+index 0000000..b3013e7
+--- /dev/null
++++ b/helix-term/src/ui/text_decorations/find_scope.rs
+@@ -0,0 +1,157 @@
++//! A separate, translucent whole-line Find scope decoration, matching VS Code.
++//! Defaults: editor.findRangeHighlightBackground (#3a3d4166 / #b4b4b44d).
++use super::Decoration;
++use crate::ui::document::{LinePos, TextRenderer};
++use helix_core::Position;
++use helix_view::{graphics::Color, Document, Theme};
++use std::ops::Range;
++
++pub struct FindScope {
++    lines: Vec<Range<usize>>,
++    tint: Tint,
++}
++impl FindScope {
++    pub fn new(doc: &Document, theme: &Theme) -> Option<Self> {
++        let scopes = doc.devtui_find_scopes.as_ref()?;
++        let mut lines: Vec<_> = scopes
++            .iter()
++            .filter(|scope| scope.start < scope.end)
++            .map(|scope| {
++                doc.text().char_to_line(scope.start)..doc.text().char_to_line(scope.end - 1) + 1
++            })
++            .collect();
++        lines.sort_unstable_by_key(|range| range.start);
++        // Several selections may touch the same line. Blend their union once.
++        let mut union: Vec<Range<usize>> = Vec::new();
++        for line in lines {
++            if let Some(previous) = union
++                .last_mut()
++                .filter(|previous| line.start <= previous.end)
++            {
++                previous.end = previous.end.max(line.end);
++            } else {
++                union.push(line);
++            }
++        }
++        if union.is_empty() {
++            return None;
++        }
++        let background = theme
++            .get("ui.background")
++            .bg
++            .and_then(rgb)
++            .unwrap_or([0, 0, 0]);
++        Some(Self {
++            lines: union,
++            tint: Tint::new(background),
++        })
++    }
++}
++impl Decoration for FindScope {
++    fn render_virt_lines(
++        &mut self,
++        renderer: &mut TextRenderer,
++        pos: LinePos,
++        _offset: Position,
++    ) -> Position {
++        let index = self.lines.partition_point(|line| line.end <= pos.doc_line);
++        if self
++            .lines
++            .get(index)
++            .is_some_and(|line| line.contains(&pos.doc_line))
++        {
++            // This hook runs after the text, syntax, match and selection styles
++            // have been rendered. Modify only each cell's background, so the
++            // selected portion has a composed color instead of erasing scope.
++            renderer.map_line_background(pos.visual_line, |background| self.tint.blend(background));
++        }
++        Position::new(0, 0)
++    }
++}
++
++#[derive(Clone, Copy)]
++struct Tint {
++    color: [u8; 3],
++    alpha: u32,
++    fallback: [u8; 3],
++}
++impl Tint {
++    fn new(background: [u8; 3]) -> Self {
++        let luminance = u32::from(background[0]) * 299
++            + u32::from(background[1]) * 587
++            + u32::from(background[2]) * 114;
++        let (color, alpha) = if luminance > 128_000 {
++            ([180, 180, 180], 77)
++        } else {
++            ([58, 61, 65], 102)
++        };
++        Self {
++            color,
++            alpha,
++            fallback: background,
++        }
++    }
++    fn blend(self, background: Color) -> Color {
++        let background = rgb(background).unwrap_or(self.fallback);
++        let channel = |i| {
++            ((u32::from(self.color[i]) * self.alpha
++                + u32::from(background[i]) * (255 - self.alpha)
++                + 127)
++                / 255) as u8
++        };
++        Color::Rgb(channel(0), channel(1), channel(2))
++    }
++}
++
++// Resolve indexed themes as well as RGB themes; Reset falls back to the
++// theme's editor background. Terminal cells do not have an alpha channel.
++fn rgb(color: Color) -> Option<[u8; 3]> {
++    let index = match color {
++        Color::Reset => return None,
++        Color::Rgb(r, g, b) => return Some([r, g, b]),
++        Color::Indexed(index) => index,
++        Color::Black => 0,
++        Color::Red => 1,
++        Color::Green => 2,
++        Color::Yellow => 3,
++        Color::Blue => 4,
++        Color::Magenta => 5,
++        Color::Cyan => 6,
++        Color::Gray => 7,
++        Color::LightGray => 8,
++        Color::LightRed => 9,
++        Color::LightGreen => 10,
++        Color::LightYellow => 11,
++        Color::LightBlue => 12,
++        Color::LightMagenta => 13,
++        Color::LightCyan => 14,
++        Color::White => 15,
++    };
++    const ANSI: [[u8; 3]; 16] = [
++        [0, 0, 0],
++        [128, 0, 0],
++        [0, 128, 0],
++        [128, 128, 0],
++        [0, 0, 128],
++        [128, 0, 128],
++        [0, 128, 128],
++        [192, 192, 192],
++        [128, 128, 128],
++        [255, 0, 0],
++        [0, 255, 0],
++        [255, 255, 0],
++        [0, 0, 255],
++        [255, 0, 255],
++        [0, 255, 255],
++        [255, 255, 255],
++    ];
++    Some(if index < 16 {
++        ANSI[index as usize]
++    } else if index < 232 {
++        let n = index - 16;
++        let component = |level| if level == 0 { 0 } else { 55 + 40 * level };
++        [component(n / 36), component((n / 6) % 6), component(n % 6)]
++    } else {
++        [8 + (index - 232) * 10; 3]
++    })
++}

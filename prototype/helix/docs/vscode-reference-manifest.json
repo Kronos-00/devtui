@@ -408,6 +408,30 @@
       "sha256": "5876a3f7e735ab74ee6ab338521f180e560b1839e0f32cdf29823cbb8c68a778",
       "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/common/model/textModelSearch.ts",
       "reviewed_behavior": "whole-word separators and match-edge checks"
+    },
+    {
+      "key": "findDecorations",
+      "path": "src/vs/editor/contrib/find/browser/findDecorations.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "3a013234904c145654031379c6f6508af404e36fe1753ead763ac5af81858be1",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/findDecorations.ts",
+      "reviewed_behavior": "separate find-scope decoration uses whole-line rendering, including multiple scopes"
+    },
+    {
+      "key": "findWidgetCss",
+      "path": "src/vs/editor/contrib/find/browser/findWidget.css",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "823aaee082d6de5aa6cae87870846021145a9e5c2ffc3c48a1d1ed19127850f6",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/editor/contrib/find/browser/findWidget.css",
+      "reviewed_behavior": "findScope background uses the transparent editor.findRangeHighlightBackground color"
+    },
+    {
+      "key": "editorThemeColors",
+      "path": "src/vs/platform/theme/common/colors/editorColors.ts",
+      "revision": "e97039dd9293ef2b9df8876d0bc8c0c8ff87f871",
+      "sha256": "7ab13775bd2af71322c8f95161b0c207318b898c611da6e2f832ed5c4e83bf37",
+      "url": "https://github.com/microsoft/vscode/blob/e97039dd9293ef2b9df8876d0bc8c0c8ff87f871/src/vs/platform/theme/common/colors/editorColors.ts",
+      "reviewed_behavior": "distinct Find scope and selection colors, alpha-preserving dark/light defaults"
     }
   ]
 }
